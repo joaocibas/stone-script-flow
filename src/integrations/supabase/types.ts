@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_ai_reports: {
+        Row: {
+          created_at: string
+          id: string
+          model_used: string | null
+          period: string
+          report_type: string
+          result_json: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model_used?: string | null
+          period?: string
+          report_type: string
+          result_json?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model_used?: string | null
+          period?: string
+          report_type?: string
+          result_json?: Json
+        }
+        Relationships: []
+      }
       admin_availability: {
         Row: {
           created_at: string
@@ -592,7 +619,89 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_funnel_metrics: {
+        Row: {
+          calculated_quotes: number | null
+          completed_orders: number | null
+          converted_reservations: number | null
+          total_orders: number | null
+          total_quotes: number | null
+          total_reservations: number | null
+          unique_customers_quoted: number | null
+        }
+        Relationships: []
+      }
+      v_icp_signals: {
+        Row: {
+          active_zip_codes: number | null
+          avg_lifetime_value: number | null
+          avg_orders_per_customer: number | null
+          customers_with_orders: number | null
+          total_customers: number | null
+        }
+        Relationships: []
+      }
+      v_pricing_validation: {
+        Row: {
+          avg_quote_total: number | null
+          avg_sqft_quoted: number | null
+          category: string | null
+          cutout_cost: number | null
+          edge_profile_cost: number | null
+          labor_rate_per_sqft: number | null
+          material_name: string | null
+          max_range: number | null
+          min_range: number | null
+          price_per_sqft: number | null
+          quote_count: number | null
+        }
+        Relationships: []
+      }
+      v_reservation_patterns: {
+        Row: {
+          active_reservations: number | null
+          avg_deposit: number | null
+          avg_hold_hours: number | null
+          cancelled_reservations: number | null
+          converted_reservations: number | null
+          expired_reservations: number | null
+          total_reservations: number | null
+        }
+        Relationships: []
+      }
+      v_revenue_by_material: {
+        Row: {
+          avg_order_value: number | null
+          category: string | null
+          material_name: string | null
+          order_count: number | null
+          total_revenue: number | null
+          unique_customers: number | null
+        }
+        Relationships: []
+      }
+      v_scheduling_patterns: {
+        Row: {
+          cancelled: number | null
+          completed: number | null
+          confirmed: number | null
+          requested: number | null
+          total_appointments: number | null
+          unique_zip_codes: number | null
+        }
+        Relationships: []
+      }
+      v_sla_summary: {
+        Row: {
+          acknowledged_alerts: number | null
+          breach_type: string | null
+          earliest_breach: string | null
+          latest_breach: string | null
+          total_alerts: number | null
+          unacknowledged_alerts: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
