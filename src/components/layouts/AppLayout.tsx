@@ -3,17 +3,29 @@ import { Link, useLocation } from "react-router-dom";
 import { Menu, X, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
-const navLinks = [
+interface NavLink {
+  href: string;
+  label: string;
+  featureKey?: keyof ReturnType<typeof useFeatureFlags>;
+}
+
+const allNavLinks: NavLink[] = [
   { href: "/materials", label: "Materials" },
   { href: "/slabs", label: "Slab Gallery" },
-  { href: "/quote", label: "Get Estimate" },
-  { href: "/book", label: "Book Consultation" },
+  { href: "/quote", label: "Get Estimate", featureKey: "instant_quote" },
+  { href: "/book", label: "Book Consultation", featureKey: "online_booking" },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const flags = useFeatureFlags();
+
+  const navLinks = allNavLinks.filter(
+    (link) => !link.featureKey || flags[link.featureKey]
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -51,9 +63,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 {link.label}
               </Link>
             ))}
-            <Button asChild size="sm" className="ml-2 bg-accent text-accent-foreground hover:bg-accent/90">
-              <Link to="/login">Client Portal</Link>
-            </Button>
+            {flags.customer_portal && (
+              <Button asChild size="sm" className="ml-2 bg-accent text-accent-foreground hover:bg-accent/90">
+                <Link to="/login">Client Portal</Link>
+              </Button>
+            )}
           </nav>
 
           {/* Mobile toggle */}
@@ -80,9 +94,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 {link.label}
               </Link>
             ))}
-            <Button asChild size="sm" className="w-full mt-2 bg-accent text-accent-foreground">
-              <Link to="/login" onClick={() => setMobileOpen(false)}>Client Portal</Link>
-            </Button>
+            {flags.customer_portal && (
+              <Button asChild size="sm" className="w-full mt-2 bg-accent text-accent-foreground">
+                <Link to="/login" onClick={() => setMobileOpen(false)}>Client Portal</Link>
+              </Button>
+            )}
           </nav>
         )}
       </header>
@@ -108,7 +124,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <ul className="space-y-2 text-sm text-primary-foreground/70">
                 <li><Link to="/materials" className="hover:text-accent transition-colors">Materials</Link></li>
                 <li><Link to="/slabs" className="hover:text-accent transition-colors">Slab Gallery</Link></li>
-                <li><Link to="/quote" className="hover:text-accent transition-colors">Get Estimate</Link></li>
+                {flags.instant_quote && (
+                  <li><Link to="/quote" className="hover:text-accent transition-colors">Get Estimate</Link></li>
+                )}
                 <li><Link to="/faq" className="hover:text-accent transition-colors">FAQ</Link></li>
               </ul>
             </div>
