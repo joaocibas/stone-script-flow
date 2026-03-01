@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/tracking";
 import { ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors, DollarSign } from "lucide-react";
 
 const steps = [
@@ -120,6 +121,15 @@ const Quote = () => {
     return false;
   };
 
+  // Track estimator_start when user first interacts
+  const [estimatorStarted, setEstimatorStarted] = useState(false);
+  const handleEstimatorStart = () => {
+    if (!estimatorStarted) {
+      trackEvent("estimator_start", { material_id: form.material_id || undefined });
+      setEstimatorStarted(true);
+    }
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setError("");
@@ -149,7 +159,14 @@ const Quote = () => {
       });
 
       if (fnError) throw fnError;
-      setResult(data as QuoteResult);
+      const quoteResult = data as QuoteResult;
+      setResult(quoteResult);
+      trackEvent("sqft_calculated", {
+        sqft: quoteResult.calculated_sqft,
+        material: selectedMaterial?.name,
+        range_min: quoteResult.range_min,
+        range_max: quoteResult.range_max,
+      });
       setStep(4);
     } catch (err: any) {
       setError(err.message || "Failed to calculate estimate. Please try again.");
@@ -265,7 +282,10 @@ const Quote = () => {
                 {materials.map((mat) => (
                   <button
                     key={mat.id}
-                    onClick={() => setForm({ ...form, material_id: mat.id })}
+                    onClick={() => {
+                      setForm({ ...form, material_id: mat.id });
+                      handleEstimatorStart();
+                    }}
                     className={cn(
                       "p-4 rounded-lg border text-left transition-all",
                       form.material_id === mat.id

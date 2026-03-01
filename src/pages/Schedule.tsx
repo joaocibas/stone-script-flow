@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle2, Clock, CalendarDays } from "lucide-react";
 import { format, addHours, isBefore, parseISO } from "date-fns";
+import { trackEvent } from "@/lib/tracking";
 
 const TIME_SLOTS = [
   "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00",
@@ -166,6 +167,10 @@ const Schedule = () => {
 
     setSubmitting(false);
     setSubmitted(true);
+    trackEvent("schedule_confirmed", {
+      reservation_id: reservationId,
+      date: format(date, "yyyy-MM-dd"),
+    });
     toast.success(rescheduleMode ? "Appointment rescheduled!" : "Appointment scheduled!");
   };
 

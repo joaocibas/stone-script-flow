@@ -46,6 +46,11 @@ const SETTING_GROUPS: Record<string, { label: string; description: string; keys:
     description: "Public company details shown on the storefront",
     keys: ["company_name", "company_email", "company_phone", "company_address", "service_area_description"],
   },
+  tracking: {
+    label: "Tracking & Analytics",
+    description: "Pixel and tag manager IDs — configured inside GTM for client-side, or via server-side forwarding",
+    keys: ["gtm_container_id", "ga4_measurement_id", "meta_pixel_id", "server_side_tracking_enabled"],
+  },
 };
 
 const AdminSettings = () => {
