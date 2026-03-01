@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Package, ShoppingCart, Calendar, Users, DollarSign,
-  TrendingUp, Percent, AlertTriangle, BarChart3, Lock, Monitor, Loader2, Download,
+  TrendingUp, Percent, AlertTriangle, BarChart3, Lock, Monitor, Loader2, Download, Filter,
 } from "lucide-react";
 import { SlaAlertBanner } from "@/components/admin/SlaAlertBanner";
 import {
@@ -112,6 +112,7 @@ const AdminOverview = () => {
   const [allReservations, setAllReservations] = useState<{ created_at: string; status: string; deposit_amount: number; reserved_at: string; reserved_until: string }[]>([]);
   const [allRevenueTrend, setAllRevenueTrend] = useState<RevenueTrend[]>([]);
   const [allRevenueByMaterial, setAllRevenueByMaterial] = useState<RevenueByMaterial[]>([]);
+  const [funnel, setFunnel] = useState<{ total_quotes: number; calculated_quotes: number; total_reservations: number; converted_reservations: number; total_orders: number; completed_orders: number } | null>(null);
 
   // Counts (will be recomputed from filtered data)
   const [allCounts, setAllCounts] = useState<{ slabs: number; appointments: number; customers: number }>({ slabs: 0, appointments: 0, customers: 0 });
@@ -119,7 +120,7 @@ const AdminOverview = () => {
   useEffect(() => {
     const load = async () => {
       const [
-        ordersRes, reservationsRes, revMat, marginRes, trendRes,
+        ordersRes, reservationsRes, revMat, marginRes, trendRes, funnelRes,
         slabCount, apptCount, custCount,
       ] = await Promise.all([
         supabase.from("orders").select("created_at, total_amount, deposit_paid, status, slab_id"),
@@ -127,6 +128,7 @@ const AdminOverview = () => {
         supabase.from("v_revenue_by_material").select("*"),
         supabase.from("v_margin_estimation").select("*"),
         supabase.from("v_revenue_trend").select("*"),
+        supabase.from("v_funnel_metrics").select("*").single(),
         supabase.from("slabs").select("id", { count: "exact", head: true }),
         supabase.from("appointments").select("id", { count: "exact", head: true }),
         supabase.from("customers").select("id", { count: "exact", head: true }),
@@ -137,6 +139,7 @@ const AdminOverview = () => {
       if (revMat.data) setAllRevenueByMaterial(revMat.data as unknown as RevenueByMaterial[]);
       if (marginRes.data) setMargins(marginRes.data as unknown as MarginEstimation[]);
       if (trendRes.data) setAllRevenueTrend(trendRes.data as unknown as RevenueTrend[]);
+      if (funnelRes.data) setFunnel(funnelRes.data as any);
       setAllCounts({
         slabs: slabCount.count ?? 0,
         appointments: apptCount.count ?? 0,
@@ -428,7 +431,22 @@ const AdminOverview = () => {
         </Card>
       </div>
 
-      {/* Revenue by Material Bar Chart */}
+      {/* Conversion Funnel */}
+      {funnel && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Filter className="h-4 w-4 text-accent" />
+              Conversion Funnel
+            </CardTitle>
+            <CardDescription>Pipeline from quotes through reservations to completed orders</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FunnelChart funnel={funnel} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -605,6 +623,53 @@ function MetricBox({ label, value }: { label: string; value: string | number }) 
     <div className="p-3 bg-muted/50 rounded-lg text-center">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold mt-1">{value}</p>
+    </div>
+  );
+}
+
+function FunnelChart({ funnel }: { funnel: { total_quotes: number; calculated_quotes: number; total_reservations: number; converted_reservations: number; total_orders: number; completed_orders: number } }) {
+  const stages = [
+    { label: "Quotes", value: funnel.total_quotes, color: "hsl(38, 65%, 50%)" },
+    { label: "Reservations", value: funnel.total_reservations, color: "hsl(30, 8%, 35%)" },
+    { label: "Orders", value: funnel.total_orders, color: "hsl(140, 12%, 42%)" },
+    { label: "Completed", value: funnel.completed_orders, color: "hsl(200, 40%, 50%)" },
+  ];
+
+  const max = Math.max(...stages.map((s) => s.value), 1);
+
+  return (
+    <div className="space-y-3">
+      {stages.map((stage, i) => {
+        const widthPct = Math.max((stage.value / max) * 100, 8);
+        const prevValue = i > 0 ? stages[i - 1].value : null;
+        const convRate = prevValue && prevValue > 0 ? ((stage.value / prevValue) * 100).toFixed(1) : null;
+
+        return (
+          <div key={stage.label} className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{stage.label}</span>
+                {convRate && (
+                  <Badge variant="secondary" className="text-xs">
+                    {convRate}% from {stages[i - 1].label}
+                  </Badge>
+                )}
+              </div>
+              <span className="font-bold tabular-nums">{stage.value}</span>
+            </div>
+            <div className="h-8 w-full bg-muted/50 rounded-md overflow-hidden">
+              <div
+                className="h-full rounded-md transition-all duration-500 flex items-center justify-end pr-2"
+                style={{ width: `${widthPct}%`, backgroundColor: stage.color }}
+              >
+                {widthPct > 15 && (
+                  <span className="text-xs font-medium text-white/90">{stage.value}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
