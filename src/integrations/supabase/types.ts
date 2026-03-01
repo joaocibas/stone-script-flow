@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_availability: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_available: boolean
+          specific_date: string | null
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_available?: boolean
+          specific_date?: string | null
+          start_time: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_available?: boolean
+          specific_date?: string | null
+          start_time?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           address: string
@@ -26,6 +56,7 @@ export type Database = {
           notes: string | null
           preferred_date: string | null
           preferred_time: string | null
+          reservation_id: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
           zip_code: string
@@ -41,6 +72,7 @@ export type Database = {
           notes?: string | null
           preferred_date?: string | null
           preferred_time?: string | null
+          reservation_id?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
           zip_code: string
@@ -56,6 +88,7 @@ export type Database = {
           notes?: string | null
           preferred_date?: string | null
           preferred_time?: string | null
+          reservation_id?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
           zip_code?: string
@@ -66,6 +99,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
             referencedColumns: ["id"]
           },
         ]
@@ -414,6 +454,70 @@ export type Database = {
           zip_code?: string
         }
         Relationships: []
+      }
+      sla_alerts: {
+        Row: {
+          acknowledged: boolean
+          acknowledged_at: string | null
+          breach_type: string
+          breached_at: string
+          id: string
+          reservation_id: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          breach_type: string
+          breached_at?: string
+          id?: string
+          reservation_id: string
+        }
+        Update: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          breach_type?: string
+          breached_at?: string
+          id?: string
+          reservation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_alerts_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sla_events: {
+        Row: {
+          event_type: string
+          id: string
+          occurred_at: string
+          reservation_id: string
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          occurred_at?: string
+          reservation_id: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          reservation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_events_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       slabs: {
         Row: {
