@@ -270,38 +270,59 @@ export type Database = {
       }
       quotes: {
         Row: {
+          calculated_sqft: number | null
           created_at: string
           customer_id: string | null
           edge_profile: string | null
           estimated_total: number | null
           id: string
+          layout_url: string | null
           length_inches: number
           material_id: string
           num_cutouts: number
+          range_max: number | null
+          range_min: number | null
+          reference_measurement_inches: number | null
+          slab_category: string | null
+          slabs_needed: number | null
           status: Database["public"]["Enums"]["quote_status"]
           width_inches: number
         }
         Insert: {
+          calculated_sqft?: number | null
           created_at?: string
           customer_id?: string | null
           edge_profile?: string | null
           estimated_total?: number | null
           id?: string
+          layout_url?: string | null
           length_inches: number
           material_id: string
           num_cutouts?: number
+          range_max?: number | null
+          range_min?: number | null
+          reference_measurement_inches?: number | null
+          slab_category?: string | null
+          slabs_needed?: number | null
           status?: Database["public"]["Enums"]["quote_status"]
           width_inches: number
         }
         Update: {
+          calculated_sqft?: number | null
           created_at?: string
           customer_id?: string | null
           edge_profile?: string | null
           estimated_total?: number | null
           id?: string
+          layout_url?: string | null
           length_inches?: number
           material_id?: string
           num_cutouts?: number
+          range_max?: number | null
+          range_min?: number | null
+          reference_measurement_inches?: number | null
+          slab_category?: string | null
+          slabs_needed?: number | null
           status?: Database["public"]["Enums"]["quote_status"]
           width_inches?: number
         }
