@@ -8,6 +8,11 @@ import {
   TrendingUp, Percent, AlertTriangle, BarChart3, Lock, Monitor, Loader2,
 } from "lucide-react";
 import { SlaAlertBanner } from "@/components/admin/SlaAlertBanner";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell, Legend,
+} from "recharts";
+import { format } from "date-fns";
 
 interface DashboardKpis {
   total_revenue: number;
@@ -47,6 +52,22 @@ interface MarginEstimation {
   total_revenue: number;
 }
 
+interface RevenueTrend {
+  month: string;
+  order_count: number;
+  revenue: number;
+  deposits: number;
+}
+
+const CHART_COLORS = [
+  "hsl(38, 65%, 50%)",   // gold/accent
+  "hsl(30, 8%, 18%)",    // primary dark
+  "hsl(140, 12%, 42%)",  // sage
+  "hsl(35, 25%, 70%)",   // warm beige
+  "hsl(0, 72%, 51%)",    // destructive
+  "hsl(200, 40%, 50%)",  // blue accent
+];
+
 const fmt = (n: number) =>
   n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`;
 
@@ -61,24 +82,20 @@ const AdminOverview = () => {
   const [reservations, setReservations] = useState<ReservationPatterns | null>(null);
   const [revenueByMaterial, setRevenueByMaterial] = useState<RevenueByMaterial[]>([]);
   const [margins, setMargins] = useState<MarginEstimation[]>([]);
+  const [revenueTrend, setRevenueTrend] = useState<RevenueTrend[]>([]);
   const [counts, setCounts] = useState({ slabs: 0, orders: 0, appointments: 0, customers: 0 });
 
   useEffect(() => {
     const load = async () => {
       const [
-        kpiRes,
-        resPatterns,
-        revMat,
-        marginRes,
-        slabCount,
-        orderCount,
-        apptCount,
-        custCount,
+        kpiRes, resPatterns, revMat, marginRes, trendRes,
+        slabCount, orderCount, apptCount, custCount,
       ] = await Promise.all([
         supabase.from("v_dashboard_kpis").select("*").single(),
         supabase.from("v_reservation_patterns").select("*").single(),
         supabase.from("v_revenue_by_material").select("*"),
         supabase.from("v_margin_estimation").select("*"),
+        supabase.from("v_revenue_trend").select("*"),
         supabase.from("slabs").select("id", { count: "exact", head: true }),
         supabase.from("orders").select("id", { count: "exact", head: true }),
         supabase.from("appointments").select("id", { count: "exact", head: true }),
@@ -89,6 +106,7 @@ const AdminOverview = () => {
       if (resPatterns.data) setReservations(resPatterns.data as unknown as ReservationPatterns);
       if (revMat.data) setRevenueByMaterial(revMat.data as unknown as RevenueByMaterial[]);
       if (marginRes.data) setMargins(marginRes.data as unknown as MarginEstimation[]);
+      if (trendRes.data) setRevenueTrend(trendRes.data as unknown as RevenueTrend[]);
       setCounts({
         slabs: slabCount.count ?? 0,
         orders: orderCount.count ?? 0,
@@ -117,6 +135,34 @@ const AdminOverview = () => {
     reservations && reservations.total_reservations > 0
       ? (reservations.expired_reservations / reservations.total_reservations) * 100
       : 0;
+
+  // Prepare chart data
+  const trendChartData = revenueTrend.map((t) => ({
+    ...t,
+    label: t.month ? format(new Date(t.month), "MMM yyyy") : "",
+  }));
+
+  const materialBarData = revenueByMaterial.map((m) => ({
+    name: m.material_name.length > 15 ? m.material_name.slice(0, 15) + "…" : m.material_name,
+    fullName: m.material_name,
+    revenue: m.total_revenue,
+    orders: m.order_count,
+    avgValue: m.avg_order_value,
+  }));
+
+  const materialPieData = revenueByMaterial
+    .filter((m) => m.total_revenue > 0 || m.order_count > 0)
+    .map((m) => ({
+      name: m.material_name,
+      value: m.total_revenue > 0 ? m.total_revenue : m.order_count,
+    }));
+
+  // If no pie data (all zeros), show order counts or a placeholder
+  const showPie = materialPieData.length > 0;
+  const pieDataFallback = revenueByMaterial.map((m) => ({
+    name: m.material_name,
+    value: 1, // equal distribution placeholder
+  }));
 
   return (
     <div className="space-y-6">
@@ -164,7 +210,81 @@ const AdminOverview = () => {
 
       <Separator />
 
-      {/* Revenue by material */}
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Trend Line Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-accent" />
+              Revenue Trend
+            </CardTitle>
+            <CardDescription>Monthly revenue and deposits over time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trendChartData.length === 0 ? (
+              <div className="h-[250px] flex items-center justify-center text-sm text-muted-foreground italic">
+                No order data yet — chart will populate as orders come in
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={trendChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 88%)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="hsl(30, 8%, 45%)" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(30, 8%, 45%)" tickFormatter={(v) => `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [fmtFull(value), name === "revenue" ? "Revenue" : "Deposits"]}
+                    contentStyle={{ borderRadius: 8, border: "1px solid hsl(35, 15%, 88%)", background: "hsl(40, 20%, 97%)" }}
+                  />
+                  <Line type="monotone" dataKey="revenue" stroke="hsl(38, 65%, 50%)" strokeWidth={2} dot={{ fill: "hsl(38, 65%, 50%)", r: 4 }} name="Revenue" />
+                  <Line type="monotone" dataKey="deposits" stroke="hsl(140, 12%, 42%)" strokeWidth={2} dot={{ fill: "hsl(140, 12%, 42%)", r: 4 }} name="Deposits" />
+                  <Legend />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Material Distribution Pie Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-accent" />
+              Material Distribution
+            </CardTitle>
+            <CardDescription>
+              {showPie ? "Revenue share by material" : "Materials in catalog (no revenue data yet)"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={showPie ? materialPieData : pieDataFallback}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={3}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name.length > 12 ? name.slice(0, 12) + "…" : name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={{ stroke: "hsl(30, 8%, 45%)" }}
+                >
+                  {(showPie ? materialPieData : pieDataFallback).map((_, idx) => (
+                    <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => showPie ? fmtFull(value) : "—"}
+                  contentStyle={{ borderRadius: 8, border: "1px solid hsl(35, 15%, 88%)", background: "hsl(40, 20%, 97%)" }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Revenue by Material Bar Chart */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -177,36 +297,27 @@ const AdminOverview = () => {
           <CardDescription>Aggregated performance by material type</CardDescription>
         </CardHeader>
         <CardContent>
-          {revenueByMaterial.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">No order data yet</p>
+          {materialBarData.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No material data yet</p>
           ) : (
-            <div className="space-y-3">
-              {revenueByMaterial.map((mat) => {
-                const maxRev = Math.max(...revenueByMaterial.map((m) => m.total_revenue), 1);
-                const barWidth = (mat.total_revenue / maxRev) * 100;
-                return (
-                  <div key={mat.material_name}>
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{mat.material_name}</span>
-                        <Badge variant="secondary" className="text-xs">{mat.category}</Badge>
-                      </div>
-                      <div className="flex items-center gap-4 text-muted-foreground text-xs">
-                        <span>{mat.order_count} orders</span>
-                        <span>{mat.unique_customers} customers</span>
-                        <span className="font-medium text-foreground">{fmtFull(mat.total_revenue)}</span>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent rounded-full transition-all"
-                        style={{ width: `${barWidth}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={materialBarData} layout="vertical" margin={{ left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 88%)" />
+                <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(30, 8%, 45%)" tickFormatter={(v) => `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(30, 8%, 45%)" width={130} />
+                <Tooltip
+                  formatter={(value: number, name: string) => {
+                    if (name === "revenue") return [fmtFull(value), "Revenue"];
+                    if (name === "avgValue") return [fmtFull(value), "Avg Order"];
+                    return [value, name];
+                  }}
+                  contentStyle={{ borderRadius: 8, border: "1px solid hsl(35, 15%, 88%)", background: "hsl(40, 20%, 97%)" }}
+                />
+                <Bar dataKey="revenue" fill="hsl(38, 65%, 50%)" radius={[0, 4, 4, 0]} name="revenue" />
+                <Bar dataKey="avgValue" fill="hsl(140, 12%, 42%)" radius={[0, 4, 4, 0]} name="avgValue" />
+                <Legend formatter={(value) => value === "revenue" ? "Total Revenue" : "Avg Order Value"} />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </CardContent>
       </Card>
