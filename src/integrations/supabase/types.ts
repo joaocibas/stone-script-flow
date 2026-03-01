@@ -619,6 +619,16 @@ export type Database = {
       }
     }
     Views: {
+      v_dashboard_kpis: {
+        Row: {
+          avg_project_value: number | null
+          completed_orders: number | null
+          total_deposits_collected: number | null
+          total_orders: number | null
+          total_revenue: number | null
+        }
+        Relationships: []
+      }
       v_funnel_metrics: {
         Row: {
           calculated_quotes: number | null
@@ -638,6 +648,19 @@ export type Database = {
           avg_orders_per_customer: number | null
           customers_with_orders: number | null
           total_customers: number | null
+        }
+        Relationships: []
+      }
+      v_margin_estimation: {
+        Row: {
+          category: string | null
+          customer_rate: number | null
+          estimated_margin_pct: number | null
+          internal_cost_per_sqft: number | null
+          labor_rate_per_sqft: number | null
+          material_name: string | null
+          order_count: number | null
+          total_revenue: number | null
         }
         Relationships: []
       }
