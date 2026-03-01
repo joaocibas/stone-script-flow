@@ -34,11 +34,8 @@ Deno.serve(async (req) => {
     let customerId: string | null = null;
 
     if (authHeader) {
-      const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
-      const userClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { authorization: authHeader } },
-      });
-      const { data: { user } } = await userClient.auth.getUser();
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
       if (user) {
         userId = user.id;
         const { data: customer } = await supabase
