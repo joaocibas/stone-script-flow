@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -12,7 +13,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
 } from "recharts";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 
 interface DashboardKpis {
   total_revenue: number;
@@ -59,14 +60,37 @@ interface RevenueTrend {
   deposits: number;
 }
 
+interface OrderRow {
+  created_at: string;
+  total_amount: number;
+  deposit_paid: number;
+  status: string;
+  slab_id: string | null;
+}
+
 const CHART_COLORS = [
-  "hsl(38, 65%, 50%)",   // gold/accent
-  "hsl(30, 8%, 18%)",    // primary dark
-  "hsl(140, 12%, 42%)",  // sage
-  "hsl(35, 25%, 70%)",   // warm beige
-  "hsl(0, 72%, 51%)",    // destructive
-  "hsl(200, 40%, 50%)",  // blue accent
+  "hsl(38, 65%, 50%)",
+  "hsl(30, 8%, 18%)",
+  "hsl(140, 12%, 42%)",
+  "hsl(35, 25%, 70%)",
+  "hsl(0, 72%, 51%)",
+  "hsl(200, 40%, 50%)",
 ];
+
+type DateRange = "7d" | "30d" | "90d" | "all";
+
+const DATE_RANGE_OPTIONS: { label: string; value: DateRange }[] = [
+  { label: "7 days", value: "7d" },
+  { label: "30 days", value: "30d" },
+  { label: "90 days", value: "90d" },
+  { label: "All time", value: "all" },
+];
+
+function getSinceDate(range: DateRange): string | null {
+  if (range === "all") return null;
+  const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
+  return subDays(new Date(), days).toISOString();
+}
 
 const fmt = (n: number) =>
   n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`;
@@ -78,38 +102,43 @@ const pct = (n: number) => `${n.toFixed(1)}%`;
 
 const AdminOverview = () => {
   const [loading, setLoading] = useState(true);
-  const [kpis, setKpis] = useState<DashboardKpis | null>(null);
-  const [reservations, setReservations] = useState<ReservationPatterns | null>(null);
-  const [revenueByMaterial, setRevenueByMaterial] = useState<RevenueByMaterial[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange>("all");
+
+  // Raw data (unfiltered from views)
   const [margins, setMargins] = useState<MarginEstimation[]>([]);
-  const [revenueTrend, setRevenueTrend] = useState<RevenueTrend[]>([]);
-  const [counts, setCounts] = useState({ slabs: 0, orders: 0, appointments: 0, customers: 0 });
+
+  // Date-filterable raw data
+  const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
+  const [allReservations, setAllReservations] = useState<{ created_at: string; status: string; deposit_amount: number; reserved_at: string; reserved_until: string }[]>([]);
+  const [allRevenueTrend, setAllRevenueTrend] = useState<RevenueTrend[]>([]);
+  const [allRevenueByMaterial, setAllRevenueByMaterial] = useState<RevenueByMaterial[]>([]);
+
+  // Counts (will be recomputed from filtered data)
+  const [allCounts, setAllCounts] = useState<{ slabs: number; appointments: number; customers: number }>({ slabs: 0, appointments: 0, customers: 0 });
 
   useEffect(() => {
     const load = async () => {
       const [
-        kpiRes, resPatterns, revMat, marginRes, trendRes,
-        slabCount, orderCount, apptCount, custCount,
+        ordersRes, reservationsRes, revMat, marginRes, trendRes,
+        slabCount, apptCount, custCount,
       ] = await Promise.all([
-        supabase.from("v_dashboard_kpis").select("*").single(),
-        supabase.from("v_reservation_patterns").select("*").single(),
+        supabase.from("orders").select("created_at, total_amount, deposit_paid, status, slab_id"),
+        supabase.from("reservations").select("created_at, status, deposit_amount, reserved_at, reserved_until"),
         supabase.from("v_revenue_by_material").select("*"),
         supabase.from("v_margin_estimation").select("*"),
         supabase.from("v_revenue_trend").select("*"),
         supabase.from("slabs").select("id", { count: "exact", head: true }),
-        supabase.from("orders").select("id", { count: "exact", head: true }),
         supabase.from("appointments").select("id", { count: "exact", head: true }),
         supabase.from("customers").select("id", { count: "exact", head: true }),
       ]);
 
-      if (kpiRes.data) setKpis(kpiRes.data as unknown as DashboardKpis);
-      if (resPatterns.data) setReservations(resPatterns.data as unknown as ReservationPatterns);
-      if (revMat.data) setRevenueByMaterial(revMat.data as unknown as RevenueByMaterial[]);
+      if (ordersRes.data) setAllOrders(ordersRes.data as OrderRow[]);
+      if (reservationsRes.data) setAllReservations(reservationsRes.data as any[]);
+      if (revMat.data) setAllRevenueByMaterial(revMat.data as unknown as RevenueByMaterial[]);
       if (marginRes.data) setMargins(marginRes.data as unknown as MarginEstimation[]);
-      if (trendRes.data) setRevenueTrend(trendRes.data as unknown as RevenueTrend[]);
-      setCounts({
+      if (trendRes.data) setAllRevenueTrend(trendRes.data as unknown as RevenueTrend[]);
+      setAllCounts({
         slabs: slabCount.count ?? 0,
-        orders: orderCount.count ?? 0,
         appointments: apptCount.count ?? 0,
         customers: custCount.count ?? 0,
       });
@@ -117,6 +146,58 @@ const AdminOverview = () => {
     };
     load();
   }, []);
+
+  // Compute filtered data based on dateRange
+  const since = getSinceDate(dateRange);
+
+  const filteredOrders = useMemo(() => {
+    if (!since) return allOrders;
+    return allOrders.filter((o) => o.created_at >= since);
+  }, [allOrders, since]);
+
+  const filteredReservations = useMemo(() => {
+    if (!since) return allReservations;
+    return allReservations.filter((r) => r.created_at >= since);
+  }, [allReservations, since]);
+
+  const filteredTrend = useMemo(() => {
+    if (!since) return allRevenueTrend;
+    return allRevenueTrend.filter((t) => t.month && t.month >= since.slice(0, 10));
+  }, [allRevenueTrend, since]);
+
+  // Compute KPIs from filtered orders
+  const kpis = useMemo<DashboardKpis>(() => {
+    const totalRevenue = filteredOrders.reduce((s, o) => s + Number(o.total_amount), 0);
+    const totalDeposits = filteredOrders.reduce((s, o) => s + Number(o.deposit_paid), 0);
+    const completed = filteredOrders.filter((o) => o.status === "completed").length;
+    const avg = filteredOrders.length > 0 ? totalRevenue / filteredOrders.length : 0;
+    return {
+      total_revenue: totalRevenue,
+      avg_project_value: avg,
+      total_orders: filteredOrders.length,
+      completed_orders: completed,
+      total_deposits_collected: totalDeposits,
+    };
+  }, [filteredOrders]);
+
+  const reservations = useMemo<ReservationPatterns>(() => {
+    const total = filteredReservations.length;
+    const active = filteredReservations.filter((r) => r.status === "active").length;
+    const expired = filteredReservations.filter((r) => r.status === "expired").length;
+    const cancelled = filteredReservations.filter((r) => r.status === "cancelled").length;
+    const converted = filteredReservations.filter((r) => r.status === "converted").length;
+    const avgDeposit = total > 0
+      ? filteredReservations.reduce((s, r) => s + Number(r.deposit_amount), 0) / total
+      : 0;
+    const avgHold = total > 0
+      ? filteredReservations.reduce((s, r) => {
+          const start = new Date(r.reserved_at).getTime();
+          const end = new Date(r.reserved_until).getTime();
+          return s + (end - start) / (1000 * 60 * 60);
+        }, 0) / total
+      : 0;
+    return { total_reservations: total, active_reservations: active, expired_reservations: expired, cancelled_reservations: cancelled, converted_reservations: converted, avg_hold_hours: avgHold, avg_deposit: avgDeposit };
+  }, [filteredReservations]);
 
   if (loading) {
     return (
@@ -127,22 +208,22 @@ const AdminOverview = () => {
   }
 
   const depositToInstallRate =
-    reservations && reservations.total_reservations > 0
+    reservations.total_reservations > 0
       ? (reservations.converted_reservations / reservations.total_reservations) * 100
       : 0;
 
   const expirationRate =
-    reservations && reservations.total_reservations > 0
+    reservations.total_reservations > 0
       ? (reservations.expired_reservations / reservations.total_reservations) * 100
       : 0;
 
   // Prepare chart data
-  const trendChartData = revenueTrend.map((t) => ({
+  const trendChartData = filteredTrend.map((t) => ({
     ...t,
     label: t.month ? format(new Date(t.month), "MMM yyyy") : "",
   }));
 
-  const materialBarData = revenueByMaterial.map((m) => ({
+  const materialBarData = allRevenueByMaterial.map((m) => ({
     name: m.material_name.length > 15 ? m.material_name.slice(0, 15) + "…" : m.material_name,
     fullName: m.material_name,
     revenue: m.total_revenue,
@@ -150,62 +231,76 @@ const AdminOverview = () => {
     avgValue: m.avg_order_value,
   }));
 
-  const materialPieData = revenueByMaterial
+  const materialPieData = allRevenueByMaterial
     .filter((m) => m.total_revenue > 0 || m.order_count > 0)
     .map((m) => ({
       name: m.material_name,
       value: m.total_revenue > 0 ? m.total_revenue : m.order_count,
     }));
 
-  // If no pie data (all zeros), show order counts or a placeholder
   const showPie = materialPieData.length > 0;
-  const pieDataFallback = revenueByMaterial.map((m) => ({
+  const pieDataFallback = allRevenueByMaterial.map((m) => ({
     name: m.material_name,
-    value: 1, // equal distribution placeholder
+    value: 1,
   }));
 
   return (
     <div className="space-y-6">
       <SlaAlertBanner />
 
-      <h1 className="font-display text-2xl font-semibold">Dashboard Overview</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="font-display text-2xl font-semibold">Dashboard Overview</h1>
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          {DATE_RANGE_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              variant={dateRange === opt.value ? "default" : "ghost"}
+              size="sm"
+              className="text-xs h-7 px-3"
+              onClick={() => setDateRange(opt.value)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
+      </div>
 
       {/* Top KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Total Revenue"
-          value={kpis ? fmtFull(kpis.total_revenue) : "$0"}
+          value={fmtFull(kpis.total_revenue)}
           icon={DollarSign}
-          description={`${kpis?.total_orders ?? 0} orders`}
+          description={`${kpis.total_orders} orders`}
           accent
         />
         <KpiCard
           label="Avg Project Value"
-          value={kpis ? fmt(kpis.avg_project_value) : "$0"}
+          value={fmt(kpis.avg_project_value)}
           icon={TrendingUp}
-          description="Per completed order"
+          description="Per order"
         />
         <KpiCard
           label="Deposit → Install"
           value={pct(depositToInstallRate)}
           icon={Percent}
-          description={`${reservations?.converted_reservations ?? 0} of ${reservations?.total_reservations ?? 0}`}
+          description={`${reservations.converted_reservations} of ${reservations.total_reservations}`}
         />
         <KpiCard
           label="Expiration Rate"
           value={pct(expirationRate)}
           icon={AlertTriangle}
-          description={`${reservations?.expired_reservations ?? 0} expired`}
+          description={`${reservations.expired_reservations} expired`}
           warn={expirationRate > 30}
         />
       </div>
 
       {/* Quick counts */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MiniCard label="Slabs" value={counts.slabs} icon={Package} />
-        <MiniCard label="Orders" value={counts.orders} icon={ShoppingCart} />
-        <MiniCard label="Appointments" value={counts.appointments} icon={Calendar} />
-        <MiniCard label="Customers" value={counts.customers} icon={Users} />
+        <MiniCard label="Slabs" value={allCounts.slabs} icon={Package} />
+        <MiniCard label="Orders" value={filteredOrders.length} icon={ShoppingCart} />
+        <MiniCard label="Appointments" value={allCounts.appointments} icon={Calendar} />
+        <MiniCard label="Customers" value={allCounts.customers} icon={Users} />
       </div>
 
       <Separator />
@@ -388,7 +483,7 @@ const AdminOverview = () => {
       </Card>
 
       {/* Reservation patterns */}
-      {reservations && (
+      {reservations.total_reservations > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Reservation Patterns</CardTitle>
