@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Cookie, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 const STORAGE_KEY = "altar-cookie-consent";
 
@@ -29,17 +30,19 @@ export const getCookiePreferences = (): CookiePreferences | null => {
 };
 
 export const CookieConsent = () => {
+  const flags = useFeatureFlags();
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [prefs, setPrefs] = useState<CookiePreferences>(defaults);
 
   useEffect(() => {
+    if (!flags.loaded || !flags.cookie_consent) return;
     const saved = getCookiePreferences();
     if (!saved) {
       const timer = setTimeout(() => setVisible(true), 1200);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [flags.loaded, flags.cookie_consent]);
 
   const save = useCallback((preferences: CookiePreferences) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
