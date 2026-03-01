@@ -146,6 +146,22 @@ For questions about your deposit or reservation status, email info@altarstones.c
   },
 };
 
+const parseContent = (text: string) => {
+  return text.split("\n").map((line, i) => {
+    // Parse **bold** markers into <strong> elements
+    const parts = line.split(/\*\*(.*?)\*\*/g);
+    const rendered = parts.map((part, j) =>
+      j % 2 === 1 ? <strong key={j} className="font-semibold text-foreground">{part}</strong> : part
+    );
+    return (
+      <span key={i}>
+        {rendered}
+        {"\n"}
+      </span>
+    );
+  });
+};
+
 const Legal = () => {
   const { type } = useParams<{ type: string }>();
   const page = legalContent[type || "terms"];
@@ -164,8 +180,8 @@ const Legal = () => {
         <h1 className="font-display text-3xl font-bold mb-2">{page.title}</h1>
         <p className="text-sm text-muted-foreground mb-6">Last updated: March 2026</p>
         <Separator className="mb-6" />
-        <div className="prose prose-sm max-w-none text-foreground [&_strong]:font-semibold [&_p]:mb-4 [&_p]:text-muted-foreground whitespace-pre-line">
-          {page.content}
+        <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line leading-relaxed">
+          {parseContent(page.content)}
         </div>
       </div>
     </Section>
