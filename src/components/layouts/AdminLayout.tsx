@@ -36,6 +36,7 @@ const navItems = [
   { title: "Pricing", url: "/admin/pricing", icon: DollarSign },
   { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
   { title: "Appointments", url: "/admin/appointments", icon: Calendar },
+  { title: "Availability", url: "/admin/availability", icon: Calendar },
   { title: "Customers", url: "/admin/customers", icon: Users },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
   { title: "AI Insights", url: "/admin/ai", icon: Brain },

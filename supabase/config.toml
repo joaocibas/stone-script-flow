@@ -2,3 +2,6 @@ project_id = "hkvuttothwfsioxdhgbb"
 
 [functions.calculate-quote]
 verify_jwt = false
+
+[functions.sla-check]
+verify_jwt = false

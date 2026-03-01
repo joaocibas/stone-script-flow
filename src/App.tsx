@@ -20,6 +20,8 @@ import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 import AdminOverview from "./pages/admin/AdminOverview";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminAvailability from "./pages/admin/AdminAvailability";
+import Schedule from "./pages/Schedule";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,7 @@ const App = () => (
           <Route path="/slabs/:id" element={<AppLayout><SlabDetail /></AppLayout>} />
           <Route path="/quote" element={<AppLayout><Quote /></AppLayout>} />
           <Route path="/book" element={<AppLayout><Book /></AppLayout>} />
+          <Route path="/schedule/:reservationId" element={<AppLayout><Schedule /></AppLayout>} />
           <Route path="/login" element={<AppLayout><Login /></AppLayout>} />
           <Route path="/dashboard" element={<AppLayout><CustomerDashboard /></AppLayout>} />
           <Route path="/track/:id" element={<AppLayout><TrackOrder /></AppLayout>} />
@@ -47,6 +50,7 @@ const App = () => (
           {/* Admin routes */}
           <Route path="/admin" element={<AdminLayout><AdminOverview /></AdminLayout>} />
           <Route path="/admin/settings" element={<AdminLayout><AdminSettings /></AdminLayout>} />
+          <Route path="/admin/availability" element={<AdminLayout><AdminAvailability /></AdminLayout>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
