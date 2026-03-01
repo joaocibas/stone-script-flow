@@ -24,6 +24,7 @@ import AdminOverview from "./pages/admin/AdminOverview";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminAvailability from "./pages/admin/AdminAvailability";
 import AdminAiInsights from "./pages/admin/AdminAiInsights";
+import AdminInventory from "./pages/admin/AdminInventory";
 import Schedule from "./pages/Schedule";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
           {/* Admin routes */}
           <Route path="/admin" element={<AdminLayout><AdminOverview /></AdminLayout>} />
           <Route path="/admin/settings" element={<AdminLayout><AdminSettings /></AdminLayout>} />
+          <Route path="/admin/inventory" element={<AdminLayout><AdminInventory /></AdminLayout>} />
           <Route path="/admin/availability" element={<AdminLayout><AdminAvailability /></AdminLayout>} />
           <Route path="/admin/ai" element={<AdminLayout><AdminAiInsights /></AdminLayout>} />
 
