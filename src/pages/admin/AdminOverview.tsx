@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Package, ShoppingCart, Calendar, Users, DollarSign,
-  TrendingUp, Percent, AlertTriangle, BarChart3, Lock, Monitor, Loader2,
+  TrendingUp, Percent, AlertTriangle, BarChart3, Lock, Monitor, Loader2, Download,
 } from "lucide-react";
 import { SlaAlertBanner } from "@/components/admin/SlaAlertBanner";
 import {
@@ -217,7 +217,50 @@ const AdminOverview = () => {
       ? (reservations.expired_reservations / reservations.total_reservations) * 100
       : 0;
 
-  // Prepare chart data
+  const exportCsv = () => {
+    const rows: string[][] = [];
+    // KPIs
+    rows.push(["=== KPIs ==="]);
+    rows.push(["Metric", "Value"]);
+    rows.push(["Total Revenue", `$${kpis.total_revenue.toFixed(2)}`]);
+    rows.push(["Avg Project Value", `$${kpis.avg_project_value.toFixed(2)}`]);
+    rows.push(["Total Orders", String(kpis.total_orders)]);
+    rows.push(["Completed Orders", String(kpis.completed_orders)]);
+    rows.push(["Total Deposits", `$${kpis.total_deposits_collected.toFixed(2)}`]);
+    rows.push(["Deposit to Install Rate", `${depositToInstallRate.toFixed(1)}%`]);
+    rows.push(["Expiration Rate", `${expirationRate.toFixed(1)}%`]);
+    rows.push([]);
+    // Revenue Trend
+    rows.push(["=== Revenue Trend ==="]);
+    rows.push(["Month", "Orders", "Revenue", "Deposits"]);
+    filteredTrend.forEach((t) => {
+      rows.push([t.month ? format(new Date(t.month), "MMM yyyy") : "", String(t.order_count), `$${t.revenue}`, `$${t.deposits}`]);
+    });
+    rows.push([]);
+    // Revenue by Material
+    rows.push(["=== Revenue by Material ==="]);
+    rows.push(["Material", "Category", "Orders", "Total Revenue", "Avg Order Value", "Unique Customers"]);
+    allRevenueByMaterial.forEach((m) => {
+      rows.push([m.material_name, m.category, String(m.order_count), `$${m.total_revenue}`, `$${m.avg_order_value}`, String(m.unique_customers)]);
+    });
+    rows.push([]);
+    // Margins
+    rows.push(["=== Margin Estimation ==="]);
+    rows.push(["Material", "Category", "Customer $/sqft", "Internal $/sqft", "Est. Margin %", "Revenue"]);
+    margins.forEach((m) => {
+      rows.push([m.material_name, m.category, `$${m.customer_rate}`, `$${m.internal_cost_per_sqft}`, m.estimated_margin_pct != null ? `${m.estimated_margin_pct}%` : "—", `$${m.total_revenue}`]);
+    });
+
+    const csvContent = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dashboard-export-${dateRange}-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const trendChartData = filteredTrend.map((t) => ({
     ...t,
     label: t.month ? format(new Date(t.month), "MMM yyyy") : "",
@@ -250,18 +293,24 @@ const AdminOverview = () => {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="font-display text-2xl font-semibold">Dashboard Overview</h1>
-        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-          {DATE_RANGE_OPTIONS.map((opt) => (
-            <Button
-              key={opt.value}
-              variant={dateRange === opt.value ? "default" : "ghost"}
-              size="sm"
-              className="text-xs h-7 px-3"
-              onClick={() => setDateRange(opt.value)}
-            >
-              {opt.label}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            {DATE_RANGE_OPTIONS.map((opt) => (
+              <Button
+                key={opt.value}
+                variant={dateRange === opt.value ? "default" : "ghost"}
+                size="sm"
+                className="text-xs h-7 px-3"
+                onClick={() => setDateRange(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" className="text-xs h-7 gap-1.5" onClick={exportCsv}>
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </Button>
         </div>
       </div>
 
