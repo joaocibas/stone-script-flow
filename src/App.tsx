@@ -25,6 +25,12 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import AdminAvailability from "./pages/admin/AdminAvailability";
 import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import AdminInventory from "./pages/admin/AdminInventory";
+import AdminPricing from "./pages/admin/AdminPricing";
+import AdminOrders from "./pages/admin/AdminOrders";
+import AdminAppointments from "./pages/admin/AdminAppointments";
+import AdminCustomers from "./pages/admin/AdminCustomers";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminLegal from "./pages/admin/AdminLegal";
 import Schedule from "./pages/Schedule";
 
 const queryClient = new QueryClient();
@@ -56,8 +62,14 @@ const App = () => (
           <Route path="/admin" element={<AdminLayout><AdminOverview /></AdminLayout>} />
           <Route path="/admin/settings" element={<AdminLayout><AdminSettings /></AdminLayout>} />
           <Route path="/admin/inventory" element={<AdminLayout><AdminInventory /></AdminLayout>} />
+          <Route path="/admin/pricing" element={<AdminLayout><AdminPricing /></AdminLayout>} />
+          <Route path="/admin/orders" element={<AdminLayout><AdminOrders /></AdminLayout>} />
+          <Route path="/admin/appointments" element={<AdminLayout><AdminAppointments /></AdminLayout>} />
           <Route path="/admin/availability" element={<AdminLayout><AdminAvailability /></AdminLayout>} />
+          <Route path="/admin/customers" element={<AdminLayout><AdminCustomers /></AdminLayout>} />
+          <Route path="/admin/analytics" element={<AdminLayout><AdminAnalytics /></AdminLayout>} />
           <Route path="/admin/ai" element={<AdminLayout><AdminAiInsights /></AdminLayout>} />
+          <Route path="/admin/legal" element={<AdminLayout><AdminLegal /></AdminLayout>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
