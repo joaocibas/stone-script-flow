@@ -55,6 +55,8 @@ const emptyForm: {
   lot_number: string;
   status: SlabStatus;
   notes: string;
+  purchase_value: number;
+  sales_value: number;
 } = {
   material_id: "",
   length_inches: 0,
@@ -63,6 +65,8 @@ const emptyForm: {
   lot_number: "",
   status: "available",
   notes: "",
+  purchase_value: 0,
+  sales_value: 0,
 };
 
 export const SlabsManager = () => {
@@ -110,6 +114,8 @@ export const SlabsManager = () => {
       lot_number: s.lot_number ?? "",
       status: s.status,
       notes: s.notes ?? "",
+      purchase_value: (s as any).purchase_value ?? 0,
+      sales_value: (s as any).sales_value ?? 0,
     });
     setImageUrls(s.image_urls ?? []);
     setDialogOpen(true);
@@ -155,6 +161,8 @@ export const SlabsManager = () => {
       status: form.status as "available" | "reserved" | "sold" | "archived",
       notes: form.notes.trim() || null,
       image_urls: imageUrls.length > 0 ? imageUrls : null,
+      purchase_value: form.purchase_value,
+      sales_value: form.sales_value,
     };
 
     if (editing) {
@@ -226,6 +234,8 @@ export const SlabsManager = () => {
                 <TableHead>Dimensions</TableHead>
                 <TableHead>Thickness</TableHead>
                 <TableHead>Lot #</TableHead>
+                <TableHead>Purchase</TableHead>
+                <TableHead>Sales</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Photos</TableHead>
                 <TableHead className="w-[60px]" />
@@ -250,6 +260,8 @@ export const SlabsManager = () => {
                   </TableCell>
                   <TableCell>{s.thickness}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{s.lot_number ?? "—"}</TableCell>
+                  <TableCell className="text-sm">${(s as any).purchase_value?.toFixed(2) ?? "0.00"}</TableCell>
+                  <TableCell className="text-sm">${(s as any).sales_value?.toFixed(2) ?? "0.00"}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_COLORS[s.status]} className="capitalize">
                       {s.status}
@@ -267,7 +279,7 @@ export const SlabsManager = () => {
               ))}
               {filteredSlabs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     {slabs.length === 0
                       ? "No slabs yet. Add your first slab to get started."
                       : "No slabs match the current filters."}
@@ -331,6 +343,16 @@ export const SlabsManager = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Purchase Value ($)</Label>
+                <Input type="number" min="0" step="0.01" value={form.purchase_value || ""} onChange={(e) => setForm({ ...form, purchase_value: Number(e.target.value) })} placeholder="0.00" />
+              </div>
+              <div className="space-y-2">
+                <Label>Sales Value ($)</Label>
+                <Input type="number" min="0" step="0.01" value={form.sales_value || ""} onChange={(e) => setForm({ ...form, sales_value: Number(e.target.value) })} placeholder="0.00" />
               </div>
             </div>
             <div className="space-y-2">

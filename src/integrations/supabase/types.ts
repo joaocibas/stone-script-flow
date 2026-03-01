@@ -555,6 +555,8 @@ export type Database = {
           lot_number: string | null
           material_id: string
           notes: string | null
+          purchase_value: number | null
+          sales_value: number | null
           status: Database["public"]["Enums"]["slab_status"]
           thickness: string
           updated_at: string
@@ -568,6 +570,8 @@ export type Database = {
           lot_number?: string | null
           material_id: string
           notes?: string | null
+          purchase_value?: number | null
+          sales_value?: number | null
           status?: Database["public"]["Enums"]["slab_status"]
           thickness?: string
           updated_at?: string
@@ -581,6 +585,8 @@ export type Database = {
           lot_number?: string | null
           material_id?: string
           notes?: string | null
+          purchase_value?: number | null
+          sales_value?: number | null
           status?: Database["public"]["Enums"]["slab_status"]
           thickness?: string
           updated_at?: string
