@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layouts/AppLayout";
+import { AdminLayout } from "@/components/layouts/AdminLayout";
 import Index from "./pages/Index";
 import Materials from "./pages/Materials";
 import MaterialDetail from "./pages/MaterialDetail";
@@ -17,6 +18,8 @@ import TrackOrder from "./pages/TrackOrder";
 import FAQ from "./pages/FAQ";
 import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
+import AdminOverview from "./pages/admin/AdminOverview";
+import AdminSettings from "./pages/admin/AdminSettings";
 
 const queryClient = new QueryClient();
 
@@ -27,9 +30,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route element={<AppLayout><></></AppLayout>}>
-            {/* Wrapped routes aren't supported this way — use layout per page */}
-          </Route>
+          {/* Customer routes */}
           <Route path="/" element={<AppLayout><Index /></AppLayout>} />
           <Route path="/materials" element={<AppLayout><Materials /></AppLayout>} />
           <Route path="/materials/:id" element={<AppLayout><MaterialDetail /></AppLayout>} />
@@ -42,6 +43,11 @@ const App = () => (
           <Route path="/track/:id" element={<AppLayout><TrackOrder /></AppLayout>} />
           <Route path="/faq" element={<AppLayout><FAQ /></AppLayout>} />
           <Route path="/legal/:type" element={<AppLayout><Legal /></AppLayout>} />
+
+          {/* Admin routes */}
+          <Route path="/admin" element={<AdminLayout><AdminOverview /></AdminLayout>} />
+          <Route path="/admin/settings" element={<AdminLayout><AdminSettings /></AdminLayout>} />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
