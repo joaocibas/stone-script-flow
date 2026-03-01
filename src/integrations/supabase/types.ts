@@ -736,6 +736,13 @@ export type Database = {
       }
     }
     Functions: {
+      expire_overdue_reservations: {
+        Args: never
+        Returns: {
+          expired_count: number
+          slabs_released: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
