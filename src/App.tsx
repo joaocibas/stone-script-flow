@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import AdminOverview from "./pages/admin/AdminOverview";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminAvailability from "./pages/admin/AdminAvailability";
+import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import Schedule from "./pages/Schedule";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const App = () => (
           <Route path="/admin" element={<AdminLayout><AdminOverview /></AdminLayout>} />
           <Route path="/admin/settings" element={<AdminLayout><AdminSettings /></AdminLayout>} />
           <Route path="/admin/availability" element={<AdminLayout><AdminAvailability /></AdminLayout>} />
+          <Route path="/admin/ai" element={<AdminLayout><AdminAiInsights /></AdminLayout>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
