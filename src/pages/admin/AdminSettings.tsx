@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Save, Loader2 } from "lucide-react";
 
@@ -27,9 +28,9 @@ const SETTING_GROUPS: Record<string, { label: string; description: string; keys:
     keys: ["lower_buffer_pct", "upper_buffer_pct"],
   },
   slabs: {
-    label: "Slab Category Thresholds",
-    description: "Square footage thresholds that determine slab size categories",
-    keys: ["slab_standard_max_sqft", "slab_jumbo_max_sqft", "slab_super_jumbo_max_sqft"],
+    label: "Slab Defaults & Thresholds",
+    description: "Default dimensions for new slabs and sq ft thresholds for size categories",
+    keys: ["default_slab_length_inches", "default_slab_width_inches", "default_slab_thickness", "slab_standard_max_sqft", "slab_jumbo_max_sqft", "slab_super_jumbo_max_sqft"],
   },
   reservations: {
     label: "Reservations",
@@ -46,12 +47,32 @@ const SETTING_GROUPS: Record<string, { label: string; description: string; keys:
     description: "Public company details shown on the storefront",
     keys: ["company_name", "company_email", "company_phone", "company_address", "service_area_description"],
   },
+  email: {
+    label: "Email Configuration",
+    description: "Sender names and addresses used in outgoing emails",
+    keys: ["email_sender_name", "email_support_address", "email_warranty_address", "email_privacy_address"],
+  },
   tracking: {
     label: "Tracking & Analytics",
     description: "Pixel and tag manager IDs — configured inside GTM for client-side, or via server-side forwarding",
     keys: ["gtm_container_id", "ga4_measurement_id", "meta_pixel_id", "server_side_tracking_enabled"],
   },
+  features: {
+    label: "Feature Toggles",
+    description: "Enable or disable major platform features without code changes",
+    keys: ["feature_online_booking", "feature_slab_reservation", "feature_instant_quote", "feature_customer_portal", "feature_ai_insights", "feature_cookie_consent"],
+  },
 };
+
+const TOGGLE_KEYS = new Set([
+  "server_side_tracking_enabled",
+  "feature_online_booking",
+  "feature_slab_reservation",
+  "feature_instant_quote",
+  "feature_customer_portal",
+  "feature_ai_insights",
+  "feature_cookie_consent",
+]);
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState<Setting[]>([]);
@@ -165,12 +186,20 @@ const AdminSettings = () => {
                         <p className="text-xs text-muted-foreground mt-0.5">{getDescription(key)}</p>
                       )}
                     </div>
-                    <Input
-                      id={key}
-                      value={getValue(key)}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      className={key in editedValues ? "border-accent ring-1 ring-accent/30" : ""}
-                    />
+                    {TOGGLE_KEYS.has(key) ? (
+                      <Switch
+                        checked={getValue(key) === "true"}
+                        onCheckedChange={(checked) => handleChange(key, checked ? "true" : "false")}
+                        className="ml-auto"
+                      />
+                    ) : (
+                      <Input
+                        id={key}
+                        value={getValue(key)}
+                        onChange={(e) => handleChange(key, e.target.value)}
+                        className={key in editedValues ? "border-accent ring-1 ring-accent/30" : ""}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
