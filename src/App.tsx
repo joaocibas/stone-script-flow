@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { GtmLoader } from "@/components/GtmLoader";
+import { CookieConsent } from "@/components/CookieConsent";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import Index from "./pages/Index";
 import Materials from "./pages/Materials";
@@ -58,6 +59,7 @@ const App = () => (
 
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <CookieConsent />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
