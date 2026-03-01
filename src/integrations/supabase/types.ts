@@ -703,6 +703,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_revenue_trend: {
+        Row: {
+          deposits: number | null
+          month: string | null
+          order_count: number | null
+          revenue: number | null
+        }
+        Relationships: []
+      }
       v_scheduling_patterns: {
         Row: {
           cancelled: number | null
