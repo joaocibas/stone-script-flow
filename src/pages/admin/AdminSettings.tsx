@@ -36,6 +36,11 @@ const SETTING_GROUPS: Record<string, { label: string; description: string; keys:
     description: "Deposit and reservation hold settings",
     keys: ["deposit_amount", "reservation_days"],
   },
+  sla: {
+    label: "SLA Targets",
+    description: "Service level agreement thresholds — breaches trigger admin dashboard alerts only",
+    keys: ["sla_max_contact_hours", "sla_max_schedule_hours", "sla_max_final_quote_hours", "min_reschedule_hours"],
+  },
   company: {
     label: "Company Information",
     description: "Public company details shown on the storefront",
