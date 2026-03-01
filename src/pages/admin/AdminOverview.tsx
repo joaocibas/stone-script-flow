@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Package, ShoppingCart, Calendar, Users } from "lucide-react";
+import { SlaAlertBanner } from "@/components/admin/SlaAlertBanner";
 
 interface KPI {
   label: string;
@@ -36,6 +37,7 @@ const AdminOverview = () => {
 
   return (
     <div>
+      <SlaAlertBanner />
       <h1 className="font-display text-2xl font-semibold mb-6">Dashboard Overview</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading
