@@ -83,7 +83,6 @@ Deno.serve(async (req) => {
 
     const overagePct = cfg["overage_pct"] ?? 10;
     const taxRate = cfg["tax_rate"] ?? 7;
-    const internalPricePerSqft = cfg["internal_price_per_sqft"] ?? 45;
     const estimatedFabricationAvg = cfg["estimated_fabrication_avg"] ?? 500;
     const estimatedAddonAvg = cfg["estimated_addon_avg"] ?? 300;
     const lowerBufferPct = cfg["lower_buffer_pct"] ?? 8;
@@ -121,12 +120,32 @@ Deno.serve(async (req) => {
 
     // ──────────────────────────────────────────
     // 4. Calculate slabs needed
-    //    Using standard slab size as base (standard max) for calculation
     // ──────────────────────────────────────────
     const slabsNeeded = Math.ceil(areaWithOverage / slabStandardMax);
 
     // ──────────────────────────────────────────
-    // 5. Fetch pricing rules for material (ADMIN-ONLY data, never returned)
+    // 5. Fetch average slab sales_value for this material
+    // ──────────────────────────────────────────
+    const { data: availableSlabs } = await supabase
+      .from("slabs")
+      .select("sales_value")
+      .eq("material_id", body.material_id)
+      .eq("status", "available");
+
+    let avgSlabValue = 0;
+    if (availableSlabs && availableSlabs.length > 0) {
+      const total = availableSlabs.reduce(
+        (sum, s) => sum + (Number(s.sales_value) || 0),
+        0
+      );
+      avgSlabValue = total / availableSlabs.length;
+    }
+
+    // Total slab cost = slabs needed × average slab sales value
+    const slabCost = slabsNeeded * avgSlabValue;
+
+    // ──────────────────────────────────────────
+    // 6. Fetch pricing rules for service costs (labor, edge, cutouts)
     // ──────────────────────────────────────────
     const { data: pricingRule } = await supabase
       .from("pricing_rules")
@@ -135,10 +154,6 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .single();
 
-    // Use material-specific pricing if available, otherwise internal default
-    const pricePerSqft = pricingRule?.price_per_sqft
-      ? Number(pricingRule.price_per_sqft)
-      : internalPricePerSqft;
     const laborRate = pricingRule?.labor_rate_per_sqft
       ? Number(pricingRule.labor_rate_per_sqft)
       : 0;
@@ -150,12 +165,12 @@ Deno.serve(async (req) => {
       : 0;
 
     // ──────────────────────────────────────────
-    // 6. Calculate internal_total (NEVER EXPOSED)
+    // 7. Calculate internal_total (NEVER EXPOSED)
+    //    slab value + service costs (labor, edge, cutouts, fabrication, addons)
     // ──────────────────────────────────────────
-    const materialCost = areaWithOverage * pricePerSqft;
     const laborCost = areaWithOverage * laborRate;
     const subtotal =
-      materialCost +
+      slabCost +
       laborCost +
       edgeCost +
       cutoutCost +
@@ -165,15 +180,13 @@ Deno.serve(async (req) => {
     const internalTotal = subtotal + tax;
 
     // ──────────────────────────────────────────
-    // 7. Generate Conservative Smart Range
-    //    range_min = internal_total × (1 + lower_buffer)
-    //    range_max = internal_total × (1 + upper_buffer)
+    // 8. Generate Conservative Smart Range
     // ──────────────────────────────────────────
     const rangeMin = Math.round(internalTotal * (1 + lowerBufferPct / 100));
     const rangeMax = Math.round(internalTotal * (1 + upperBufferPct / 100));
 
     // ──────────────────────────────────────────
-    // 8. Store quote in database (internal_total stored but never returned)
+    // 9. Store quote in database
     // ──────────────────────────────────────────
     const { data: quote, error: insertError } = await supabase
       .from("quotes")
@@ -184,7 +197,7 @@ Deno.serve(async (req) => {
         width_inches: widthInches || 0,
         edge_profile: body.edge_profile || null,
         num_cutouts: numCutouts,
-        estimated_total: internalTotal, // stored server-side only
+        estimated_total: internalTotal,
         calculated_sqft: areaSqft,
         slabs_needed: slabsNeeded,
         slab_category: slabCategory,
@@ -206,7 +219,7 @@ Deno.serve(async (req) => {
     }
 
     // ──────────────────────────────────────────
-    // 9. Return ONLY the safe range — no internal pricing
+    // 10. Return ONLY the safe range — no internal pricing
     // ──────────────────────────────────────────
     return new Response(
       JSON.stringify({
