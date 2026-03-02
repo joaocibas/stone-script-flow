@@ -8,6 +8,7 @@ const corsHeaders = {
 
 interface QuoteRequest {
   material_id: string;
+  slab_id?: string;
   length_inches: number;
   width_inches: number;
   edge_profile?: string;
@@ -115,17 +116,29 @@ Deno.serve(async (req) => {
     }
 
     // ── 1. Fetch settings, services, slabs, pricing rules in parallel ──
-    const [settingsRes, servicesRes, slabsRes, pricingRes] = await Promise.all([
+    const fetchPromises: Promise<any>[] = [
       supabase.from("business_settings").select("key, value"),
       supabase.from("service_items").select("category, pricing_unit, cost_value").eq("is_active", true),
       supabase.from("slabs").select("sales_value").eq("material_id", body.material_id).eq("status", "available"),
       supabase.from("pricing_rules").select("*").eq("material_id", body.material_id).eq("is_active", true).single(),
-    ]);
+    ];
+
+    // If a specific slab is referenced, fetch its best_option overrides
+    if (body.slab_id) {
+      fetchPromises.push(
+        supabase.from("slabs")
+          .select("best_option_preset, usable_sqft_override, overage_pct_override, sales_value")
+          .eq("id", body.slab_id)
+          .single()
+      );
+    }
+
+    const [settingsRes, servicesRes, slabsRes, pricingRes, selectedSlabRes] = await Promise.all(fetchPromises);
 
     const cfg = loadSettings(settingsRes.data);
     const activeServices: ServiceItem[] = (servicesRes.data as ServiceItem[]) || [];
 
-    const overagePct = cfg["overage_pct"] ?? 10;
+    let overagePct = cfg["overage_pct"] ?? 10;
     const taxRate = cfg["tax_rate"] ?? 7;
     const lowerBufferPct = cfg["lower_buffer_pct"] ?? 8;
     const upperBufferPct = cfg["upper_buffer_pct"] ?? 18;
@@ -133,13 +146,24 @@ Deno.serve(async (req) => {
     const slabJumboMax = cfg["slab_jumbo_max_sqft"] ?? 55;
     const slabSuperJumboMax = cfg["slab_super_jumbo_max_sqft"] ?? 65;
 
-    // Fallback defaults from business_settings (used when no service_items exist for a category)
+    // Fallback defaults from business_settings
     const fallbackFabricationAvg = cfg["estimated_fabrication_avg"] ?? 500;
     const fallbackAddonAvg = cfg["estimated_addon_avg"] ?? 300;
 
+    // ── 1b. Apply slab-level overrides if a specific slab was selected ──
+    const selectedSlab = selectedSlabRes?.data ?? null;
+
+    // Override overage % if slab has one set
+    if (selectedSlab?.overage_pct_override != null) {
+      overagePct = Number(selectedSlab.overage_pct_override);
+    }
+
     // ── 2. Calculate square footage ──
     let areaSqft: number;
-    if (calculatedSqft && calculatedSqft > 0) {
+    if (selectedSlab?.usable_sqft_override != null && Number(selectedSlab.usable_sqft_override) > 0) {
+      // Admin override for defects/vein direction
+      areaSqft = Number(selectedSlab.usable_sqft_override);
+    } else if (calculatedSqft && calculatedSqft > 0) {
       areaSqft = calculatedSqft;
     } else {
       areaSqft = (lengthInches * widthInches) / 144;
@@ -152,21 +176,36 @@ Deno.serve(async (req) => {
       ? (2 * (lengthInches + widthInches)) / 12
       : 0;
 
-    // ── 3. Slab category ──
+    // ── 3. Slab category — prefer slab's best_option_preset if set ──
     let slabCategory: string;
-    if (areaWithOverage <= slabStandardMax) slabCategory = "Standard";
-    else if (areaWithOverage <= slabJumboMax) slabCategory = "Jumbo";
-    else if (areaWithOverage <= slabSuperJumboMax) slabCategory = "Super Jumbo";
-    else slabCategory = "Custom";
+    if (selectedSlab?.best_option_preset) {
+      // Map preset key to label
+      const presetKey = selectedSlab.best_option_preset;
+      if (presetKey === "custom") {
+        slabCategory = "Custom";
+      } else {
+        slabCategory = presetKey.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      }
+    } else {
+      if (areaWithOverage <= slabStandardMax) slabCategory = "Standard";
+      else if (areaWithOverage <= slabJumboMax) slabCategory = "Jumbo";
+      else if (areaWithOverage <= slabSuperJumboMax) slabCategory = "Super Jumbo";
+      else slabCategory = "Custom";
+    }
 
     // ── 4. Slabs needed & cost ──
     const slabsNeeded = Math.ceil(areaWithOverage / slabStandardMax);
 
     let avgSlabValue = 0;
-    const availableSlabs = slabsRes.data;
-    if (availableSlabs && availableSlabs.length > 0) {
-      const total = availableSlabs.reduce((sum, s) => sum + (Number(s.sales_value) || 0), 0);
-      avgSlabValue = total / availableSlabs.length;
+    if (selectedSlab?.sales_value != null) {
+      // Use the specific slab's sales value when one is selected
+      avgSlabValue = Number(selectedSlab.sales_value);
+    } else {
+      const availableSlabs = slabsRes.data;
+      if (availableSlabs && availableSlabs.length > 0) {
+        const total = availableSlabs.reduce((sum: number, s: any) => sum + (Number(s.sales_value) || 0), 0);
+        avgSlabValue = total / availableSlabs.length;
+      }
     }
     const slabCost = slabsNeeded * avgSlabValue;
 
