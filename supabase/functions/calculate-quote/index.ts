@@ -18,6 +18,53 @@ interface QuoteRequest {
   customer_id?: string;
 }
 
+interface ServiceItem {
+  category: string;
+  pricing_unit: string;
+  cost_value: number;
+}
+
+// ────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────
+
+function sumServicesByCategory(
+  services: ServiceItem[],
+  category: string,
+  areaSqft: number,
+  numCutouts: number,
+  perimeterLinFt: number,
+): number {
+  return services
+    .filter((s) => s.category === category)
+    .reduce((total, s) => {
+      switch (s.pricing_unit) {
+        case "per_sqft":
+          return total + s.cost_value * areaSqft;
+        case "per_linear_ft":
+          return total + s.cost_value * perimeterLinFt;
+        case "per_cutout":
+          return total + s.cost_value * numCutouts;
+        case "per_project":
+        case "fixed":
+        default:
+          return total + s.cost_value;
+      }
+    }, 0);
+}
+
+function loadSettings(settings: { key: string; value: string }[] | null): Record<string, number> {
+  const cfg: Record<string, number> = {};
+  for (const s of settings || []) {
+    cfg[s.key] = parseFloat(s.value) || 0;
+  }
+  return cfg;
+}
+
+// ────────────────────────────────────────────────
+// Handler
+// ────────────────────────────────────────────────
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -28,20 +75,18 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get auth user from request (optional - quotes can be anonymous)
+    // Auth (optional — quotes can be anonymous)
     const authHeader = req.headers.get("authorization");
-    let userId: string | null = null;
     let customerId: string | null = null;
 
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
       const { data: { user } } = await supabase.auth.getUser(token);
       if (user) {
-        userId = user.id;
         const { data: customer } = await supabase
           .from("customers")
           .select("id")
-          .eq("user_id", userId)
+          .eq("user_id", user.id)
           .single();
         customerId = customer?.id || null;
       }
@@ -49,7 +94,7 @@ Deno.serve(async (req) => {
 
     const body: QuoteRequest = await req.json();
 
-    // Validate input
+    // Validate
     if (!body.material_id) {
       return new Response(JSON.stringify({ error: "material_id is required" }), {
         status: 400,
@@ -69,31 +114,30 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ──────────────────────────────────────────
-    // 1. Fetch ALL settings (using service role — bypasses RLS)
-    // ──────────────────────────────────────────
-    const { data: settings } = await supabase
-      .from("business_settings")
-      .select("key, value");
+    // ── 1. Fetch settings, services, slabs, pricing rules in parallel ──
+    const [settingsRes, servicesRes, slabsRes, pricingRes] = await Promise.all([
+      supabase.from("business_settings").select("key, value"),
+      supabase.from("service_items").select("category, pricing_unit, cost_value").eq("is_active", true),
+      supabase.from("slabs").select("sales_value").eq("material_id", body.material_id).eq("status", "available"),
+      supabase.from("pricing_rules").select("*").eq("material_id", body.material_id).eq("is_active", true).single(),
+    ]);
 
-    const cfg: Record<string, number> = {};
-    for (const s of settings || []) {
-      cfg[s.key] = parseFloat(s.value) || 0;
-    }
+    const cfg = loadSettings(settingsRes.data);
+    const activeServices: ServiceItem[] = (servicesRes.data as ServiceItem[]) || [];
 
     const overagePct = cfg["overage_pct"] ?? 10;
     const taxRate = cfg["tax_rate"] ?? 7;
-    const estimatedFabricationAvg = cfg["estimated_fabrication_avg"] ?? 500;
-    const estimatedAddonAvg = cfg["estimated_addon_avg"] ?? 300;
     const lowerBufferPct = cfg["lower_buffer_pct"] ?? 8;
     const upperBufferPct = cfg["upper_buffer_pct"] ?? 18;
     const slabStandardMax = cfg["slab_standard_max_sqft"] ?? 45;
     const slabJumboMax = cfg["slab_jumbo_max_sqft"] ?? 55;
     const slabSuperJumboMax = cfg["slab_super_jumbo_max_sqft"] ?? 65;
 
-    // ──────────────────────────────────────────
-    // 2. Calculate square footage
-    // ──────────────────────────────────────────
+    // Fallback defaults from business_settings (used when no service_items exist for a category)
+    const fallbackFabricationAvg = cfg["estimated_fabrication_avg"] ?? 500;
+    const fallbackAddonAvg = cfg["estimated_addon_avg"] ?? 300;
+
+    // ── 2. Calculate square footage ──
     let areaSqft: number;
     if (calculatedSqft && calculatedSqft > 0) {
       areaSqft = calculatedSqft;
@@ -101,93 +145,64 @@ Deno.serve(async (req) => {
       areaSqft = (lengthInches * widthInches) / 144;
     }
 
-    // Apply overage
     const areaWithOverage = areaSqft * (1 + overagePct / 100);
 
-    // ──────────────────────────────────────────
-    // 3. Determine slab category
-    // ──────────────────────────────────────────
-    let slabCategory: string;
-    if (areaWithOverage <= slabStandardMax) {
-      slabCategory = "Standard";
-    } else if (areaWithOverage <= slabJumboMax) {
-      slabCategory = "Jumbo";
-    } else if (areaWithOverage <= slabSuperJumboMax) {
-      slabCategory = "Super Jumbo";
-    } else {
-      slabCategory = "Custom";
-    }
+    // Perimeter in linear feet (for per_linear_ft pricing)
+    const perimeterLinFt = lengthInches && widthInches
+      ? (2 * (lengthInches + widthInches)) / 12
+      : 0;
 
-    // ──────────────────────────────────────────
-    // 4. Calculate slabs needed
-    // ──────────────────────────────────────────
+    // ── 3. Slab category ──
+    let slabCategory: string;
+    if (areaWithOverage <= slabStandardMax) slabCategory = "Standard";
+    else if (areaWithOverage <= slabJumboMax) slabCategory = "Jumbo";
+    else if (areaWithOverage <= slabSuperJumboMax) slabCategory = "Super Jumbo";
+    else slabCategory = "Custom";
+
+    // ── 4. Slabs needed & cost ──
     const slabsNeeded = Math.ceil(areaWithOverage / slabStandardMax);
 
-    // ──────────────────────────────────────────
-    // 5. Fetch average slab sales_value for this material
-    // ──────────────────────────────────────────
-    const { data: availableSlabs } = await supabase
-      .from("slabs")
-      .select("sales_value")
-      .eq("material_id", body.material_id)
-      .eq("status", "available");
-
     let avgSlabValue = 0;
+    const availableSlabs = slabsRes.data;
     if (availableSlabs && availableSlabs.length > 0) {
-      const total = availableSlabs.reduce(
-        (sum, s) => sum + (Number(s.sales_value) || 0),
-        0
-      );
+      const total = availableSlabs.reduce((sum, s) => sum + (Number(s.sales_value) || 0), 0);
       avgSlabValue = total / availableSlabs.length;
     }
-
-    // Total slab cost = slabs needed × average slab sales value
     const slabCost = slabsNeeded * avgSlabValue;
 
-    // ──────────────────────────────────────────
-    // 6. Fetch pricing rules for service costs (labor, edge, cutouts)
-    // ──────────────────────────────────────────
-    const { data: pricingRule } = await supabase
-      .from("pricing_rules")
-      .select("*")
-      .eq("material_id", body.material_id)
-      .eq("is_active", true)
-      .single();
+    // ── 5. Service costs from service_items table ──
+    const hasServicesForCategory = (cat: string) => activeServices.some((s) => s.category === cat);
 
-    const laborRate = pricingRule?.labor_rate_per_sqft
-      ? Number(pricingRule.labor_rate_per_sqft)
-      : 0;
-    const edgeCost = body.edge_profile && pricingRule?.edge_profile_cost
-      ? Number(pricingRule.edge_profile_cost)
-      : 0;
-    const cutoutCost = pricingRule?.cutout_cost
-      ? numCutouts * Number(pricingRule.cutout_cost)
-      : 0;
+    const laborCost = hasServicesForCategory("labor")
+      ? sumServicesByCategory(activeServices, "labor", areaWithOverage, numCutouts, perimeterLinFt)
+      : areaWithOverage * (pricingRes.data?.labor_rate_per_sqft ? Number(pricingRes.data.labor_rate_per_sqft) : 0);
 
-    // ──────────────────────────────────────────
-    // 7. Calculate internal_total (NEVER EXPOSED)
-    //    slab value + service costs (labor, edge, cutouts, fabrication, addons)
-    // ──────────────────────────────────────────
-    const laborCost = areaWithOverage * laborRate;
-    const subtotal =
-      slabCost +
-      laborCost +
-      edgeCost +
-      cutoutCost +
-      estimatedFabricationAvg +
-      estimatedAddonAvg;
+    const edgeCost = hasServicesForCategory("edge_profile")
+      ? sumServicesByCategory(activeServices, "edge_profile", areaWithOverage, numCutouts, perimeterLinFt)
+      : (body.edge_profile && pricingRes.data?.edge_profile_cost ? Number(pricingRes.data.edge_profile_cost) : 0);
+
+    const cutoutCost = hasServicesForCategory("cutout")
+      ? sumServicesByCategory(activeServices, "cutout", areaWithOverage, numCutouts, perimeterLinFt)
+      : (pricingRes.data?.cutout_cost ? numCutouts * Number(pricingRes.data.cutout_cost) : 0);
+
+    const fabricationCost = hasServicesForCategory("fabrication")
+      ? sumServicesByCategory(activeServices, "fabrication", areaWithOverage, numCutouts, perimeterLinFt)
+      : fallbackFabricationAvg;
+
+    const addonCost = hasServicesForCategory("addon")
+      ? sumServicesByCategory(activeServices, "addon", areaWithOverage, numCutouts, perimeterLinFt)
+      : fallbackAddonAvg;
+
+    // ── 6. Internal total (NEVER EXPOSED) ──
+    const subtotal = slabCost + laborCost + edgeCost + cutoutCost + fabricationCost + addonCost;
     const tax = subtotal * (taxRate / 100);
     const internalTotal = subtotal + tax;
 
-    // ──────────────────────────────────────────
-    // 8. Generate Conservative Smart Range
-    // ──────────────────────────────────────────
+    // ── 7. Conservative Smart Range ──
     const rangeMin = Math.round(internalTotal * (1 + lowerBufferPct / 100));
     const rangeMax = Math.round(internalTotal * (1 + upperBufferPct / 100));
 
-    // ──────────────────────────────────────────
-    // 9. Store quote in database
-    // ──────────────────────────────────────────
+    // ── 8. Store quote ──
     const { data: quote, error: insertError } = await supabase
       .from("quotes")
       .insert({
@@ -218,9 +233,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ──────────────────────────────────────────
-    // 10. Return ONLY the safe range — no internal pricing
-    // ──────────────────────────────────────────
+    // ── 9. Return ONLY the safe range ──
     return new Response(
       JSON.stringify({
         quote_id: quote.id,
