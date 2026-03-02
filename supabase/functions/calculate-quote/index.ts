@@ -25,6 +25,14 @@ interface ServiceItem {
   cost_value: number;
 }
 
+interface SlabServiceRow {
+  service_id: string;
+  override_cost: number | null;
+  override_multiplier: number | null;
+  is_active: boolean;
+  service_items: ServiceItem;
+}
+
 // ────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────
@@ -35,23 +43,38 @@ function sumServicesByCategory(
   areaSqft: number,
   numCutouts: number,
   perimeterLinFt: number,
+  overrides?: Map<string, { cost: number | null; multiplier: number | null }>,
+  serviceIds?: string[],
 ): number {
-  return services
-    .filter((s) => s.category === category)
-    .reduce((total, s) => {
-      switch (s.pricing_unit) {
-        case "per_sqft":
-          return total + s.cost_value * areaSqft;
-        case "per_linear_ft":
-          return total + s.cost_value * perimeterLinFt;
-        case "per_cutout":
-          return total + s.cost_value * numCutouts;
-        case "per_project":
-        case "fixed":
-        default:
-          return total + s.cost_value;
-      }
-    }, 0);
+  let items = services.filter((s) => s.category === category);
+  // If we have slab-specific service IDs, only use those for this category
+  if (serviceIds) {
+    items = items.filter((s: any) => serviceIds.includes(s.id));
+  }
+  return items.reduce((total, s) => {
+    const sId = (s as any).id;
+    const ov = overrides?.get(sId);
+    const costValue = ov?.cost != null ? ov.cost : s.cost_value;
+    const multiplier = ov?.multiplier != null ? ov.multiplier : 1;
+    let unitCost: number;
+    switch (s.pricing_unit) {
+      case "per_sqft":
+        unitCost = costValue * areaSqft;
+        break;
+      case "per_linear_ft":
+        unitCost = costValue * perimeterLinFt;
+        break;
+      case "per_cutout":
+        unitCost = costValue * numCutouts;
+        break;
+      case "per_project":
+      case "fixed":
+      default:
+        unitCost = costValue;
+        break;
+    }
+    return total + unitCost * multiplier;
+  }, 0);
 }
 
 function loadSettings(settings: { key: string; value: string }[] | null): Record<string, number> {
@@ -118,12 +141,12 @@ Deno.serve(async (req) => {
     // ── 1. Fetch settings, services, slabs, pricing rules in parallel ──
     const fetchPromises: Promise<any>[] = [
       supabase.from("business_settings").select("key, value"),
-      supabase.from("service_items").select("category, pricing_unit, cost_value").eq("is_active", true),
+      supabase.from("service_items").select("id, category, pricing_unit, cost_value").eq("is_active", true),
       supabase.from("slabs").select("sales_value").eq("material_id", body.material_id).eq("status", "available"),
       supabase.from("pricing_rules").select("*").eq("material_id", body.material_id).eq("is_active", true).single(),
     ];
 
-    // If a specific slab is referenced, fetch its best_option overrides
+    // If a specific slab is referenced, fetch its best_option overrides + assigned services
     if (body.slab_id) {
       fetchPromises.push(
         supabase.from("slabs")
@@ -131,9 +154,15 @@ Deno.serve(async (req) => {
           .eq("id", body.slab_id)
           .single()
       );
+      fetchPromises.push(
+        supabase.from("slab_services")
+          .select("service_id, override_cost, override_multiplier, is_active")
+          .eq("slab_id", body.slab_id)
+          .eq("is_active", true)
+      );
     }
 
-    const [settingsRes, servicesRes, slabsRes, pricingRes, selectedSlabRes] = await Promise.all(fetchPromises);
+    const [settingsRes, servicesRes, slabsRes, pricingRes, selectedSlabRes, slabServicesRes] = await Promise.all(fetchPromises);
 
     const cfg = loadSettings(settingsRes.data);
     const activeServices: ServiceItem[] = (servicesRes.data as ServiceItem[]) || [];
@@ -210,26 +239,47 @@ Deno.serve(async (req) => {
     const slabCost = slabsNeeded * avgSlabValue;
 
     // ── 5. Service costs from service_items table ──
-    const hasServicesForCategory = (cat: string) => activeServices.some((s) => s.category === cat);
+    // Build slab-specific overrides map if a slab has assigned services
+    const slabServiceRows: any[] = slabServicesRes?.data ?? [];
+    const hasSlabServices = slabServiceRows.length > 0;
+    const slabServiceIds = hasSlabServices ? slabServiceRows.map((r: any) => r.service_id) : null;
+    const overridesMap = new Map<string, { cost: number | null; multiplier: number | null }>();
+    for (const r of slabServiceRows) {
+      overridesMap.set(r.service_id, {
+        cost: r.override_cost != null ? Number(r.override_cost) : null,
+        multiplier: r.override_multiplier != null ? Number(r.override_multiplier) : null,
+      });
+    }
+
+    const hasServicesForCategory = (cat: string) => {
+      if (hasSlabServices) {
+        // Only consider assigned services
+        return activeServices.some((s: any) => s.category === cat && slabServiceIds!.includes(s.id));
+      }
+      return activeServices.some((s) => s.category === cat);
+    };
+
+    const svcArgs = (cat: string): [ServiceItem[], string, number, number, number, Map<string, { cost: number | null; multiplier: number | null }> | undefined, string[] | undefined] =>
+      [activeServices, cat, areaWithOverage, numCutouts, perimeterLinFt, hasSlabServices ? overridesMap : undefined, slabServiceIds ?? undefined];
 
     const laborCost = hasServicesForCategory("labor")
-      ? sumServicesByCategory(activeServices, "labor", areaWithOverage, numCutouts, perimeterLinFt)
+      ? sumServicesByCategory(...svcArgs("labor"))
       : areaWithOverage * (pricingRes.data?.labor_rate_per_sqft ? Number(pricingRes.data.labor_rate_per_sqft) : 0);
 
     const edgeCost = hasServicesForCategory("edge_profile")
-      ? sumServicesByCategory(activeServices, "edge_profile", areaWithOverage, numCutouts, perimeterLinFt)
+      ? sumServicesByCategory(...svcArgs("edge_profile"))
       : (body.edge_profile && pricingRes.data?.edge_profile_cost ? Number(pricingRes.data.edge_profile_cost) : 0);
 
     const cutoutCost = hasServicesForCategory("cutout")
-      ? sumServicesByCategory(activeServices, "cutout", areaWithOverage, numCutouts, perimeterLinFt)
+      ? sumServicesByCategory(...svcArgs("cutout"))
       : (pricingRes.data?.cutout_cost ? numCutouts * Number(pricingRes.data.cutout_cost) : 0);
 
     const fabricationCost = hasServicesForCategory("fabrication")
-      ? sumServicesByCategory(activeServices, "fabrication", areaWithOverage, numCutouts, perimeterLinFt)
+      ? sumServicesByCategory(...svcArgs("fabrication"))
       : fallbackFabricationAvg;
 
     const addonCost = hasServicesForCategory("addon")
-      ? sumServicesByCategory(activeServices, "addon", areaWithOverage, numCutouts, perimeterLinFt)
+      ? sumServicesByCategory(...svcArgs("addon"))
       : fallbackAddonAvg;
 
     // ── 6. Internal total (NEVER EXPOSED) ──

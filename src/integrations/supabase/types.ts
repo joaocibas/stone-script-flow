@@ -588,6 +588,51 @@ export type Database = {
           },
         ]
       }
+      slab_services: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          override_cost: number | null
+          override_multiplier: number | null
+          service_id: string
+          slab_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          override_cost?: number | null
+          override_multiplier?: number | null
+          service_id: string
+          slab_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          override_cost?: number | null
+          override_multiplier?: number | null
+          service_id?: string
+          slab_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slab_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "service_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slab_services_slab_id_fkey"
+            columns: ["slab_id"]
+            isOneToOne: false
+            referencedRelation: "slabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slabs: {
         Row: {
           best_option_notes: string | null

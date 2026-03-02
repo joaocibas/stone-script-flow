@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Loader2, ImagePlus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { SlabServiceAssignments, type SlabServiceAssignment } from "./SlabServiceAssignments";
 
 interface Slab {
   id: string;
@@ -86,7 +87,7 @@ export const SlabsManager = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [materialFilter, setMaterialFilter] = useState<string>("all");
   const [sizePresets, setSizePresets] = useState<SlabSizePreset[]>([]);
-
+  const [serviceAssignments, setServiceAssignments] = useState<SlabServiceAssignment[]>([]);
   const load = useCallback(async () => {
     const [slabsRes, matsRes, presetsRes] = await Promise.all([
       supabase
@@ -121,10 +122,11 @@ export const SlabsManager = () => {
     setEditing(null);
     setForm({ ...emptyForm, material_id: materials[0]?.id ?? "" });
     setImageUrls([]);
+    setServiceAssignments([]);
     setDialogOpen(true);
   };
 
-  const openEdit = (s: Slab) => {
+  const openEdit = async (s: Slab) => {
     setEditing(s);
     setForm({
       material_id: s.material_id,
@@ -142,6 +144,20 @@ export const SlabsManager = () => {
       best_option_notes: s.best_option_notes ?? "",
     });
     setImageUrls(s.image_urls ?? []);
+
+    // Load existing service assignments
+    const { data } = await supabase
+      .from("slab_services")
+      .select("service_id, override_cost, override_multiplier, is_active")
+      .eq("slab_id", s.id);
+    setServiceAssignments(
+      (data ?? []).map((r: any) => ({
+        service_id: r.service_id,
+        override_cost: r.override_cost != null ? String(r.override_cost) : "",
+        override_multiplier: r.override_multiplier != null ? String(r.override_multiplier) : "",
+        is_active: r.is_active,
+      }))
+    );
     setDialogOpen(true);
   };
 
@@ -193,15 +209,34 @@ export const SlabsManager = () => {
       best_option_notes: form.best_option_notes.trim() || null,
     };
 
+    let slabId: string;
     if (editing) {
       const { error } = await supabase.from("slabs").update(payload).eq("id", editing.id);
       if (error) { toast.error(error.message); setSaving(false); return; }
+      slabId = editing.id;
       toast.success("Slab updated");
     } else {
-      const { error } = await supabase.from("slabs").insert(payload);
+      const { data, error } = await supabase.from("slabs").insert(payload).select("id").single();
       if (error) { toast.error(error.message); setSaving(false); return; }
+      slabId = data.id;
       toast.success("Slab created");
     }
+
+    // Sync service assignments
+    await supabase.from("slab_services").delete().eq("slab_id", slabId);
+    const activeAssignments = serviceAssignments.filter((a) => a.is_active);
+    if (activeAssignments.length > 0) {
+      const rows = activeAssignments.map((a) => ({
+        slab_id: slabId,
+        service_id: a.service_id,
+        override_cost: a.override_cost ? parseFloat(a.override_cost) : null,
+        override_multiplier: a.override_multiplier ? parseFloat(a.override_multiplier) : null,
+        is_active: true,
+      }));
+      const { error: svcErr } = await supabase.from("slab_services").insert(rows);
+      if (svcErr) { toast.error(`Services: ${svcErr.message}`); }
+    }
+
     setSaving(false);
     setDialogOpen(false);
     load();
@@ -419,6 +454,18 @@ export const SlabsManager = () => {
                 <Label>Best Option Notes</Label>
                 <Textarea value={form.best_option_notes} onChange={(e) => setForm({ ...form, best_option_notes: e.target.value })} placeholder="e.g. Defect near corner, use rotated layout" rows={2} />
               </div>
+            </div>
+
+            {/* Assigned Services */}
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <h4 className="text-sm font-semibold">Assigned Services for This Slab</h4>
+              <p className="text-xs text-muted-foreground">
+                Select which services apply. Override cost or quantity multiplier per slab if needed.
+              </p>
+              <SlabServiceAssignments
+                assignments={serviceAssignments}
+                onChange={setServiceAssignments}
+              />
             </div>
 
             {/* Photo management */}
