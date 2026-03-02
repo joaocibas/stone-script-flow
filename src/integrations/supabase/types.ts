@@ -482,6 +482,48 @@ export type Database = {
         }
         Relationships: []
       }
+      service_items: {
+        Row: {
+          category: Database["public"]["Enums"]["service_category"]
+          cost_value: number
+          created_at: string
+          id: string
+          is_active: boolean
+          max_value: number | null
+          min_value: number | null
+          name: string
+          notes: string | null
+          pricing_unit: Database["public"]["Enums"]["pricing_unit"]
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["service_category"]
+          cost_value?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_value?: number | null
+          min_value?: number | null
+          name: string
+          notes?: string | null
+          pricing_unit?: Database["public"]["Enums"]["pricing_unit"]
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["service_category"]
+          cost_value?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_value?: number | null
+          min_value?: number | null
+          name?: string
+          notes?: string | null
+          pricing_unit?: Database["public"]["Enums"]["pricing_unit"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sla_alerts: {
         Row: {
           acknowledged: boolean
@@ -766,8 +808,20 @@ export type Database = {
         | "in_progress"
         | "completed"
         | "cancelled"
+      pricing_unit:
+        | "fixed"
+        | "per_sqft"
+        | "per_linear_ft"
+        | "per_cutout"
+        | "per_project"
       quote_status: "pending" | "calculated" | "expired"
       reservation_status: "active" | "expired" | "cancelled" | "converted"
+      service_category:
+        | "labor"
+        | "edge_profile"
+        | "cutout"
+        | "fabrication"
+        | "addon"
       slab_status: "available" | "reserved" | "sold" | "archived"
     }
     CompositeTypes: {
@@ -905,8 +959,22 @@ export const Constants = {
         "completed",
         "cancelled",
       ],
+      pricing_unit: [
+        "fixed",
+        "per_sqft",
+        "per_linear_ft",
+        "per_cutout",
+        "per_project",
+      ],
       quote_status: ["pending", "calculated", "expired"],
       reservation_status: ["active", "expired", "cancelled", "converted"],
+      service_category: [
+        "labor",
+        "edge_profile",
+        "cutout",
+        "fabrication",
+        "addon",
+      ],
       slab_status: ["available", "reserved", "sold", "archived"],
     },
   },

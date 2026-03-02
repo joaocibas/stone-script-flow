@@ -1,7 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Layers } from "lucide-react";
+import { Package, Layers, Wrench } from "lucide-react";
 import { SlabsManager } from "@/components/admin/inventory/SlabsManager";
 import { MaterialsManager } from "@/components/admin/inventory/MaterialsManager";
+import { ServicesManager } from "@/components/admin/inventory/ServicesManager";
 
 const AdminInventory = () => {
   return (
@@ -18,6 +19,10 @@ const AdminInventory = () => {
             <Layers className="h-4 w-4" />
             Materials
           </TabsTrigger>
+          <TabsTrigger value="services" className="gap-1.5">
+            <Wrench className="h-4 w-4" />
+            Services
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="slabs">
@@ -26,6 +31,10 @@ const AdminInventory = () => {
 
         <TabsContent value="materials">
           <MaterialsManager />
+        </TabsContent>
+
+        <TabsContent value="services">
+          <ServicesManager />
         </TabsContent>
       </Tabs>
     </div>
