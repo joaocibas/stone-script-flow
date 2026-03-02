@@ -590,6 +590,8 @@ export type Database = {
       }
       slabs: {
         Row: {
+          best_option_notes: string | null
+          best_option_preset: string | null
           created_at: string
           id: string
           image_urls: string[] | null
@@ -597,14 +599,18 @@ export type Database = {
           lot_number: string | null
           material_id: string
           notes: string | null
+          overage_pct_override: number | null
           purchase_value: number | null
           sales_value: number | null
           status: Database["public"]["Enums"]["slab_status"]
           thickness: string
           updated_at: string
+          usable_sqft_override: number | null
           width_inches: number
         }
         Insert: {
+          best_option_notes?: string | null
+          best_option_preset?: string | null
           created_at?: string
           id?: string
           image_urls?: string[] | null
@@ -612,14 +618,18 @@ export type Database = {
           lot_number?: string | null
           material_id: string
           notes?: string | null
+          overage_pct_override?: number | null
           purchase_value?: number | null
           sales_value?: number | null
           status?: Database["public"]["Enums"]["slab_status"]
           thickness?: string
           updated_at?: string
+          usable_sqft_override?: number | null
           width_inches: number
         }
         Update: {
+          best_option_notes?: string | null
+          best_option_preset?: string | null
           created_at?: string
           id?: string
           image_urls?: string[] | null
@@ -627,11 +637,13 @@ export type Database = {
           lot_number?: string | null
           material_id?: string
           notes?: string | null
+          overage_pct_override?: number | null
           purchase_value?: number | null
           sales_value?: number | null
           status?: Database["public"]["Enums"]["slab_status"]
           thickness?: string
           updated_at?: string
+          usable_sqft_override?: number | null
           width_inches?: number
         }
         Relationships: [

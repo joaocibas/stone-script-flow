@@ -28,6 +28,10 @@ interface Slab {
   status: "available" | "reserved" | "sold" | "archived";
   notes: string | null;
   image_urls: string[] | null;
+  best_option_preset: string | null;
+  usable_sqft_override: number | null;
+  overage_pct_override: number | null;
+  best_option_notes: string | null;
   materials?: { name: string; category: string };
 }
 
@@ -35,6 +39,12 @@ interface Material {
   id: string;
   name: string;
   category: string;
+}
+
+interface SlabSizePreset {
+  key: string;
+  label: string;
+  max_sqft: number;
 }
 
 const STATUSES = ["available", "reserved", "sold", "archived"] as const;
@@ -47,26 +57,20 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
 
 type SlabStatus = "available" | "reserved" | "sold" | "archived";
 
-const emptyForm: {
-  material_id: string;
-  length_inches: number;
-  width_inches: number;
-  thickness: string;
-  lot_number: string;
-  status: SlabStatus;
-  notes: string;
-  purchase_value: number;
-  sales_value: number;
-} = {
+const emptyForm = {
   material_id: "",
   length_inches: 0,
   width_inches: 0,
   thickness: "3cm",
   lot_number: "",
-  status: "available",
+  status: "available" as SlabStatus,
   notes: "",
   purchase_value: 0,
   sales_value: 0,
+  best_option_preset: "",
+  usable_sqft_override: "",
+  overage_pct_override: "",
+  best_option_notes: "",
 };
 
 export const SlabsManager = () => {
@@ -81,17 +85,33 @@ export const SlabsManager = () => {
   const [uploading, setUploading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [materialFilter, setMaterialFilter] = useState<string>("all");
+  const [sizePresets, setSizePresets] = useState<SlabSizePreset[]>([]);
 
   const load = useCallback(async () => {
-    const [slabsRes, matsRes] = await Promise.all([
+    const [slabsRes, matsRes, presetsRes] = await Promise.all([
       supabase
         .from("slabs")
         .select("*, materials(name, category)")
         .order("created_at", { ascending: false }),
       supabase.from("materials").select("id, name, category").eq("is_active", true).order("name"),
+      supabase.from("business_settings").select("key, value").like("key", "slab_%_max_sqft"),
     ]);
     if (slabsRes.data) setSlabs(slabsRes.data as unknown as Slab[]);
     if (matsRes.data) setMaterials(matsRes.data);
+
+    // Build size presets dynamically from business_settings
+    const presets: SlabSizePreset[] = [];
+    for (const s of presetsRes.data || []) {
+      const match = s.key.match(/^slab_(.+)_max_sqft$/);
+      if (match) {
+        const label = match[1].replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+        presets.push({ key: match[1], label, max_sqft: parseFloat(s.value) || 0 });
+      }
+    }
+    presets.sort((a, b) => a.max_sqft - b.max_sqft);
+    presets.push({ key: "custom", label: "Custom", max_sqft: Infinity });
+    setSizePresets(presets);
+
     setLoading(false);
   }, []);
 
@@ -116,6 +136,10 @@ export const SlabsManager = () => {
       notes: s.notes ?? "",
       purchase_value: (s as any).purchase_value ?? 0,
       sales_value: (s as any).sales_value ?? 0,
+      best_option_preset: s.best_option_preset ?? "",
+      usable_sqft_override: s.usable_sqft_override != null ? String(s.usable_sqft_override) : "",
+      overage_pct_override: s.overage_pct_override != null ? String(s.overage_pct_override) : "",
+      best_option_notes: s.best_option_notes ?? "",
     });
     setImageUrls(s.image_urls ?? []);
     setDialogOpen(true);
@@ -163,6 +187,10 @@ export const SlabsManager = () => {
       image_urls: imageUrls.length > 0 ? imageUrls : null,
       purchase_value: form.purchase_value,
       sales_value: form.sales_value,
+      best_option_preset: form.best_option_preset || null,
+      usable_sqft_override: form.usable_sqft_override ? parseFloat(form.usable_sqft_override) : null,
+      overage_pct_override: form.overage_pct_override ? parseFloat(form.overage_pct_override) : null,
+      best_option_notes: form.best_option_notes.trim() || null,
     };
 
     if (editing) {
@@ -358,6 +386,39 @@ export const SlabsManager = () => {
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Internal notes" rows={2} />
+            </div>
+
+            {/* Best Option for This Slab */}
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <h4 className="text-sm font-semibold">Best Option for This Slab</h4>
+              <div className="space-y-2">
+                <Label>Size Preset</Label>
+                <Select value={form.best_option_preset || "__none"} onValueChange={(v) => setForm({ ...form, best_option_preset: v === "__none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Use default logic" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Use default logic</SelectItem>
+                    {sizePresets.map((p) => (
+                      <SelectItem key={p.key} value={p.key}>
+                        {p.label}{p.max_sqft !== Infinity ? ` (≤${p.max_sqft} sqft)` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Usable Sqft Override</Label>
+                  <Input type="number" min="0" step="0.1" value={form.usable_sqft_override} onChange={(e) => setForm({ ...form, usable_sqft_override: e.target.value })} placeholder="Auto from dimensions" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Overage % Override</Label>
+                  <Input type="number" min="0" step="1" value={form.overage_pct_override} onChange={(e) => setForm({ ...form, overage_pct_override: e.target.value })} placeholder="Use default" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Best Option Notes</Label>
+                <Textarea value={form.best_option_notes} onChange={(e) => setForm({ ...form, best_option_notes: e.target.value })} placeholder="e.g. Defect near corner, use rotated layout" rows={2} />
+              </div>
             </div>
 
             {/* Photo management */}
