@@ -1,20 +1,28 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Section, SectionHeader } from "@/components/shared/Section";
+import { Section } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { LogOut, FileText, Package, CalendarDays } from "lucide-react";
+import { LogOut, FileText, Package, CalendarDays, User, Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
+  const [customer, setCustomer] = useState<Tables<"customers"> | null>(null);
   const [quotes, setQuotes] = useState<Tables<"quotes">[]>([]);
   const [orders, setOrders] = useState<Tables<"orders">[]>([]);
   const [reservations, setReservations] = useState<Tables<"reservations">[]>([]);
+  const [appointments, setAppointments] = useState<Tables<"appointments">[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [profileForm, setProfileForm] = useState({ full_name: "", phone: "", address: "" });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -24,23 +32,42 @@ const CustomerDashboard = () => {
       }
       setUser(data.user);
 
-      // Fetch customer data
-      supabase.from("customers").select("id").eq("user_id", data.user.id).single().then(({ data: customer }) => {
-        if (!customer) { setLoading(false); return; }
+      supabase.from("customers").select("*").eq("user_id", data.user.id).single().then(({ data: cust }) => {
+        if (!cust) { setLoading(false); return; }
+        setCustomer(cust);
+        setProfileForm({ full_name: cust.full_name, phone: cust.phone || "", address: cust.address || "" });
 
         Promise.all([
-          supabase.from("quotes").select("*").eq("customer_id", customer.id).order("created_at", { ascending: false }).limit(10),
-          supabase.from("orders").select("*").eq("customer_id", customer.id).order("created_at", { ascending: false }).limit(10),
-          supabase.from("reservations").select("*").eq("customer_id", customer.id).order("created_at", { ascending: false }).limit(10),
-        ]).then(([q, o, r]) => {
+          supabase.from("quotes").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+          supabase.from("orders").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+          supabase.from("reservations").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+          supabase.from("appointments").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+        ]).then(([q, o, r, a]) => {
           setQuotes(q.data || []);
           setOrders(o.data || []);
           setReservations(r.data || []);
+          setAppointments(a.data || []);
           setLoading(false);
         });
       });
     });
   }, [navigate]);
+
+  const handleSaveProfile = async () => {
+    if (!customer) return;
+    const { error } = await supabase.from("customers").update({
+      full_name: profileForm.full_name,
+      phone: profileForm.phone || null,
+      address: profileForm.address || null,
+    }).eq("id", customer.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Profile updated" });
+      setEditing(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -64,83 +91,159 @@ const CustomerDashboard = () => {
           {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-muted rounded-lg animate-pulse" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Quotes */}
+        <div className="space-y-8">
+          {/* Profile Section */}
           <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4 text-accent" /> My Quotes
+                <User className="h-4 w-4 text-accent" /> My Profile
               </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {quotes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No quotes yet.</p>
+              {!editing ? (
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>Edit</Button>
               ) : (
-                <ul className="space-y-2">
-                  {quotes.map((q) => (
-                    <li key={q.id} className="flex items-center justify-between text-sm">
-                      <span className="truncate">{new Date(q.created_at).toLocaleDateString()}</span>
-                      <Badge variant="secondary" className="capitalize">{q.status}</Badge>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleSaveProfile}>
+                    <Save className="h-4 w-4 mr-1" /> Save
+                  </Button>
+                </div>
               )}
-              <Button asChild variant="link" className="px-0 mt-3 text-accent">
-                <Link to="/quote">Get New Estimate</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Orders */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="h-4 w-4 text-accent" /> My Orders
-              </CardTitle>
             </CardHeader>
             <CardContent>
-              {orders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No orders yet.</p>
+              {editing ? (
+                <div className="space-y-3 max-w-md">
+                  <div>
+                    <Label>Full Name</Label>
+                    <Input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Address</Label>
+                    <Input value={profileForm.address} onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })} />
+                  </div>
+                </div>
               ) : (
-                <ul className="space-y-2">
-                  {orders.map((o) => (
-                    <li key={o.id} className="flex items-center justify-between text-sm">
-                      <Link to={`/track/${o.id}`} className="text-accent hover:underline truncate">
-                        {new Date(o.created_at).toLocaleDateString()}
-                      </Link>
-                      <Badge variant="secondary" className="capitalize">{o.status}</Badge>
-                    </li>
-                  ))}
-                </ul>
+                <dl className="grid grid-cols-2 gap-2 text-sm">
+                  <dt className="text-muted-foreground">Name</dt>
+                  <dd>{customer?.full_name || "—"}</dd>
+                  <dt className="text-muted-foreground">Email</dt>
+                  <dd>{customer?.email}</dd>
+                  <dt className="text-muted-foreground">Phone</dt>
+                  <dd>{customer?.phone || "—"}</dd>
+                  <dt className="text-muted-foreground">Address</dt>
+                  <dd>{customer?.address || "—"}</dd>
+                </dl>
               )}
             </CardContent>
           </Card>
 
-          {/* Reservations */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-accent" /> My Reservations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {reservations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No reservations yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {reservations.map((r) => (
-                    <li key={r.id} className="flex items-center justify-between text-sm">
-                      <span className="truncate">Held until {new Date(r.reserved_until).toLocaleDateString()}</span>
-                      <Badge variant="secondary" className="capitalize">{r.status}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Button asChild variant="link" className="px-0 mt-3 text-accent">
-                <Link to="/slabs">Browse Slabs</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Data Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Quotes */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-accent" /> My Quotes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {quotes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No quotes yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {quotes.map((q) => (
+                      <li key={q.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate">{new Date(q.created_at).toLocaleDateString()}</span>
+                        <Badge variant="secondary" className="capitalize">{q.status}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Button asChild variant="link" className="px-0 mt-3 text-accent">
+                  <Link to="/quote">Get New Estimate</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Orders */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Package className="h-4 w-4 text-accent" /> My Orders
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {orders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No orders yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {orders.map((o) => (
+                      <li key={o.id} className="flex items-center justify-between text-sm">
+                        <Link to={`/track/${o.id}`} className="text-accent hover:underline truncate">
+                          {new Date(o.created_at).toLocaleDateString()}
+                        </Link>
+                        <Badge variant="secondary" className="capitalize">{o.status}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Reservations */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-accent" /> My Reservations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reservations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No reservations yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {reservations.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate">Held until {new Date(r.reserved_until).toLocaleDateString()}</span>
+                        <Badge variant="secondary" className="capitalize">{r.status}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Button asChild variant="link" className="px-0 mt-3 text-accent">
+                  <Link to="/slabs">Browse Slabs</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Appointments */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-accent" /> My Appointments
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {appointments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No appointments yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {appointments.map((a) => (
+                      <li key={a.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate">
+                          {a.preferred_date ? new Date(a.preferred_date).toLocaleDateString() : "Pending"}
+                        </span>
+                        <Badge variant="secondary" className="capitalize">{a.status}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </Section>

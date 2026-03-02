@@ -165,9 +165,12 @@ export type Database = {
         Row: {
           address: string | null
           created_at: string
+          deleted_at: string | null
           email: string
           full_name: string
           id: string
+          is_deleted: boolean
+          notes: string | null
           phone: string | null
           updated_at: string
           user_id: string
@@ -175,9 +178,12 @@ export type Database = {
         Insert: {
           address?: string | null
           created_at?: string
+          deleted_at?: string | null
           email: string
           full_name?: string
           id?: string
+          is_deleted?: boolean
+          notes?: string | null
           phone?: string | null
           updated_at?: string
           user_id: string
@@ -185,9 +191,12 @@ export type Database = {
         Update: {
           address?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string
           full_name?: string
           id?: string
+          is_deleted?: boolean
+          notes?: string | null
           phone?: string | null
           updated_at?: string
           user_id?: string

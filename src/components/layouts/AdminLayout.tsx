@@ -29,31 +29,44 @@ import {
   LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createContext, useContext } from "react";
 
-const navItems = [
+type AdminContextType = { isAdmin: boolean; isSales: boolean; isStaff: boolean };
+const AdminContext = createContext<AdminContextType>({ isAdmin: false, isSales: false, isStaff: false });
+export const useAdminRole = () => useContext(AdminContext);
+
+type NavItem = {
+  title: string;
+  url: string;
+  icon: any;
+  adminOnly?: boolean;
+};
+
+const navItems: NavItem[] = [
   { title: "Overview", url: "/admin", icon: LayoutDashboard },
   { title: "Inventory", url: "/admin/inventory", icon: Package },
-  { title: "Pricing", url: "/admin/pricing", icon: DollarSign },
+  { title: "Pricing", url: "/admin/pricing", icon: DollarSign, adminOnly: true },
   { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
   { title: "Appointments", url: "/admin/appointments", icon: Calendar },
   { title: "Availability", url: "/admin/availability", icon: Calendar },
   { title: "Customers", url: "/admin/customers", icon: Users },
-  { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
-  { title: "AI Insights", url: "/admin/ai", icon: Brain },
-  { title: "Legal", url: "/admin/legal", icon: Scale },
-  { title: "Settings", url: "/admin/settings", icon: Settings },
+  { title: "Analytics", url: "/admin/analytics", icon: BarChart3, adminOnly: true },
+  { title: "AI Insights", url: "/admin/ai", icon: Brain, adminOnly: true },
+  { title: "Legal", url: "/admin/legal", icon: Scale, adminOnly: true },
+  { title: "Settings", url: "/admin/settings", icon: Settings, adminOnly: true },
 ];
 
-function AdminSidebar() {
+function AdminSidebar({ isAdmin }: { isAdmin: boolean }) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/login");
   };
+
+  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <Sidebar collapsible="icon">
@@ -68,7 +81,7 @@ function AdminSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -104,9 +117,9 @@ function AdminSidebar() {
 }
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { loading, isAdmin } = useAdminGuard();
+  const { loading, isAdmin, isSales, isStaff } = useAdminGuard();
 
-  if (loading || !isAdmin) {
+  if (loading || !isStaff) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Loading...</p>
@@ -115,17 +128,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AdminSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center border-b bg-background/95 backdrop-blur px-4 gap-3">
-            <SidebarTrigger />
-            <span className="text-sm font-medium text-muted-foreground">Admin Dashboard</span>
-          </header>
-          <main className="flex-1 p-6 overflow-auto">{children}</main>
+    <AdminContext.Provider value={{ isAdmin, isSales, isStaff }}>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <AdminSidebar isAdmin={isAdmin} />
+          <div className="flex-1 flex flex-col min-w-0">
+            <header className="h-14 flex items-center border-b bg-background/95 backdrop-blur px-4 gap-3">
+              <SidebarTrigger />
+              <span className="text-sm font-medium text-muted-foreground">
+                {isAdmin ? "Admin" : "Sales"} Dashboard
+              </span>
+            </header>
+            <main className="flex-1 p-6 overflow-auto">{children}</main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </AdminContext.Provider>
   );
 }

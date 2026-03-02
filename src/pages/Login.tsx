@@ -20,10 +20,21 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error } = await supabase.auth.signInWithPassword(loginForm);
-    setLoading(false);
+    const { data: authData, error } = await supabase.auth.signInWithPassword(loginForm);
     if (error) {
+      setLoading(false);
       setError(error.message);
+      return;
+    }
+    // Check role to redirect appropriately
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", authData.user.id);
+    setLoading(false);
+    const userRoles = (roles || []).map((r) => r.role);
+    if (userRoles.includes("admin") || userRoles.includes("sales")) {
+      navigate("/admin");
     } else {
       navigate("/dashboard");
     }
