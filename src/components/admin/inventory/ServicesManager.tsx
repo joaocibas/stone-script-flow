@@ -23,6 +23,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -31,7 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Pencil, Wrench, DollarSign } from "lucide-react";
+import { Plus, Pencil, Trash2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 
 const CATEGORIES = [
@@ -100,6 +110,7 @@ export function ServicesManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ServiceForm>(emptyForm);
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [deletingItem, setDeletingItem] = useState<ServiceItem | null>(null);
 
   // Fetch service items
   const { data: services = [], isLoading } = useQuery({
@@ -156,6 +167,20 @@ export function ServicesManager() {
       setDialogOpen(false);
       setEditingId(null);
       setForm(emptyForm);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  // Delete service item
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("service_items").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["service-items"] });
+      toast.success("Service deleted");
+      setDeletingItem(null);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -345,9 +370,12 @@ export function ServicesManager() {
                       {item.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
                       <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeletingItem(item)}>
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -386,6 +414,28 @@ export function ServicesManager() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deletingItem?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this service item. The pricing engine will fall back to default values if no items remain for this category.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingItem && deleteMutation.mutate(deletingItem.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
