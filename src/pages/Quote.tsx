@@ -25,6 +25,16 @@ const edgeProfiles = ["Standard Eased", "Beveled", "Bullnose", "Ogee", "Waterfal
 const projectTypes = ["Kitchen Countertops", "Bathroom Vanity", "Island", "Bar Top", "Fireplace Surround", "Other"];
 const timelines = ["ASAP", "1–2 weeks", "1 month", "2–3 months", "Just exploring"];
 const contactMethods = ["Phone", "Email", "Text"];
+const sectionNames = ["Kitchen Counter", "Island", "Bathroom Vanity", "Bar Area", "Laundry", "Outdoor Kitchen", "Commercial", "Other"];
+
+interface CountertopSection {
+  id: string;
+  name: string;
+  customName: string;
+  length: string;
+  depth: string;
+  quantity: string;
+}
 
 interface QuoteResult {
   quote_id: string;
