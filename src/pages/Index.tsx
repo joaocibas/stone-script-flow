@@ -34,6 +34,19 @@ const processSteps = [
 const Index = () => {
   const navigate = useNavigate();
   const co = useCompany();
+  const [homeMaterials, setHomeMaterials] = useState<HomeMaterial[]>(fallbackMaterials);
+
+  useEffect(() => {
+    supabase
+      .from("materials")
+      .select("id, name, description, image_url, category")
+      .eq("is_active", true)
+      .eq("show_on_home" as any, true)
+      .order("display_order")
+      .then(({ data }) => {
+        if (data && data.length > 0) setHomeMaterials(data as HomeMaterial[]);
+      });
+  }, []);
 
   const faqs = [
     { q: "What areas do you serve?", a: `We proudly serve ${co.serviceAreaDescription}.` },
