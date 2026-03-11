@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Brain, Play, Loader2, Clock, TrendingUp, Target,
   DollarSign, AlertTriangle, Mail, BarChart3, ShieldCheck,
+  Search, RefreshCw, Globe, HelpCircle, FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -143,109 +145,331 @@ const AdminAiInsights = () => {
         </div>
       </div>
 
-      {/* Report type cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {latestByType.map((rt) => {
-          const Icon = rt.icon;
-          const isSelected = selectedType === rt.value;
-          const isRunning = runReport.isPending && runReport.variables === rt.value;
-          return (
-            <Card
-              key={rt.value}
-              className={`cursor-pointer transition-all hover:shadow-md ${
-                isSelected ? "ring-2 ring-accent border-accent" : ""
-              }`}
-              onClick={() => setSelectedType(rt.value)}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <Icon className="h-5 w-5 text-accent" />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2"
-                    disabled={runReport.isPending}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      runReport.mutate(rt.value);
-                    }}
-                  >
-                    {isRunning ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <Tabs defaultValue="reports">
+        <TabsList>
+          <TabsTrigger value="reports">Business Reports</TabsTrigger>
+          <TabsTrigger value="seo">SEO Helper</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="reports" className="space-y-6 mt-4">
+          {/* Report type cards grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {latestByType.map((rt) => {
+              const Icon = rt.icon;
+              const isSelected = selectedType === rt.value;
+              const isRunning = runReport.isPending && runReport.variables === rt.value;
+              return (
+                <Card
+                  key={rt.value}
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    isSelected ? "ring-2 ring-accent border-accent" : ""
+                  }`}
+                  onClick={() => setSelectedType(rt.value)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <Icon className="h-5 w-5 text-accent" />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={runReport.isPending}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          runReport.mutate(rt.value);
+                        }}
+                      >
+                        {isRunning ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                    <CardTitle className="text-sm">{rt.label}</CardTitle>
+                    <CardDescription className="text-xs">{rt.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {rt.latest ? (
+                      <p className="text-xs text-muted-foreground">
+                        Last run: {format(new Date(rt.latest.created_at), "MMM d, h:mm a")}
+                      </p>
                     ) : (
-                      <Play className="h-3.5 w-3.5" />
+                      <p className="text-xs text-muted-foreground italic">Never run</p>
                     )}
-                  </Button>
-                </div>
-                <CardTitle className="text-sm">{rt.label}</CardTitle>
-                <CardDescription className="text-xs">{rt.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {rt.latest ? (
-                  <p className="text-xs text-muted-foreground">
-                    Last run: {format(new Date(rt.latest.created_at), "MMM d, h:mm a")}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">Never run</p>
-                )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <Separator />
+
+          {/* Selected report detail */}
+          {selectedReport ? (
+            <ReportDetail report={selectedReport} />
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>No report data for <strong>{getReportLabel(selectedType)}</strong> yet.</p>
+                <p className="text-sm mt-1">Click the play button to generate your first analysis.</p>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
+          )}
 
-      <Separator />
-
-      {/* Selected report detail */}
-      {selectedReport ? (
-        <ReportDetail report={selectedReport} />
-      ) : (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p>No report data for <strong>{getReportLabel(selectedType)}</strong> yet.</p>
-            <p className="text-sm mt-1">Click the play button to generate your first analysis.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Report history */}
-      {reports && reports.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Report History</CardTitle>
-            <CardDescription>Last 50 reports across all types</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {reports.map((r) => (
-                <div
-                  key={r.id}
-                  className={`flex items-center justify-between text-sm p-2 rounded cursor-pointer hover:bg-muted/50 ${
-                    selectedReport?.id === r.id ? "bg-muted" : ""
-                  }`}
-                  onClick={() => setSelectedType(r.report_type)}
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {getReportLabel(r.report_type)}
-                    </Badge>
-                    {r.model_used && (
-                      <span className="text-xs text-muted-foreground">{r.model_used}</span>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {format(new Date(r.created_at), "MMM d, yyyy h:mm a")}
-                  </span>
+          {/* Report history */}
+          {reports && reports.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Report History</CardTitle>
+                <CardDescription>Last 50 reports across all types</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {reports.map((r) => (
+                    <div
+                      key={r.id}
+                      className={`flex items-center justify-between text-sm p-2 rounded cursor-pointer hover:bg-muted/50 ${
+                        selectedReport?.id === r.id ? "bg-muted" : ""
+                      }`}
+                      onClick={() => setSelectedType(r.report_type)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {getReportLabel(r.report_type)}
+                        </Badge>
+                        {r.model_used && (
+                          <span className="text-xs text-muted-foreground">{r.model_used}</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(r.created_at), "MMM d, yyyy h:mm a")}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="seo" className="mt-4">
+          <SeoHelperSection />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
+
+interface SeoResult {
+  titleSuggestions?: Array<{ page: string; title: string; reasoning?: string }>;
+  metaDescriptions?: Array<{ page: string; description: string }>;
+  faqIdeas?: Array<{ question: string; answer: string }>;
+  localSeoIdeas?: string[];
+  servicePageSummaries?: Array<{ service: string; summary: string }>;
+  contentStrategy?: string;
+  raw?: string;
+}
+
+function SeoHelperSection() {
+  const queryClient = useQueryClient();
+
+  const { data: seoAnalysis, isLoading } = useQuery({
+    queryKey: ["seo-ai-analysis"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("lead_ai_analyses")
+        .select("*")
+        .eq("analysis_type", "seo_suggestions")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const runSeo = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("ai-lead-analysis", {
+        body: { analysis_type: "seo_suggestions" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("SEO suggestions generated");
+      queryClient.invalidateQueries({ queryKey: ["seo-ai-analysis"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "AI analysis is temporarily unavailable.");
+    },
+  });
+
+  const result = seoAnalysis?.result_json as unknown as SeoResult | undefined;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Globe className="h-5 w-5 text-accent" />
+            SEO Helper
+          </h2>
+          <p className="text-sm text-muted-foreground">AI-generated SEO content based on your materials, services, and service areas.</p>
+        </div>
+        <Button
+          onClick={() => runSeo.mutate()}
+          disabled={runSeo.isPending}
+        >
+          {runSeo.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : seoAnalysis ? (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          ) : (
+            <Search className="h-4 w-4 mr-2" />
+          )}
+          {seoAnalysis ? "Refresh Suggestions" : "Generate SEO Suggestions"}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      ) : !result ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Globe className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p>Click "Generate SEO Suggestions" to get AI-powered content ideas.</p>
+          </CardContent>
+        </Card>
+      ) : result.raw ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{result.raw}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {result.titleSuggestions && result.titleSuggestions.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-accent" />
+                  SEO Title Suggestions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {result.titleSuggestions.map((t, i) => (
+                  <div key={i} className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">{t.page}</p>
+                    <p className="text-sm font-medium mt-0.5">{t.title}</p>
+                    {t.reasoning && <p className="text-xs text-muted-foreground mt-1 italic">{t.reasoning}</p>}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {result.metaDescriptions && result.metaDescriptions.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Search className="h-4 w-4 text-accent" />
+                  Meta Descriptions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {result.metaDescriptions.map((m, i) => (
+                  <div key={i} className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">{m.page}</p>
+                    <p className="text-sm mt-0.5">{m.description}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {result.faqIdeas && result.faqIdeas.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <HelpCircle className="h-4 w-4 text-accent" />
+                  FAQ Ideas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {result.faqIdeas.map((faq, i) => (
+                  <div key={i} className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm font-medium">{faq.question}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{faq.answer}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {result.localSeoIdeas && result.localSeoIdeas.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-accent" />
+                  Local SEO Content Ideas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1.5">
+                  {result.localSeoIdeas.map((idea, i) => (
+                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-accent font-bold mt-0.5">→</span> {idea}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {result.servicePageSummaries && result.servicePageSummaries.length > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-accent" />
+                  Service Page Summaries
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {result.servicePageSummaries.map((sp, i) => (
+                  <div key={i} className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm font-medium">{sp.service}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{sp.summary}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {result.contentStrategy && (
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Content Strategy</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">{result.contentStrategy}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {seoAnalysis?.created_at && (
+        <p className="text-xs text-muted-foreground text-right">
+          Generated {format(new Date(seoAnalysis.created_at), "MMM d, yyyy h:mm a")}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function ReportDetail({ report }: { report: AiReport }) {
   const result = report.result_json as Record<string, unknown>;
