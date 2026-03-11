@@ -203,6 +203,51 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_ai_analyses: {
+        Row: {
+          analysis_type: string
+          appointment_id: string | null
+          created_at: string
+          id: string
+          lead_id: string | null
+          model_used: string | null
+          result_json: Json
+        }
+        Insert: {
+          analysis_type?: string
+          appointment_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          model_used?: string | null
+          result_json?: Json
+        }
+        Update: {
+          analysis_type?: string
+          appointment_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          model_used?: string | null
+          result_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_ai_analyses_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           city: string
