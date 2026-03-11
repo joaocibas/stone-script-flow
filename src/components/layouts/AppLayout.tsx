@@ -4,6 +4,7 @@ import { Menu, X, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { useCompany } from "@/contexts/BusinessSettingsContext";
 
 interface NavLink {
   href: string;
@@ -22,10 +23,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const flags = useFeatureFlags();
+  const co = useCompany();
 
   const navLinks = allNavLinks.filter(
     (link) => !link.featureKey || flags[link.featureKey]
   );
+
+  // Split company name for accent styling — "Altar Stones" → "Altar" + "Stones"
+  const nameParts = co.companyName.split(" ");
+  const firstName = nameParts.slice(0, -1).join(" ") || nameParts[0];
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -33,10 +40,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="bg-primary text-primary-foreground text-xs py-1.5">
         <div className="container flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> (941) 555-0123</span>
-            <span className="hidden sm:flex items-center gap-1"><MapPin className="h-3 w-3" /> Sarasota, FL</span>
+            <a href={`tel:${co.companyPhone.replace(/\D/g, "")}`} className="flex items-center gap-1 hover:text-accent transition-colors">
+              <Phone className="h-3 w-3" /> {co.companyPhone}
+            </a>
+            <span className="hidden sm:flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> {co.companyAddress}
+            </span>
           </div>
-          <span className="hidden md:block">Licensed & Insured · CBC1234567</span>
+          {co.licensedInsuredEnabled && (
+            <span className="hidden md:block">{co.licensedInsuredText}</span>
+          )}
         </div>
       </div>
 
@@ -44,7 +57,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
         <div className="container flex items-center justify-between h-16">
           <Link to="/" className="font-display text-xl font-semibold tracking-tight">
-            Altar <span className="text-accent">Stones</span>
+            {firstName} {lastName && <span className="text-accent">{lastName}</span>}
           </Link>
 
           {/* Desktop nav */}
@@ -94,6 +107,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 {link.label}
               </Link>
             ))}
+            <div className="pt-3 border-t mt-3 space-y-1 text-sm text-muted-foreground px-3">
+              <a href={`tel:${co.companyPhone.replace(/\D/g, "")}`} className="flex items-center gap-2">
+                <Phone className="h-3 w-3" /> {co.companyPhone}
+              </a>
+              <a href={`mailto:${co.companyEmail}`} className="flex items-center gap-2">
+                {co.companyEmail}
+              </a>
+            </div>
             {flags.customer_portal && (
               <Button asChild size="sm" className="w-full mt-2 bg-accent text-accent-foreground">
                 <Link to="/login" onClick={() => setMobileOpen(false)}>Client Portal</Link>
@@ -112,12 +133,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-2">
               <h3 className="font-display text-xl font-semibold mb-3">
-                Altar <span className="text-accent">Stones</span>
+                {firstName} {lastName && <span className="text-accent">{lastName}</span>}
               </h3>
               <p className="text-primary-foreground/70 text-sm max-w-sm">
-                Premium countertop fabrication & installation serving the Sarasota, FL area. 
+                Premium countertop fabrication & installation serving {co.serviceAreaDescription}.
                 Granite, quartz, marble, and more.
               </p>
+              <div className="mt-4 space-y-1 text-sm text-primary-foreground/70">
+                <a href={`tel:${co.companyPhone.replace(/\D/g, "")}`} className="block hover:text-accent transition-colors">
+                  {co.companyPhone}
+                </a>
+                <a href={`mailto:${co.companyEmail}`} className="block hover:text-accent transition-colors">
+                  {co.companyEmail}
+                </a>
+                <p>{co.companyAddress}</p>
+              </div>
             </div>
             <div>
               <h4 className="font-semibold text-sm uppercase tracking-wider mb-3 text-accent">Quick Links</h4>
@@ -140,7 +170,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="border-t border-primary-foreground/10 mt-8 pt-6 text-xs text-primary-foreground/50 text-center">
-            © {new Date().getFullYear()} Altar Stones Countertops. All rights reserved. Licensed & Insured.
+            © {new Date().getFullYear()} {co.companyName} Countertops. All rights reserved.
+            {co.licensedInsuredEnabled && ` ${co.licensedInsuredText}.`}
           </div>
         </div>
       </footer>

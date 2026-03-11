@@ -72,6 +72,7 @@ const TOGGLE_KEYS = new Set([
   "feature_customer_portal",
   "feature_ai_insights",
   "feature_cookie_consent",
+  "licensed_insured_enabled",
 ]);
 
 const AdminSettings = () => {
