@@ -31,6 +31,7 @@ import AdminAppointments from "./pages/admin/AdminAppointments";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLegal from "./pages/admin/AdminLegal";
+import AdminLeads from "./pages/admin/AdminLeads";
 import Schedule from "./pages/Schedule";
 
 const queryClient = new QueryClient();
