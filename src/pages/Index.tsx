@@ -1,21 +1,15 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Shield, Award, MapPin, Star, ArrowRight, Ruler, Calendar, Eye } from "lucide-react";
+import { Shield, MapPin, Star, ArrowRight, Ruler, Calendar, Eye, Image } from "lucide-react";
+import { motion } from "framer-motion";
 
 const featuredMaterials = [
   { name: "Granite", desc: "Timeless durability with natural beauty", img: null },
   { name: "Quartz", desc: "Engineered elegance with low maintenance", img: null },
   { name: "Marble", desc: "Classic luxury for refined spaces", img: null },
-];
-
-const processSteps = [
-  { icon: Eye, title: "Browse & Select", desc: "Explore our curated collection of premium stone slabs" },
-  { icon: Ruler, title: "Get Your Estimate", desc: "Receive an estimated investment range — no commitment required" },
-  { icon: Calendar, title: "Schedule Consultation", desc: "Book a free in-home measurement with our experts" },
-  { icon: Shield, title: "Relax & Enjoy", desc: "Professional fabrication and installation, fully insured" },
 ];
 
 const faqs = [
