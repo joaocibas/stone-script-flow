@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Users, UserPlus, FileCheck } from "lucide-react";
+import { Search, Users, UserPlus, FileCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
+import { LeadAiAnalysis } from "@/components/admin/LeadAiAnalysis";
 
 interface Lead {
   id: string;
@@ -28,12 +30,14 @@ const statusColor: Record<string, string> = {
   quoted: "bg-green-100 text-green-800",
   contacted: "bg-yellow-100 text-yellow-800",
   converted: "bg-accent/20 text-accent-foreground",
+  appointment_scheduled: "bg-purple-100 text-purple-800",
 };
 
 export default function AdminLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -87,6 +91,7 @@ export default function AdminLeads() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
@@ -98,26 +103,75 @@ export default function AdminLeads() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No leads yet</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No leads yet</TableCell></TableRow>
               ) : (
                 filtered.map((lead) => (
-                  <TableRow key={lead.id}>
-                    <TableCell className="font-medium">{lead.full_name}</TableCell>
-                    <TableCell>{lead.email}</TableCell>
-                    <TableCell>{lead.phone}</TableCell>
-                    <TableCell>{lead.city}</TableCell>
-                    <TableCell>{lead.project_type}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={statusColor[lead.status] || ""}>
-                        {lead.status.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {format(new Date(lead.created_at), "MMM d, yyyy")}
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    <TableRow
+                      key={lead.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setExpandedId(expandedId === lead.id ? null : lead.id)}
+                    >
+                      <TableCell className="px-2">
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                          {expandedId === lead.id ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="font-medium">{lead.full_name}</TableCell>
+                      <TableCell>{lead.email}</TableCell>
+                      <TableCell>{lead.phone}</TableCell>
+                      <TableCell>{lead.city}</TableCell>
+                      <TableCell>{lead.project_type}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={statusColor[lead.status] || ""}>
+                          {lead.status.replace(/_/g, " ")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {format(new Date(lead.created_at), "MMM d, yyyy")}
+                      </TableCell>
+                    </TableRow>
+                    {expandedId === lead.id && (
+                      <TableRow key={`${lead.id}-detail`}>
+                        <TableCell colSpan={8} className="p-4 bg-muted/20">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* Lead Details */}
+                            <Card>
+                              <CardHeader className="pb-2">
+                                <CardTitle className="text-sm">Lead Details</CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-2 text-sm">
+                                {lead.company_name && (
+                                  <div><span className="text-muted-foreground">Company:</span> {lead.company_name}</div>
+                                )}
+                                {lead.timeline && (
+                                  <div><span className="text-muted-foreground">Timeline:</span> {lead.timeline}</div>
+                                )}
+                                {lead.preferred_contact_method && (
+                                  <div><span className="text-muted-foreground">Preferred Contact:</span> {lead.preferred_contact_method}</div>
+                                )}
+                                {lead.notes && (
+                                  <div><span className="text-muted-foreground">Notes:</span> {lead.notes}</div>
+                                )}
+                                {lead.quote_id && (
+                                  <div><span className="text-muted-foreground">Quote:</span> <Badge variant="outline" className="text-xs">Linked</Badge></div>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            {/* AI Analysis */}
+                            <LeadAiAnalysis leadId={lead.id} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 ))
               )}
             </TableBody>

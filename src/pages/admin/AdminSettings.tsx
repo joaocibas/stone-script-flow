@@ -61,7 +61,12 @@ const SETTING_GROUPS: Record<string, { label: string; description: string; keys:
   features: {
     label: "Feature Toggles",
     description: "Enable or disable major platform features without code changes",
-    keys: ["feature_online_booking", "feature_slab_reservation", "feature_instant_quote", "feature_customer_portal", "feature_ai_insights", "feature_cookie_consent"],
+    keys: ["feature_online_booking", "feature_slab_reservation", "feature_instant_quote", "feature_customer_portal", "feature_ai_insights", "feature_cookie_consent", "feature_ai_lead_analysis"],
+  },
+  ai_controls: {
+    label: "AI Analysis Controls",
+    description: "Configure automated AI analysis behavior for leads and appointments",
+    keys: ["ai_auto_analyze_leads", "ai_auto_analyze_appointments"],
   },
 };
 
@@ -74,6 +79,9 @@ const TOGGLE_KEYS = new Set([
   "feature_ai_insights",
   "feature_cookie_consent",
   "licensed_insured_enabled",
+  "feature_ai_lead_analysis",
+  "ai_auto_analyze_leads",
+  "ai_auto_analyze_appointments",
 ]);
 
 const AdminSettings = () => {

@@ -9,7 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Search, Calendar, Users, CheckCircle2, Clock } from "lucide-react";
+import { Search, Calendar, Users, CheckCircle2, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { AppointmentAiBriefing } from "@/components/admin/AppointmentAiBriefing";
 
 type Appointment = Tables<"appointments">;
 
@@ -25,6 +26,7 @@ const AdminAppointments = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -121,6 +123,7 @@ const AdminAppointments = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8"></TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Date / Time</TableHead>
@@ -131,45 +134,65 @@ const AdminAppointments = () => {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((appt) => (
-                    <TableRow key={appt.id}>
-                      <TableCell className="font-medium">{appt.customer_name}</TableCell>
-                      <TableCell>
-                        <p className="text-sm">{appt.customer_email}</p>
-                        {appt.customer_phone && <p className="text-xs text-muted-foreground">{appt.customer_phone}</p>}
-                      </TableCell>
-                      <TableCell>
-                        {appt.preferred_date ? (
-                          <div>
-                            <p className="text-sm">{format(new Date(appt.preferred_date), "MMM d, yyyy")}</p>
-                            {appt.preferred_time && <p className="text-xs text-muted-foreground">{appt.preferred_time}</p>}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Not set</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm">{appt.address}</p>
-                        {appt.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{appt.notes}</p>}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn("text-xs", statusColors[appt.status] || "")}>
-                          {appt.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Select value={appt.status} onValueChange={(v) => updateStatus(appt.id, v)}>
-                          <SelectTrigger className="h-8 w-[130px] text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="requested">Requested</SelectItem>
-                            <SelectItem value="confirmed">Confirmed</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                    </TableRow>
+                    <>
+                      <TableRow
+                        key={appt.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => setExpandedId(expandedId === appt.id ? null : appt.id)}
+                      >
+                        <TableCell className="px-2">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            {expandedId === appt.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          </Button>
+                        </TableCell>
+                        <TableCell className="font-medium">{appt.customer_name}</TableCell>
+                        <TableCell>
+                          <p className="text-sm">{appt.customer_email}</p>
+                          {appt.customer_phone && <p className="text-xs text-muted-foreground">{appt.customer_phone}</p>}
+                        </TableCell>
+                        <TableCell>
+                          {appt.preferred_date ? (
+                            <div>
+                              <p className="text-sm">{format(new Date(appt.preferred_date), "MMM d, yyyy")}</p>
+                              {appt.preferred_time && <p className="text-xs text-muted-foreground">{appt.preferred_time}</p>}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Not set</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm">{appt.address}</p>
+                          {appt.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{appt.notes}</p>}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn("text-xs", statusColors[appt.status] || "")}>
+                            {appt.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Select value={appt.status} onValueChange={(v) => updateStatus(appt.id, v)}>
+                            <SelectTrigger className="h-8 w-[130px] text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="requested">Requested</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                      {expandedId === appt.id && (
+                        <TableRow key={`${appt.id}-detail`}>
+                          <TableCell colSpan={7} className="p-4 bg-muted/20">
+                            <div className="max-w-lg">
+                              <AppointmentAiBriefing appointmentId={appt.id} />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   ))}
                 </TableBody>
               </Table>
