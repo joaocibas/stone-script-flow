@@ -80,7 +80,7 @@ export function LeadAiAnalysis({ leadId }: LeadAiAnalysisProps) {
     },
   });
 
-  const result = analysis?.result_json as AnalysisResult | undefined;
+  const result = analysis?.result_json as unknown as AnalysisResult | undefined;
   const TempIcon = result?.leadTemperature ? (tempIcon[result.leadTemperature] || Brain) : Brain;
 
   return (

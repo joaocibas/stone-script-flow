@@ -141,11 +141,11 @@ export function AppointmentAiBriefing({ appointmentId }: Props) {
             )}
 
             {result.importantFlags?.length ? (
-              <div className="p-3 bg-red-50 rounded-lg border border-red-100">
-                <p className="text-xs font-medium mb-1 text-red-800">⚠️ Important Flags</p>
+              <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                <p className="text-xs font-medium mb-1 text-destructive">⚠️ Important Flags</p>
                 <ul className="space-y-0.5">
                   {result.importantFlags.map((flag, i) => (
-                    <li key={i} className="text-xs text-red-700">{flag}</li>
+                    <li key={i} className="text-xs text-destructive/80">{flag}</li>
                   ))}
                 </ul>
               </div>
