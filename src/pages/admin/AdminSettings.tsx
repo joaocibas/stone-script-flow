@@ -132,11 +132,13 @@ const AdminSettings = () => {
     if (errorCount > 0) {
       toast.error(`Failed to save ${errorCount} setting(s)`);
     } else {
-      toast.success(`Saved ${updates.length} setting(s)`);
+      toast.success(`Saved ${updates.length} setting(s) — storefront updated automatically`);
       // Refresh settings from DB
       const { data } = await supabase.from("business_settings").select("*").order("key");
       if (data) setSettings(data);
       setEditedValues({});
+      // Refresh global provider so storefront picks up changes immediately
+      globalRefresh();
     }
   };
 
