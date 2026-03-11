@@ -58,7 +58,7 @@ const Index = () => {
         <div className="container relative py-24 md:py-36 lg:py-44">
           <div className="max-w-2xl">
             <p className="text-accent font-medium text-sm uppercase tracking-widest mb-4">
-              Premium Countertops · {co.companyAddress}
+              Premium Countertops
             </p>
             <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
               Transform Your Space with Natural Stone
