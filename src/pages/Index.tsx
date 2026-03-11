@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Shield, MapPin, Star, ArrowRight, Ruler, Calendar, Eye, Image } from "lucide-react";
 import { motion } from "framer-motion";
+import { useCompany } from "@/contexts/BusinessSettingsContext";
 
 const featuredMaterials = [
   { name: "Granite", desc: "Timeless durability with natural beauty", img: null },
@@ -19,16 +20,17 @@ const processSteps = [
   { icon: Image, title: "Relax & Enjoy", desc: "Professional fabrication and installation, fully insured", cta: "View Our Work", href: "/gallery", highlight: false },
 ];
 
-const faqs = [
-  { q: "What areas do you serve?", a: "We proudly serve the greater Sarasota, FL area including Bradenton, Venice, Siesta Key, Longboat Key, and surrounding communities." },
-  { q: "How long does a typical project take?", a: "Most countertop projects are completed within 2-3 weeks from measurement to installation, depending on material availability and project complexity." },
-  { q: "Do you offer warranties?", a: "Yes — all our installations come with a comprehensive warranty covering fabrication and installation workmanship." },
-  { q: "Can I reserve a specific slab?", a: "Absolutely. You can reserve any available slab with a refundable deposit to hold it while you finalize your project details." },
-  { q: "What is an 'Estimated Investment Range'?", a: "We provide a transparent range based on your project dimensions and material selection. Final pricing is confirmed after an in-home measurement to account for exact specifications." },
-];
-
 const Index = () => {
   const navigate = useNavigate();
+  const co = useCompany();
+
+  const faqs = [
+    { q: "What areas do you serve?", a: `We proudly serve ${co.serviceAreaDescription}.` },
+    { q: "How long does a typical project take?", a: "Most countertop projects are completed within 2-3 weeks from measurement to installation, depending on material availability and project complexity." },
+    { q: "Do you offer warranties?", a: "Yes — all our installations come with a comprehensive warranty covering fabrication and installation workmanship." },
+    { q: "Can I reserve a specific slab?", a: "Absolutely. You can reserve any available slab with a refundable deposit to hold it while you finalize your project details." },
+    { q: "What is an 'Estimated Investment Range'?", a: "We provide a transparent range based on your project dimensions and material selection. Final pricing is confirmed after an in-home measurement to account for exact specifications." },
+  ];
 
   const handleStepClick = (href: string) => {
     if (href === "/book") {
@@ -55,7 +57,9 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-stone-dark opacity-90" />
         <div className="container relative py-24 md:py-36 lg:py-44">
           <div className="max-w-2xl">
-            <p className="text-accent font-medium text-sm uppercase tracking-widest mb-4">Premium Countertops · Sarasota, FL</p>
+            <p className="text-accent font-medium text-sm uppercase tracking-widest mb-4">
+              Premium Countertops · {co.companyAddress}
+            </p>
             <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
               Transform Your Space with Natural Stone
             </h1>
@@ -138,27 +142,29 @@ const Index = () => {
 
       {/* Trust */}
       <Section>
-        <SectionHeader title="Why Altar Stones" subtitle="Your project deserves the best in craftsmanship and service" />
+        <SectionHeader title={`Why ${co.companyName}`} subtitle="Your project deserves the best in craftsmanship and service" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6">
-            <Shield className="h-10 w-10 text-accent mx-auto mb-4" />
-            <h3 className="font-display text-lg font-semibold mb-2">Licensed & Insured</h3>
-            <p className="text-sm text-muted-foreground">Fully licensed Florida contractor with comprehensive liability and workers' comp coverage.</p>
-          </div>
+          {co.licensedInsuredEnabled && (
+            <div className="text-center p-6">
+              <Shield className="h-10 w-10 text-accent mx-auto mb-4" />
+              <h3 className="font-display text-lg font-semibold mb-2">{co.licensedInsuredText}</h3>
+              <p className="text-sm text-muted-foreground">Fully licensed Florida contractor with comprehensive liability and workers' comp coverage.</p>
+            </div>
+          )}
           <div className="text-center p-6">
             <Star className="h-10 w-10 text-accent mx-auto mb-4" />
             <h3 className="font-display text-lg font-semibold mb-2">5-Star Reviews</h3>
-            <p className="text-sm text-muted-foreground">Consistently rated 5 stars by homeowners throughout the Sarasota area.</p>
+            <p className="text-sm text-muted-foreground">Consistently rated 5 stars by homeowners throughout the {co.companyAddress} area.</p>
           </div>
           <div className="text-center p-6">
             <MapPin className="h-10 w-10 text-accent mx-auto mb-4" />
             <h3 className="font-display text-lg font-semibold mb-2">Local Experts</h3>
-            <p className="text-sm text-muted-foreground">Proudly serving Sarasota, Bradenton, Venice, and surrounding communities.</p>
+            <p className="text-sm text-muted-foreground">Proudly serving {co.serviceAreaDescription}.</p>
           </div>
         </div>
       </Section>
 
-      {/* Testimonials placeholder */}
+      {/* Testimonials */}
       <Section className="bg-primary text-primary-foreground">
         <SectionHeader title="What Our Clients Say" className="[&_h2]:text-primary-foreground [&_p]:text-primary-foreground/60" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

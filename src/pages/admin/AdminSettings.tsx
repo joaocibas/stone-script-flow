@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusinessSettings } from "@/contexts/BusinessSettingsContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,8 +45,8 @@ const SETTING_GROUPS: Record<string, { label: string; description: string; keys:
   },
   company: {
     label: "Company Information",
-    description: "Public company details shown on the storefront",
-    keys: ["company_name", "company_email", "company_phone", "company_address", "service_area_description"],
+    description: "Public company details shown on the storefront — changes update the website automatically",
+    keys: ["company_name", "company_email", "company_phone", "company_address", "service_area_description", "licensed_insured_enabled", "licensed_insured_text"],
   },
   email: {
     label: "Email Configuration",
@@ -72,9 +73,11 @@ const TOGGLE_KEYS = new Set([
   "feature_customer_portal",
   "feature_ai_insights",
   "feature_cookie_consent",
+  "licensed_insured_enabled",
 ]);
 
 const AdminSettings = () => {
+  const { refresh: globalRefresh } = useBusinessSettings();
   const [settings, setSettings] = useState<Setting[]>([]);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -130,11 +133,13 @@ const AdminSettings = () => {
     if (errorCount > 0) {
       toast.error(`Failed to save ${errorCount} setting(s)`);
     } else {
-      toast.success(`Saved ${updates.length} setting(s)`);
+      toast.success(`Saved ${updates.length} setting(s) — storefront updated automatically`);
       // Refresh settings from DB
       const { data } = await supabase.from("business_settings").select("*").order("key");
       if (data) setSettings(data);
       setEditedValues({});
+      // Refresh global provider so storefront picks up changes immediately
+      globalRefresh();
     }
   };
 

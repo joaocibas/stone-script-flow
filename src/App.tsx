@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layouts/AppLayout";
 import { GtmLoader } from "@/components/GtmLoader";
 import { CookieConsent } from "@/components/CookieConsent";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
+import { BusinessSettingsProvider } from "@/contexts/BusinessSettingsContext";
 import Index from "./pages/Index";
 import Materials from "./pages/Materials";
 import MaterialDetail from "./pages/MaterialDetail";
@@ -38,6 +39,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <BusinessSettingsProvider>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -78,6 +80,7 @@ const App = () => (
         <CookieConsent />
       </BrowserRouter>
     </TooltipProvider>
+    </BusinessSettingsProvider>
   </QueryClientProvider>
 );
 
