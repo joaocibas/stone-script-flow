@@ -77,6 +77,7 @@ const TOGGLE_KEYS = new Set([
 ]);
 
 const AdminSettings = () => {
+  const { refresh: globalRefresh } = useBusinessSettings();
   const [settings, setSettings] = useState<Setting[]>([]);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
