@@ -532,21 +532,118 @@ const Quote = () => {
 
           {/* Step 3: Dimensions */}
           {step === 3 && (
-            <div className="space-y-4">
-              <Label className="text-base font-display">Enter Your Countertop Dimensions</Label>
-              <p className="text-sm text-muted-foreground">Approximate measurements are fine — we'll confirm during your consultation.</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="length" className="text-sm">Length (inches)</Label>
-                  <Input id="length" type="number" placeholder="e.g. 96" value={form.length_inches} onChange={(e) => setForm({ ...form, length_inches: e.target.value })} />
-                </div>
-                <div>
-                  <Label htmlFor="width" className="text-sm">Width (inches)</Label>
-                  <Input id="width" type="number" placeholder="e.g. 26" value={form.width_inches} onChange={(e) => setForm({ ...form, width_inches: e.target.value })} />
+            <div className="space-y-6">
+              <div>
+                <Label className="text-base font-display">Enter Your Countertop Dimensions</Label>
+                <p className="text-sm text-muted-foreground mt-1">Approximate measurements are fine — we'll confirm during your consultation.</p>
+              </div>
+
+              {/* Sections */}
+              <div className="space-y-4">
+                {sections.map((section, idx) => {
+                  const sectionSqft = ((Number(section.length) || 0) * (Number(section.depth) || 0) * (Number(section.quantity) || 1)) / 144;
+                  return (
+                    <div key={section.id} className="border border-border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-foreground">Section {idx + 1}</span>
+                        {sections.length > 1 && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeSection(section.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">Section Name</Label>
+                        <Select value={section.name} onValueChange={(v) => updateSection(section.id, "name", v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {sectionNames.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {section.name === "Other" && (
+                        <div>
+                          <Label className="text-sm">Describe the section</Label>
+                          <Input placeholder="e.g. Wet bar top" value={section.customName} onChange={(e) => updateSection(section.id, "customName", e.target.value)} />
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-sm">Length (in)</Label>
+                          <Input type="number" placeholder="96" value={section.length} onChange={(e) => updateSection(section.id, "length", e.target.value)} className="h-11 text-base" />
+                        </div>
+                        <div>
+                          <Label className="text-sm">Depth (in)</Label>
+                          <Input type="number" placeholder="26" value={section.depth} onChange={(e) => updateSection(section.id, "depth", e.target.value)} className="h-11 text-base" />
+                        </div>
+                        <div>
+                          <Label className="text-sm">Qty</Label>
+                          <Input type="number" min="1" placeholder="1" value={section.quantity} onChange={(e) => updateSection(section.id, "quantity", e.target.value)} className="h-11 text-base" />
+                        </div>
+                      </div>
+
+                      {sectionSqft > 0 && (
+                        <p className="text-xs text-muted-foreground">≈ {sectionSqft.toFixed(1)} sq ft</p>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <Button variant="outline" size="sm" className="w-full" onClick={() => setSections((prev) => [...prev, createSection()])}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Another Section
+                </Button>
+              </div>
+
+              {/* Additional Information */}
+              <div className="border-t border-border pt-5">
+                <Label className="text-sm font-medium">Additional Information (Optional)</Label>
+                <Textarea
+                  className="mt-2 min-h-[100px] text-base"
+                  placeholder={"Example:\n• Island overhang\n• Backsplash height\n• Number of sinks\n• Waterfall edge\n• Special cutouts\n• Any additional notes about the project"}
+                  value={additionalInfo}
+                  onChange={(e) => setAdditionalInfo(e.target.value)}
+                />
+              </div>
+
+              {/* Photo Upload */}
+              <div className="border-t border-border pt-5">
+                <Label className="text-sm font-medium">Upload Photos of the Space (Optional)</Label>
+                <p className="text-xs text-muted-foreground mt-1 mb-3">Kitchen photos, layout drawing, or measurements sketch · JPG, PNG, PDF</p>
+                <div className="flex flex-wrap gap-3">
+                  {spacePhotoPreviews.map((preview, i) => (
+                    <div key={i} className="relative w-20 h-20 rounded-md border border-border overflow-hidden bg-muted">
+                      {preview ? (
+                        <img src={preview} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex items-center justify-center w-full h-full text-xs text-muted-foreground">PDF</div>
+                      )}
+                      <button className="absolute top-0.5 right-0.5 bg-background/80 rounded-full p-0.5" onClick={() => removeSpacePhoto(i)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-20 h-20 rounded-md border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-accent/50 transition-colors">
+                    <Camera className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground mt-1">Add</span>
+                    <input type="file" accept=".jpg,.jpeg,.png,.pdf" multiple className="hidden" onChange={handleSpacePhotos} />
+                  </label>
                 </div>
               </div>
-              {Number(form.length_inches) > 0 && Number(form.width_inches) > 0 && (
-                <p className="text-sm text-muted-foreground">≈ {((Number(form.length_inches) * Number(form.width_inches)) / 144).toFixed(1)} sq ft</p>
+
+              {/* Note */}
+              <p className="text-xs text-muted-foreground italic">
+                You can enter approximate measurements. Our team will confirm everything during the consultation.
+              </p>
+
+              {/* Live Summary */}
+              {totalSqft > 0 && (
+                <div className="bg-accent/5 border border-accent/20 rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Estimated Total Square Footage</p>
+                  <p className="text-2xl font-display font-bold text-accent">{totalSqft.toFixed(1)} sq ft</p>
+                </div>
               )}
             </div>
           )}
