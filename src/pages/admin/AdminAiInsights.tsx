@@ -145,106 +145,119 @@ const AdminAiInsights = () => {
         </div>
       </div>
 
-      {/* Report type cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {latestByType.map((rt) => {
-          const Icon = rt.icon;
-          const isSelected = selectedType === rt.value;
-          const isRunning = runReport.isPending && runReport.variables === rt.value;
-          return (
-            <Card
-              key={rt.value}
-              className={`cursor-pointer transition-all hover:shadow-md ${
-                isSelected ? "ring-2 ring-accent border-accent" : ""
-              }`}
-              onClick={() => setSelectedType(rt.value)}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <Icon className="h-5 w-5 text-accent" />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2"
-                    disabled={runReport.isPending}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      runReport.mutate(rt.value);
-                    }}
-                  >
-                    {isRunning ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <Tabs defaultValue="reports">
+        <TabsList>
+          <TabsTrigger value="reports">Business Reports</TabsTrigger>
+          <TabsTrigger value="seo">SEO Helper</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="reports" className="space-y-6 mt-4">
+          {/* Report type cards grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {latestByType.map((rt) => {
+              const Icon = rt.icon;
+              const isSelected = selectedType === rt.value;
+              const isRunning = runReport.isPending && runReport.variables === rt.value;
+              return (
+                <Card
+                  key={rt.value}
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    isSelected ? "ring-2 ring-accent border-accent" : ""
+                  }`}
+                  onClick={() => setSelectedType(rt.value)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <Icon className="h-5 w-5 text-accent" />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={runReport.isPending}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          runReport.mutate(rt.value);
+                        }}
+                      >
+                        {isRunning ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                    <CardTitle className="text-sm">{rt.label}</CardTitle>
+                    <CardDescription className="text-xs">{rt.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {rt.latest ? (
+                      <p className="text-xs text-muted-foreground">
+                        Last run: {format(new Date(rt.latest.created_at), "MMM d, h:mm a")}
+                      </p>
                     ) : (
-                      <Play className="h-3.5 w-3.5" />
+                      <p className="text-xs text-muted-foreground italic">Never run</p>
                     )}
-                  </Button>
-                </div>
-                <CardTitle className="text-sm">{rt.label}</CardTitle>
-                <CardDescription className="text-xs">{rt.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {rt.latest ? (
-                  <p className="text-xs text-muted-foreground">
-                    Last run: {format(new Date(rt.latest.created_at), "MMM d, h:mm a")}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">Never run</p>
-                )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <Separator />
+
+          {/* Selected report detail */}
+          {selectedReport ? (
+            <ReportDetail report={selectedReport} />
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>No report data for <strong>{getReportLabel(selectedType)}</strong> yet.</p>
+                <p className="text-sm mt-1">Click the play button to generate your first analysis.</p>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
+          )}
 
-      <Separator />
-
-      {/* Selected report detail */}
-      {selectedReport ? (
-        <ReportDetail report={selectedReport} />
-      ) : (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p>No report data for <strong>{getReportLabel(selectedType)}</strong> yet.</p>
-            <p className="text-sm mt-1">Click the play button to generate your first analysis.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Report history */}
-      {reports && reports.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Report History</CardTitle>
-            <CardDescription>Last 50 reports across all types</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {reports.map((r) => (
-                <div
-                  key={r.id}
-                  className={`flex items-center justify-between text-sm p-2 rounded cursor-pointer hover:bg-muted/50 ${
-                    selectedReport?.id === r.id ? "bg-muted" : ""
-                  }`}
-                  onClick={() => setSelectedType(r.report_type)}
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {getReportLabel(r.report_type)}
-                    </Badge>
-                    {r.model_used && (
-                      <span className="text-xs text-muted-foreground">{r.model_used}</span>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {format(new Date(r.created_at), "MMM d, yyyy h:mm a")}
-                  </span>
+          {/* Report history */}
+          {reports && reports.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Report History</CardTitle>
+                <CardDescription>Last 50 reports across all types</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {reports.map((r) => (
+                    <div
+                      key={r.id}
+                      className={`flex items-center justify-between text-sm p-2 rounded cursor-pointer hover:bg-muted/50 ${
+                        selectedReport?.id === r.id ? "bg-muted" : ""
+                      }`}
+                      onClick={() => setSelectedType(r.report_type)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {getReportLabel(r.report_type)}
+                        </Badge>
+                        {r.model_used && (
+                          <span className="text-xs text-muted-foreground">{r.model_used}</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(r.created_at), "MMM d, yyyy h:mm a")}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="seo" className="mt-4">
+          <SeoHelperSection />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
