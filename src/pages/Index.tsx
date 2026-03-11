@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Section, SectionHeader } from "@/components/shared/Section";
@@ -6,12 +7,21 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Shield, MapPin, Star, ArrowRight, Ruler, Calendar, Eye, Image } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCompany } from "@/contexts/BusinessSettingsContext";
+import { supabase } from "@/integrations/supabase/client";
 
-const featuredMaterials = [
-  { name: "Granite", desc: "Timeless durability with natural beauty", img: null },
-  { name: "Quartz", desc: "Engineered elegance with low maintenance", img: null },
-  { name: "Quartzite", desc: "Natural beauty with high durability and unique movement", img: null },
-  { name: "Marble", desc: "Classic luxury for refined spaces", img: null },
+interface HomeMaterial {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  category: string;
+}
+
+const fallbackMaterials: HomeMaterial[] = [
+  { id: "granite", name: "Granite", description: "Timeless durability with natural beauty", image_url: null, category: "granite" },
+  { id: "quartz", name: "Quartz", description: "Engineered elegance with low maintenance", image_url: null, category: "quartz" },
+  { id: "quartzite", name: "Quartzite", description: "Natural beauty with high durability and unique movement", image_url: null, category: "quartzite" },
+  { id: "marble", name: "Marble", description: "Classic luxury for refined spaces", image_url: null, category: "marble" },
 ];
 
 const processSteps = [
@@ -24,6 +34,20 @@ const processSteps = [
 const Index = () => {
   const navigate = useNavigate();
   const co = useCompany();
+  const [homeMaterials, setHomeMaterials] = useState<HomeMaterial[]>(fallbackMaterials);
+
+  useEffect(() => {
+    supabase
+      .from("materials")
+      .select("id, name, description, image_url, category, show_on_home")
+      .eq("is_active", true)
+      .order("display_order")
+      .then(({ data }: { data: any[] | null }) => {
+        const homeVisible = (data || []).filter((m: any) => m.show_on_home);
+        if (homeVisible.length > 0) setHomeMaterials(homeVisible);
+        else if (data && data.length > 0) setHomeMaterials(data.slice(0, 4));
+      });
+  }, []);
 
   const faqs = [
     { q: "What areas do you serve?", a: `We proudly serve ${co.serviceAreaDescription}.` },
@@ -82,16 +106,20 @@ const Index = () => {
       {/* Featured Materials */}
       <Section>
         <SectionHeader title="Our Materials" subtitle="Choose from the finest natural and engineered stone for your project" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredMaterials.map((mat) => (
-            <Card key={mat.name} className="group border-0 shadow-sm hover:shadow-md transition-all overflow-hidden">
-              <div className="aspect-[4/3] bg-secondary flex items-center justify-center">
-                <span className="text-muted-foreground font-display text-2xl">{mat.name}</span>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${homeMaterials.length <= 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-6`}>
+          {homeMaterials.map((mat) => (
+            <Card key={mat.id} className="group border-0 shadow-sm hover:shadow-md transition-all overflow-hidden">
+              <div className="aspect-[4/3] bg-secondary overflow-hidden flex items-center justify-center">
+                {mat.image_url ? (
+                  <img src={mat.image_url} alt={mat.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                ) : (
+                  <span className="text-muted-foreground font-display text-2xl">{mat.name}</span>
+                )}
               </div>
               <CardContent className="p-5">
                 <h3 className="font-display text-lg font-semibold">{mat.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{mat.desc}</p>
-                <Link to="/materials" className="text-accent text-sm font-medium mt-3 inline-flex items-center gap-1 hover:gap-2 transition-all">
+                <p className="text-sm text-muted-foreground mt-1">{mat.description}</p>
+                <Link to={`/materials/${mat.id}`} className="text-accent text-sm font-medium mt-3 inline-flex items-center gap-1 hover:gap-2 transition-all">
                   Explore <ArrowRight className="h-3 w-3" />
                 </Link>
               </CardContent>
