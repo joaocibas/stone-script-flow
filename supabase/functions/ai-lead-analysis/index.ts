@@ -7,12 +7,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ANALYSIS_TYPES = ["lead_qualification", "appointment_briefing"] as const;
+const ANALYSIS_TYPES = ["lead_qualification", "appointment_briefing", "seo_suggestions"] as const;
 type AnalysisType = (typeof ANALYSIS_TYPES)[number];
 
 const PROMPTS: Record<AnalysisType, string> = {
   lead_qualification: `You are a sales analyst for a countertop company in Sarasota, FL. Analyze the provided lead data and return structured analysis. Consider: project type, city, dimensions, material, options, whether files were uploaded, whether an appointment was scheduled, timeline urgency, and completeness of information.`,
   appointment_briefing: `You are a field operations coordinator for a countertop company. Based on the appointment and related lead/quote data, generate a concise consultation briefing for the estimator visiting the client. Include what to confirm on-site, likely needs, and preparation notes.`,
+  seo_suggestions: `You are an SEO expert specializing in local SEO for home improvement and countertop businesses in the Sarasota, FL area. Based on the provided business context (materials, services, service areas), generate actionable SEO content suggestions including page titles, meta descriptions, FAQ ideas, and local content strategies.`,
 };
 
 function getToolSchema(type: AnalysisType) {
@@ -33,6 +34,24 @@ function getToolSchema(type: AnalysisType) {
           followUpActions: { type: "array", items: { type: "string" } },
         },
         required: ["leadTemperature", "temperatureReasoning", "projectSummary", "missingInformation", "recommendedNextAction", "salesNotes", "followUpPriority", "followUpActions"],
+      },
+    };
+  }
+  if (type === "seo_suggestions") {
+    return {
+      name: "return_seo_suggestions",
+      description: "Return structured SEO suggestions",
+      parameters: {
+        type: "object",
+        properties: {
+          titleSuggestions: { type: "array", items: { type: "object", properties: { page: { type: "string" }, title: { type: "string" }, reasoning: { type: "string" } }, required: ["page", "title"] } },
+          metaDescriptions: { type: "array", items: { type: "object", properties: { page: { type: "string" }, description: { type: "string" } }, required: ["page", "description"] } },
+          faqIdeas: { type: "array", items: { type: "object", properties: { question: { type: "string" }, answer: { type: "string" } }, required: ["question", "answer"] } },
+          localSeoIdeas: { type: "array", items: { type: "string" } },
+          servicePageSummaries: { type: "array", items: { type: "object", properties: { service: { type: "string" }, summary: { type: "string" } }, required: ["service", "summary"] } },
+          contentStrategy: { type: "string" },
+        },
+        required: ["titleSuggestions", "metaDescriptions", "faqIdeas", "localSeoIdeas"],
       },
     };
   }
