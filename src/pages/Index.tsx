@@ -1,9 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Shield, Award, MapPin, Star, ArrowRight, Ruler, Calendar, Eye } from "lucide-react";
+import { Shield, MapPin, Star, ArrowRight, Ruler, Calendar, Eye, Image } from "lucide-react";
+import { motion } from "framer-motion";
 
 const featuredMaterials = [
   { name: "Granite", desc: "Timeless durability with natural beauty", img: null },
@@ -12,10 +13,10 @@ const featuredMaterials = [
 ];
 
 const processSteps = [
-  { icon: Eye, title: "Browse & Select", desc: "Explore our curated collection of premium stone slabs" },
-  { icon: Ruler, title: "Get Your Estimate", desc: "Receive an estimated investment range — no commitment required" },
-  { icon: Calendar, title: "Schedule Consultation", desc: "Book a free in-home measurement with our experts" },
-  { icon: Shield, title: "Relax & Enjoy", desc: "Professional fabrication and installation, fully insured" },
+  { icon: Eye, title: "Browse & Select", desc: "Explore our curated collection of premium stone slabs", cta: "Browse Materials", href: "/materials", highlight: false },
+  { icon: Ruler, title: "Get Your Estimate", desc: "Receive an estimated investment range — no commitment required", cta: "Start My Estimate", href: "/quote", highlight: true },
+  { icon: Calendar, title: "Schedule Consultation", desc: "Book a free in-home measurement with our experts", cta: "Book Free Consultation", href: "/book", highlight: false },
+  { icon: Image, title: "Relax & Enjoy", desc: "Professional fabrication and installation, fully insured", cta: "View Our Work", href: "/gallery", highlight: false },
 ];
 
 const faqs = [
@@ -27,6 +28,26 @@ const faqs = [
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
+
+  const handleStepClick = (href: string) => {
+    if (href === "/book") {
+      const draft = localStorage.getItem("estimator_draft_v1");
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          if (parsed.leadId) {
+            navigate("/quote", { state: { jumpToSchedule: true } });
+            return;
+          }
+        } catch { /* ignore */ }
+      }
+      navigate("/quote");
+      return;
+    }
+    navigate(href);
+  };
+
   return (
     <>
       {/* Hero */}
@@ -79,14 +100,38 @@ const Index = () => {
         <SectionHeader title="How It Works" subtitle="From selection to installation, we make it effortless" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {processSteps.map((step, i) => (
-            <div key={step.title} className="text-center">
-              <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
+            <motion.div
+              key={step.title}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1, duration: 0.4 }}
+              onClick={() => handleStepClick(step.href)}
+              className={`text-center cursor-pointer rounded-xl p-6 transition-all hover:shadow-lg hover:-translate-y-1 ${
+                step.highlight
+                  ? "bg-primary text-primary-foreground ring-2 ring-accent shadow-md"
+                  : "bg-card"
+              }`}
+            >
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                step.highlight ? "bg-accent/20" : "bg-accent/10"
+              }`}>
                 <step.icon className="h-6 w-6 text-accent" />
               </div>
               <p className="text-xs text-accent font-semibold mb-1">Step {i + 1}</p>
               <h3 className="font-display text-lg font-semibold mb-2">{step.title}</h3>
-              <p className="text-sm text-muted-foreground">{step.desc}</p>
-            </div>
+              <p className={`text-sm mb-4 ${step.highlight ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{step.desc}</p>
+              <Button
+                size="sm"
+                className={step.highlight
+                  ? "bg-accent text-accent-foreground hover:bg-accent/90 w-full"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90 w-full"
+                }
+                onClick={(e) => { e.stopPropagation(); handleStepClick(step.href); }}
+              >
+                {step.cta} <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </motion.div>
           ))}
         </div>
       </Section>
