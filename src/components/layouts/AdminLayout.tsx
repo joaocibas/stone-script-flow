@@ -23,6 +23,7 @@ import {
   ShoppingCart,
   Calendar,
   Users,
+  UserPlus,
   BarChart3,
   Brain,
   Scale,
