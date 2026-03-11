@@ -203,6 +203,65 @@ export type Database = {
         }
         Relationships: []
       }
+      leads: {
+        Row: {
+          city: string
+          company_name: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          notes: string | null
+          phone: string
+          preferred_contact_method: string | null
+          project_type: string
+          quote_id: string | null
+          status: string
+          timeline: string | null
+          updated_at: string
+        }
+        Insert: {
+          city: string
+          company_name?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          notes?: string | null
+          phone: string
+          preferred_contact_method?: string | null
+          project_type: string
+          quote_id?: string | null
+          status?: string
+          timeline?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string
+          company_name?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          notes?: string | null
+          phone?: string
+          preferred_contact_method?: string | null
+          project_type?: string
+          quote_id?: string | null
+          status?: string
+          timeline?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           category: string
