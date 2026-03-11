@@ -177,7 +177,16 @@ serve(async (req) => {
       }
     }
 
-    if (!contextData.lead && !contextData.appointment) {
+    // For SEO suggestions, gather business context instead of lead/appointment data
+    if (type === "seo_suggestions") {
+      const { data: materials } = await supabaseAdmin.from("materials").select("name, category, description").eq("is_active", true);
+      const { data: serviceAreas } = await supabaseAdmin.from("service_areas").select("city, zip_code").eq("is_active", true);
+      const { data: services } = await supabaseAdmin.from("service_items").select("name, category").eq("is_active", true);
+      const { data: settings } = await supabaseAdmin.from("business_settings").select("key, value").in("key", ["company_name", "company_phone", "company_email", "company_address", "service_area_label"]);
+      contextData = { materials, serviceAreas, services, businessInfo: settings };
+    }
+
+    if (!contextData.lead && !contextData.appointment && type !== "seo_suggestions") {
       return new Response(JSON.stringify({ error: "No data found for the given ID" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
