@@ -256,15 +256,18 @@ const Quote = () => {
       if (layoutFile && !layoutUrl) {
         uploadedUrl = await uploadLayout();
       }
-      const lengthIn = Number(form.length_inches);
-      const widthIn = Number(form.width_inches);
-      const calculatedSqft = (lengthIn * widthIn) / 144;
+      // Compute aggregate dimensions from sections
+      const totalLength = sections.reduce((sum, s) => sum + (Number(s.length) || 0) * (Number(s.quantity) || 1), 0);
+      const avgDepth = sections.length > 0
+        ? sections.reduce((sum, s) => sum + (Number(s.depth) || 0), 0) / sections.length
+        : 0;
+      const calculatedSqft = totalSqft;
 
       const { data, error: fnError } = await supabase.functions.invoke("calculate-quote", {
         body: {
           material_id: form.material_id,
-          length_inches: lengthIn,
-          width_inches: widthIn,
+          length_inches: totalLength || 1,
+          width_inches: Math.round(avgDepth) || 1,
           edge_profile: form.edge_profile || undefined,
           num_cutouts: Number(form.num_cutouts),
           layout_url: uploadedUrl,
