@@ -227,7 +227,7 @@ const Quote = () => {
     if (step === 0) return isLeadValid();
     if (step === 1) return true; // Layout optional
     if (step === 2) return !!form.material_id;
-    if (step === 3) return Number(form.length_inches) > 0 && Number(form.width_inches) > 0;
+    if (step === 3) return sections.some((s) => Number(s.length) > 0 && Number(s.depth) > 0);
     if (step === 4) return true;
     return false;
   };
