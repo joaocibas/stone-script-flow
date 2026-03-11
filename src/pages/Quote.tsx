@@ -76,6 +76,60 @@ const Quote = () => {
   const [result, setResult] = useState<QuoteResult | null>(null);
   const [error, setError] = useState("");
 
+  const createSection = (): CountertopSection => ({
+    id: crypto.randomUUID(),
+    name: "Kitchen Counter",
+    customName: "",
+    length: "",
+    depth: "",
+    quantity: "1",
+  });
+
+  const [sections, setSections] = useState<CountertopSection[]>([createSection()]);
+  const [additionalInfo, setAdditionalInfo] = useState("");
+  const [spacePhotos, setSpacePhotos] = useState<File[]>([]);
+  const [spacePhotoPreviews, setSpacePhotoPreviews] = useState<string[]>([]);
+
+  const totalSqft = useMemo(() => {
+    return sections.reduce((sum, s) => {
+      const l = Number(s.length) || 0;
+      const d = Number(s.depth) || 0;
+      const q = Number(s.quantity) || 1;
+      return sum + (l * d * q) / 144;
+    }, 0);
+  }, [sections]);
+
+  const updateSection = (id: string, field: keyof CountertopSection, value: string) => {
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+  };
+
+  const removeSection = (id: string) => {
+    if (sections.length <= 1) return;
+    setSections((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleSpacePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validTypes = ["application/pdf", "image/jpeg", "image/png"];
+    const valid = files.filter((f) => validTypes.includes(f.type) && f.size <= 10 * 1024 * 1024);
+    if (valid.length === 0) return;
+    setSpacePhotos((prev) => [...prev, ...valid]);
+    valid.forEach((file) => {
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (ev) => setSpacePhotoPreviews((prev) => [...prev, ev.target?.result as string]);
+        reader.readAsDataURL(file);
+      } else {
+        setSpacePhotoPreviews((prev) => [...prev, ""]);
+      }
+    });
+  };
+
+  const removeSpacePhoto = (index: number) => {
+    setSpacePhotos((prev) => prev.filter((_, i) => i !== index));
+    setSpacePhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   useEffect(() => {
     supabase
       .from("materials")
