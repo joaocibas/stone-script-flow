@@ -10,6 +10,7 @@ import { useCompany } from "@/contexts/BusinessSettingsContext";
 const featuredMaterials = [
   { name: "Granite", desc: "Timeless durability with natural beauty", img: null },
   { name: "Quartz", desc: "Engineered elegance with low maintenance", img: null },
+  { name: "Quartzite", desc: "Natural beauty with high durability and unique movement", img: null },
   { name: "Marble", desc: "Classic luxury for refined spaces", img: null },
 ];
 
