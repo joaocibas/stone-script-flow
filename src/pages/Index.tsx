@@ -10,6 +10,7 @@ import { useCompany } from "@/contexts/BusinessSettingsContext";
 const featuredMaterials = [
   { name: "Granite", desc: "Timeless durability with natural beauty", img: null },
   { name: "Quartz", desc: "Engineered elegance with low maintenance", img: null },
+  { name: "Quartzite", desc: "Natural beauty with high durability and unique movement", img: null },
   { name: "Marble", desc: "Classic luxury for refined spaces", img: null },
 ];
 
@@ -81,7 +82,7 @@ const Index = () => {
       {/* Featured Materials */}
       <Section>
         <SectionHeader title="Our Materials" subtitle="Choose from the finest natural and engineered stone for your project" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {featuredMaterials.map((mat) => (
             <Card key={mat.name} className="group border-0 shadow-sm hover:shadow-md transition-all overflow-hidden">
               <div className="aspect-[4/3] bg-secondary flex items-center justify-center">
