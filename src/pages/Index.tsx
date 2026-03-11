@@ -105,16 +105,20 @@ const Index = () => {
       {/* Featured Materials */}
       <Section>
         <SectionHeader title="Our Materials" subtitle="Choose from the finest natural and engineered stone for your project" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredMaterials.map((mat) => (
-            <Card key={mat.name} className="group border-0 shadow-sm hover:shadow-md transition-all overflow-hidden">
-              <div className="aspect-[4/3] bg-secondary flex items-center justify-center">
-                <span className="text-muted-foreground font-display text-2xl">{mat.name}</span>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${homeMaterials.length <= 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-6`}>
+          {homeMaterials.map((mat) => (
+            <Card key={mat.id} className="group border-0 shadow-sm hover:shadow-md transition-all overflow-hidden">
+              <div className="aspect-[4/3] bg-secondary overflow-hidden flex items-center justify-center">
+                {mat.image_url ? (
+                  <img src={mat.image_url} alt={mat.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                ) : (
+                  <span className="text-muted-foreground font-display text-2xl">{mat.name}</span>
+                )}
               </div>
               <CardContent className="p-5">
                 <h3 className="font-display text-lg font-semibold">{mat.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{mat.desc}</p>
-                <Link to="/materials" className="text-accent text-sm font-medium mt-3 inline-flex items-center gap-1 hover:gap-2 transition-all">
+                <p className="text-sm text-muted-foreground mt-1">{mat.description}</p>
+                <Link to={`/materials/${mat.id}`} className="text-accent text-sm font-medium mt-3 inline-flex items-center gap-1 hover:gap-2 transition-all">
                   Explore <ArrowRight className="h-3 w-3" />
                 </Link>
               </CardContent>
