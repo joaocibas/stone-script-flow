@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Section, SectionHeader } from "@/components/shared/Section";
@@ -6,12 +7,21 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Shield, MapPin, Star, ArrowRight, Ruler, Calendar, Eye, Image } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCompany } from "@/contexts/BusinessSettingsContext";
+import { supabase } from "@/integrations/supabase/client";
 
-const featuredMaterials = [
-  { name: "Granite", desc: "Timeless durability with natural beauty", img: null },
-  { name: "Quartz", desc: "Engineered elegance with low maintenance", img: null },
-  { name: "Quartzite", desc: "Natural beauty with high durability and unique movement", img: null },
-  { name: "Marble", desc: "Classic luxury for refined spaces", img: null },
+interface HomeMaterial {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  category: string;
+}
+
+const fallbackMaterials: HomeMaterial[] = [
+  { id: "granite", name: "Granite", description: "Timeless durability with natural beauty", image_url: null, category: "granite" },
+  { id: "quartz", name: "Quartz", description: "Engineered elegance with low maintenance", image_url: null, category: "quartz" },
+  { id: "quartzite", name: "Quartzite", description: "Natural beauty with high durability and unique movement", image_url: null, category: "quartzite" },
+  { id: "marble", name: "Marble", description: "Classic luxury for refined spaces", image_url: null, category: "marble" },
 ];
 
 const processSteps = [
