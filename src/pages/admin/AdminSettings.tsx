@@ -79,6 +79,9 @@ const TOGGLE_KEYS = new Set([
   "feature_ai_insights",
   "feature_cookie_consent",
   "licensed_insured_enabled",
+  "feature_ai_lead_analysis",
+  "ai_auto_analyze_leads",
+  "ai_auto_analyze_appointments",
 ]);
 
 const AdminSettings = () => {
