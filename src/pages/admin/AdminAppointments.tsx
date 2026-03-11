@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Search, Calendar, Users, CheckCircle2, Clock } from "lucide-react";
 
