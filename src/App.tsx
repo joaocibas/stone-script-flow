@@ -33,6 +33,7 @@ import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLegal from "./pages/admin/AdminLegal";
 import AdminLeads from "./pages/admin/AdminLeads";
+import AdminSeo from "./pages/admin/AdminSeo";
 import Schedule from "./pages/Schedule";
 
 const queryClient = new QueryClient();
@@ -73,6 +74,7 @@ const App = () => (
           <Route path="/admin/leads" element={<AdminLayout><AdminLeads /></AdminLayout>} />
           <Route path="/admin/analytics" element={<AdminLayout><AdminAnalytics /></AdminLayout>} />
           <Route path="/admin/ai" element={<AdminLayout><AdminAiInsights /></AdminLayout>} />
+          <Route path="/admin/seo" element={<AdminLayout><AdminSeo /></AdminLayout>} />
           <Route path="/admin/legal" element={<AdminLayout><AdminLegal /></AdminLayout>} />
 
           <Route path="*" element={<NotFound />} />

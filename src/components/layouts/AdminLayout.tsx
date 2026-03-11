@@ -27,6 +27,7 @@ import {
   BarChart3,
   Brain,
   Scale,
+  Search,
   LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
   { title: "Leads", url: "/admin/leads", icon: UserPlus },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3, adminOnly: true },
   { title: "AI Insights", url: "/admin/ai", icon: Brain, adminOnly: true },
+  { title: "SEO", url: "/admin/seo", icon: Search, adminOnly: true },
   { title: "Legal", url: "/admin/legal", icon: Scale, adminOnly: true },
   { title: "Settings", url: "/admin/settings", icon: Settings, adminOnly: true },
 ];
