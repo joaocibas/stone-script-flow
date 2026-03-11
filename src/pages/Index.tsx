@@ -39,12 +39,13 @@ const Index = () => {
   useEffect(() => {
     supabase
       .from("materials")
-      .select("id, name, description, image_url, category")
+      .select("id, name, description, image_url, category, show_on_home")
       .eq("is_active", true)
       .order("display_order")
-      .then(({ data }: { data: any }) => {
-        const filtered = (data || []).filter((m: any) => m.show_on_home !== false);
-        if (filtered.length > 0) setHomeMaterials(filtered);
+      .then(({ data }: { data: any[] | null }) => {
+        const homeVisible = (data || []).filter((m: any) => m.show_on_home);
+        if (homeVisible.length > 0) setHomeMaterials(homeVisible);
+        else if (data && data.length > 0) setHomeMaterials(data.slice(0, 4));
       });
   }, []);
 
