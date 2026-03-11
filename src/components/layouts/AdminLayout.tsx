@@ -27,6 +27,7 @@ import {
   BarChart3,
   Brain,
   Scale,
+  Search,
   LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
