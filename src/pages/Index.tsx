@@ -41,10 +41,10 @@ const Index = () => {
       .from("materials")
       .select("id, name, description, image_url, category")
       .eq("is_active", true)
-      .eq("show_on_home" as any, true)
       .order("display_order")
-      .then(({ data }) => {
-        if (data && data.length > 0) setHomeMaterials(data as HomeMaterial[]);
+      .then(({ data }: { data: any }) => {
+        const filtered = (data || []).filter((m: any) => m.show_on_home !== false);
+        if (filtered.length > 0) setHomeMaterials(filtered);
       });
   }, []);
 
