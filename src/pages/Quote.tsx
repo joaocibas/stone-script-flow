@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
-import { ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors, DollarSign, UserPlus } from "lucide-react";
+import { ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors, DollarSign, UserPlus, Plus, Trash2, Camera } from "lucide-react";
 
 const steps = [
   { label: "Your Info", icon: UserPlus },
