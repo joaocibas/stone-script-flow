@@ -51,6 +51,7 @@ const navItems: NavItem[] = [
   { title: "Appointments", url: "/admin/appointments", icon: Calendar },
   { title: "Availability", url: "/admin/availability", icon: Calendar },
   { title: "Customers", url: "/admin/customers", icon: Users },
+  { title: "Leads", url: "/admin/leads", icon: UserPlus },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3, adminOnly: true },
   { title: "AI Insights", url: "/admin/ai", icon: Brain, adminOnly: true },
   { title: "Legal", url: "/admin/legal", icon: Scale, adminOnly: true },
