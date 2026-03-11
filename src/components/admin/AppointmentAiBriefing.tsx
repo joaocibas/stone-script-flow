@@ -59,7 +59,7 @@ export function AppointmentAiBriefing({ appointmentId }: Props) {
     },
   });
 
-  const result = analysis?.result_json as BriefingResult | undefined;
+  const result = analysis?.result_json as unknown as BriefingResult | undefined;
 
   return (
     <Card className="border-accent/20">
