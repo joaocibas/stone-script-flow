@@ -44,8 +44,8 @@ const SETTING_GROUPS: Record<string, { label: string; description: string; keys:
   },
   company: {
     label: "Company Information",
-    description: "Public company details shown on the storefront",
-    keys: ["company_name", "company_email", "company_phone", "company_address", "service_area_description"],
+    description: "Public company details shown on the storefront — changes update the website automatically",
+    keys: ["company_name", "company_email", "company_phone", "company_address", "service_area_description", "licensed_insured_enabled", "licensed_insured_text"],
   },
   email: {
     label: "Email Configuration",
