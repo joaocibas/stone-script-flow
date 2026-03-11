@@ -313,10 +313,12 @@ export type Database = {
           created_at: string
           description: string | null
           display_order: number
+          gallery_image_urls: string[] | null
           id: string
           image_url: string | null
           is_active: boolean
           name: string
+          show_on_home: boolean
           updated_at: string
         }
         Insert: {
@@ -324,10 +326,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           display_order?: number
+          gallery_image_urls?: string[] | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           name: string
+          show_on_home?: boolean
           updated_at?: string
         }
         Update: {
@@ -335,10 +339,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           display_order?: number
+          gallery_image_urls?: string[] | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           name?: string
+          show_on_home?: boolean
           updated_at?: string
         }
         Relationships: []
