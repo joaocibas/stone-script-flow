@@ -131,6 +131,8 @@ export const SlabsManager = () => {
   const openEdit = async (s: Slab) => {
     setEditing(s);
     setForm({
+      name: (s as any).name ?? "",
+      description: (s as any).description ?? "",
       material_id: s.material_id,
       length_inches: s.length_inches,
       width_inches: s.width_inches,
