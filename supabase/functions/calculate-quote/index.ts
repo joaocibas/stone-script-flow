@@ -223,7 +223,17 @@ Deno.serve(async (req) => {
     }
 
     // ── 4. Slabs needed & cost ──
-    const slabsNeeded = Math.ceil(areaWithOverage / slabStandardMax);
+    // Use the selected slab's usable area to determine how many slabs are needed
+    let slabUsableSqft = slabStandardMax; // fallback to business setting
+    if (selectedSlab) {
+      if (selectedSlab.usable_sqft_override != null && Number(selectedSlab.usable_sqft_override) > 0) {
+        slabUsableSqft = Number(selectedSlab.usable_sqft_override);
+      } else if (selectedSlab.length_inches && selectedSlab.width_inches) {
+        const slabArea = (Number(selectedSlab.length_inches) * Number(selectedSlab.width_inches)) / 144;
+        if (slabArea > 0) slabUsableSqft = slabArea;
+      }
+    }
+    const slabsNeeded = Math.ceil(areaWithOverage / slabUsableSqft);
 
     let avgSlabValue = 0;
     if (selectedSlab?.sales_value != null) {
