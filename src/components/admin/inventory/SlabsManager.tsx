@@ -367,7 +367,15 @@ export const SlabsManager = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Material</Label>
+              <Label>Slab Name *</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Calacatta Lazaro" />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. White quartz with soft gray veining" rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label>Material Group</Label>
               <Select value={form.material_id} onValueChange={(v) => setForm({ ...form, material_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
                 <SelectContent>
