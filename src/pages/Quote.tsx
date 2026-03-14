@@ -548,7 +548,7 @@ const Quote = () => {
               </div>
               <div>
                 <Label htmlFor="lead_email" className="text-sm">Email Address *</Label>
-                <Input id="lead_email" type="email" placeholder="jane@example.com" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} />
+                <Input id="lead_email" type="email" placeholder="jane@example.com" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} disabled={!!loggedInCustomer} className={loggedInCustomer ? "bg-muted" : ""} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
