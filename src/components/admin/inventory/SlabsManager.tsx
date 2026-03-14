@@ -299,7 +299,8 @@ export const SlabsManager = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Material</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Group</TableHead>
                 <TableHead>Dimensions</TableHead>
                 <TableHead>Thickness</TableHead>
                 <TableHead>Lot #</TableHead>
