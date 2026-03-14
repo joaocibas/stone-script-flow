@@ -400,7 +400,7 @@ const Quote = () => {
         sqft: quoteResult.calculated_sqft, material: selectedMaterial?.name,
         range_min: quoteResult.range_min, range_max: quoteResult.range_max,
       });
-      setStep(5);
+      setStep(6);
     } catch (err: any) {
       setError(err.message || "Failed to calculate estimate. Please try again.");
     } finally {
