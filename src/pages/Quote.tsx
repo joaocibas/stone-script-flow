@@ -65,7 +65,8 @@ interface QuoteResult {
 const Quote = () => {
   const [step, setStep] = useState(0);
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
-  const [leadForm, setLeadForm] = useState({
+  const [slabsForMaterial, setSlabsForMaterial] = useState<any[]>([]);
+  const [slabsLoading, setSlabsLoading] = useState(false);
     full_name: "", phone: "", email: "", city: "", project_type: "",
     company_name: "", timeline: "", preferred_contact_method: "", notes: "",
   });
