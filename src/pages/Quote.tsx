@@ -895,8 +895,8 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 6: Schedule Consultation */}
-          {step === 6 && (
+          {/* Step 7: Schedule Consultation */}
+          {step === 7 && (
             <div className="space-y-5">
               <div>
                 <Label className="text-base font-display">Schedule Your Free Consultation</Label>
