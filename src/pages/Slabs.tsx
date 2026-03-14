@@ -22,7 +22,7 @@ const Slabs = () => {
   }, []);
 
   useEffect(() => {
-    let query = supabase.from("slabs").select("*, materials(name)");
+    let query = supabase.from("slabs").select("*, materials(name)") as any;
     if (materialFilter !== "all") query = query.eq("material_id", materialFilter);
     if (statusFilter !== "all") query = query.eq("status", statusFilter as any);
 
@@ -90,10 +90,12 @@ const Slabs = () => {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filtered.map((slab) => (
-            <SlabCard
+          <SlabCard
               key={slab.id}
               id={slab.id}
+              name={slab.name || ""}
               materialName={slab.materials?.name || "Unknown"}
+              description={slab.description}
               lengthInches={slab.length_inches}
               widthInches={slab.width_inches}
               thickness={slab.thickness}
