@@ -25,13 +25,15 @@ const CustomerDashboard = () => {
   const [editing, setEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "", address: "" });
 
+  const { user: authUser, loading: authLoading } = useAuth();
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        navigate("/login");
-        return;
-      }
-      setUser(data.user);
+    if (authLoading) return;
+    if (!authUser) {
+      navigate("/login");
+      return;
+    }
+    setUser(authUser);
 
       supabase.from("customers").select("*").eq("user_id", data.user.id).single().then(({ data: cust }) => {
         if (!cust) { setLoading(false); return; }
