@@ -10,6 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
 import { format } from "date-fns";
