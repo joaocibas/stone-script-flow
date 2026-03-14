@@ -757,11 +757,13 @@ export type Database = {
           best_option_notes: string | null
           best_option_preset: string | null
           created_at: string
+          description: string
           id: string
           image_urls: string[] | null
           length_inches: number
           lot_number: string | null
           material_id: string
+          name: string
           notes: string | null
           overage_pct_override: number | null
           purchase_value: number | null
@@ -776,11 +778,13 @@ export type Database = {
           best_option_notes?: string | null
           best_option_preset?: string | null
           created_at?: string
+          description?: string
           id?: string
           image_urls?: string[] | null
           length_inches: number
           lot_number?: string | null
           material_id: string
+          name?: string
           notes?: string | null
           overage_pct_override?: number | null
           purchase_value?: number | null
@@ -795,11 +799,13 @@ export type Database = {
           best_option_notes?: string | null
           best_option_preset?: string | null
           created_at?: string
+          description?: string
           id?: string
           image_urls?: string[] | null
           length_inches?: number
           lot_number?: string | null
           material_id?: string
+          name?: string
           notes?: string | null
           overage_pct_override?: number | null
           purchase_value?: number | null

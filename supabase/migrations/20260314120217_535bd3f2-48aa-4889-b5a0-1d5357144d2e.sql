@@ -1,0 +1,2 @@
+ALTER TABLE public.slabs ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT '';
+ALTER TABLE public.slabs ADD COLUMN IF NOT EXISTS description text NOT NULL DEFAULT '';
