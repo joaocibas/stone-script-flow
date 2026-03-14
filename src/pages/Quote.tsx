@@ -910,8 +910,8 @@ const Quote = () => {
                 <ArrowLeft className="mr-1 h-4 w-4" /> Back
               </Button>
               {step === 0 ? (
-                <Button onClick={handleNext} disabled={!canNext() || submitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                  {submitting ? "Saving..." : "Continue Your Estimate"} <ArrowRight className="ml-1 h-4 w-4" />
+                <Button onClick={handleNext} disabled={!canNext() || submitting || customerLoading} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  {submitting ? "Saving..." : loggedInCustomer ? "Confirm & Continue" : "Continue Your Estimate"} <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
               ) : step < 4 ? (
                 <Button onClick={() => setStep(step + 1)} disabled={!canNext()} className="bg-accent text-accent-foreground hover:bg-accent/90">
