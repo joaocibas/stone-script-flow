@@ -368,7 +368,7 @@ const Quote = () => {
         await supabase.from("quotes").update({ customer_id: loggedInCustomer.id }).eq("id", quoteResult.quote_id);
       }
 
-      if (leadId && quoteResult.quote_id) {
+      if (!loggedInCustomer && leadId && quoteResult.quote_id) {
         await supabase.from("leads").update({ quote_id: quoteResult.quote_id, status: "quoted" }).eq("id", leadId);
       }
       trackEvent("sqft_calculated", {
