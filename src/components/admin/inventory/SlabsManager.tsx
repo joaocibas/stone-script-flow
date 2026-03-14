@@ -59,6 +59,8 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
 type SlabStatus = "available" | "reserved" | "sold" | "archived";
 
 const emptyForm = {
+  name: "",
+  description: "",
   material_id: "",
   length_inches: 0,
   width_inches: 0,
