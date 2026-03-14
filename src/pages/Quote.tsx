@@ -347,11 +347,17 @@ const Quote = () => {
           layout_url: uploadedUrl,
           reference_measurement_inches: Number(form.reference_measurement_inches) || undefined,
           calculated_sqft: totalSqft > 0 ? totalSqft : undefined,
+          customer_id: loggedInCustomer?.id || undefined,
         },
       });
       if (fnError) throw fnError;
       const quoteResult = data as QuoteResult;
       setResult(quoteResult);
+
+      // Link quote to customer if logged in
+      if (loggedInCustomer && quoteResult.quote_id) {
+        await supabase.from("quotes").update({ customer_id: loggedInCustomer.id }).eq("id", quoteResult.quote_id);
+      }
 
       if (leadId && quoteResult.quote_id) {
         await supabase.from("leads").update({ quote_id: quoteResult.quote_id, status: "quoted" }).eq("id", leadId);
