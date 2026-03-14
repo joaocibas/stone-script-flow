@@ -59,6 +59,8 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
 type SlabStatus = "available" | "reserved" | "sold" | "archived";
 
 const emptyForm = {
+  name: "",
+  description: "",
   material_id: "",
   length_inches: 0,
   width_inches: 0,
@@ -129,6 +131,8 @@ export const SlabsManager = () => {
   const openEdit = async (s: Slab) => {
     setEditing(s);
     setForm({
+      name: (s as any).name ?? "",
+      description: (s as any).description ?? "",
       material_id: s.material_id,
       length_inches: s.length_inches,
       width_inches: s.width_inches,
@@ -193,6 +197,8 @@ export const SlabsManager = () => {
 
     setSaving(true);
     const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
       material_id: form.material_id,
       length_inches: form.length_inches,
       width_inches: form.width_inches,
@@ -293,7 +299,8 @@ export const SlabsManager = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Material</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Group</TableHead>
                 <TableHead>Dimensions</TableHead>
                 <TableHead>Thickness</TableHead>
                 <TableHead>Lot #</TableHead>
@@ -308,8 +315,11 @@ export const SlabsManager = () => {
               {filteredSlabs.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell>
+                    <span className="font-medium">{(s as any).name || s.lot_number || "—"}</span>
+                  </TableCell>
+                  <TableCell>
                     <div>
-                      <span className="font-medium">{s.materials?.name ?? "—"}</span>
+                      <span className="text-sm">{s.materials?.name ?? "—"}</span>
                       <span className="text-xs text-muted-foreground ml-1.5 capitalize">
                         {s.materials?.category}
                       </span>
@@ -342,7 +352,7 @@ export const SlabsManager = () => {
               ))}
               {filteredSlabs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                     {slabs.length === 0
                       ? "No slabs yet. Add your first slab to get started."
                       : "No slabs match the current filters."}
@@ -361,7 +371,15 @@ export const SlabsManager = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Material</Label>
+              <Label>Slab Name *</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Calacatta Lazaro" />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. White quartz with soft gray veining" rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label>Material Group</Label>
               <Select value={form.material_id} onValueChange={(v) => setForm({ ...form, material_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
                 <SelectContent>
