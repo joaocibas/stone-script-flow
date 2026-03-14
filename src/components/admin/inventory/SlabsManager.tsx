@@ -315,8 +315,11 @@ export const SlabsManager = () => {
               {filteredSlabs.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell>
+                    <span className="font-medium">{(s as any).name || s.lot_number || "—"}</span>
+                  </TableCell>
+                  <TableCell>
                     <div>
-                      <span className="font-medium">{s.materials?.name ?? "—"}</span>
+                      <span className="text-sm">{s.materials?.name ?? "—"}</span>
                       <span className="text-xs text-muted-foreground ml-1.5 capitalize">
                         {s.materials?.category}
                       </span>
