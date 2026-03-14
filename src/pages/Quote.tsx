@@ -10,12 +10,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
 import { format } from "date-fns";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors,
-  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays,
+  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package,
 } from "lucide-react";
 
 const DRAFT_KEY = "estimator_draft_v1";
@@ -23,7 +24,8 @@ const DRAFT_KEY = "estimator_draft_v1";
 const steps = [
   { label: "Your Info", icon: UserPlus },
   { label: "Upload Layout", icon: Upload },
-  { label: "Material", icon: Layers },
+  { label: "Material Group", icon: Layers },
+  { label: "Select Product", icon: Package },
   { label: "Dimensions", icon: Ruler },
   { label: "Options", icon: Scissors },
   { label: "Your Estimate", icon: DollarSign },
@@ -63,6 +65,8 @@ interface QuoteResult {
 const Quote = () => {
   const [step, setStep] = useState(0);
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
+  const [slabsForMaterial, setSlabsForMaterial] = useState<any[]>([]);
+  const [slabsLoading, setSlabsLoading] = useState(false);
   const [leadForm, setLeadForm] = useState({
     full_name: "", phone: "", email: "", city: "", project_type: "",
     company_name: "", timeline: "", preferred_contact_method: "", notes: "",
@@ -74,7 +78,7 @@ const Quote = () => {
   const [customerLoading, setCustomerLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [form, setForm] = useState({
-    material_id: "", length_inches: "", width_inches: "",
+    material_id: "", slab_id: "", length_inches: "", width_inches: "",
     edge_profile: "", num_cutouts: "0", reference_measurement_inches: "",
   });
   const [layoutFile, setLayoutFile] = useState<File | null>(null);
@@ -228,6 +232,25 @@ const Quote = () => {
   }, []);
 
   const selectedMaterial = materials.find((m) => m.id === form.material_id);
+  const selectedSlab = slabsForMaterial.find((s) => s.id === form.slab_id);
+
+  // Fetch slabs when material group changes
+  useEffect(() => {
+    if (!form.material_id) { setSlabsForMaterial([]); return; }
+    setSlabsLoading(true);
+    setForm((prev) => ({ ...prev, slab_id: "" }));
+    supabase
+      .from("slabs")
+      .select("id, lot_number, thickness, length_inches, width_inches, image_urls, notes, materials(name)")
+      .eq("material_id", form.material_id)
+      .eq("status", "available")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setSlabsForMaterial(data || []);
+        setSlabsLoading(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.material_id]);
 
   const isLeadValid = () =>
     leadForm.full_name.trim() !== "" && leadForm.phone.trim() !== "" &&
@@ -318,8 +341,9 @@ const Quote = () => {
     if (step === 0) return isLeadValid();
     if (step === 1) return true;
     if (step === 2) return !!form.material_id;
-    if (step === 3) return sections.some((s) => Number(s.length) > 0 && Number(s.depth) > 0);
-    if (step === 4) return true;
+    if (step === 3) return !!form.slab_id;
+    if (step === 4) return sections.some((s) => Number(s.length) > 0 && Number(s.depth) > 0);
+    if (step === 5) return true;
     return false;
   };
 
@@ -349,6 +373,7 @@ const Quote = () => {
       const { data, error: fnError } = await supabase.functions.invoke("calculate-quote", {
         body: {
           material_id: form.material_id,
+          slab_id: form.slab_id || undefined,
           length_inches: totalLength || 1,
           width_inches: Math.round(avgDepth) || 1,
           edge_profile: form.edge_profile || undefined,
@@ -375,7 +400,7 @@ const Quote = () => {
         sqft: quoteResult.calculated_sqft, material: selectedMaterial?.name,
         range_min: quoteResult.range_min, range_max: quoteResult.range_max,
       });
-      setStep(5);
+      setStep(6);
     } catch (err: any) {
       setError(err.message || "Failed to calculate estimate. Please try again.");
     } finally {
@@ -393,7 +418,7 @@ const Quote = () => {
       email: prev.email || leadForm.email,
       city: prev.city || leadForm.city,
     }));
-    setStep(6);
+    setStep(7);
   };
 
   const isScheduleValid = () =>
@@ -472,7 +497,7 @@ const Quote = () => {
                 setLayoutUrl(null);
                 setLeadId(null);
                 setLeadForm({ full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" });
-                setForm({ material_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
+                setForm({ material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
                 setSections([createSection()]);
                 setScheduleForm({ preferred_date: null, preferred_time: "", full_name: "", phone: "", email: "", address: "", city: "", consultation_type: "", notes: "" });
               }}
@@ -655,15 +680,16 @@ const Quote = () => {
           {/* Step 2: Material */}
           {step === 2 && (
             <div className="space-y-4">
-              <Label className="text-base font-display">Select Your Material</Label>
+              <Label className="text-base font-display">Select Material Group</Label>
+              <p className="text-sm text-muted-foreground">Choose a material category to see available products.</p>
               <div className="grid grid-cols-1 gap-2">
                 {materials.map((mat) => (
-                  <button key={mat.id} onClick={() => { setForm({ ...form, material_id: mat.id }); handleEstimatorStart(); }}
+                  <button key={mat.id} onClick={() => { setForm({ ...form, material_id: mat.id, slab_id: "" }); handleEstimatorStart(); }}
                     className={cn("p-4 rounded-lg border text-left transition-all",
                       form.material_id === mat.id ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
                     )}>
                     <p className="font-medium">{mat.name}</p>
-                    <p className="text-sm text-muted-foreground">{mat.category}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{mat.category}</p>
                   </button>
                 ))}
                 {materials.length === 0 && <p className="text-muted-foreground text-sm">Loading materials...</p>}
@@ -671,8 +697,50 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 3: Dimensions */}
+          {/* Step 3: Select Product (Slab) */}
           {step === 3 && (
+            <div className="space-y-4">
+              <Label className="text-base font-display">Select Your Product</Label>
+              <p className="text-sm text-muted-foreground">
+                Choose a slab from <strong>{selectedMaterial?.name}</strong> to continue.
+              </p>
+              {slabsLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : slabsForMaterial.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  No available slabs in this group. Please go back and choose a different material.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {slabsForMaterial.map((slab) => {
+                    const sqft = ((slab.length_inches * slab.width_inches) / 144).toFixed(1);
+                    const mainImg = slab.image_urls?.[0];
+                    return (
+                      <button key={slab.id} onClick={() => setForm({ ...form, slab_id: slab.id })}
+                        className={cn("p-4 rounded-lg border text-left transition-all flex gap-4 items-center",
+                          form.slab_id === slab.id ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
+                        )}>
+                        {mainImg && (
+                          <img src={mainImg} alt="Slab" className="w-16 h-16 rounded object-cover flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium">{slab.materials?.name || "Slab"}{slab.lot_number ? ` — ${slab.lot_number}` : ""}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {slab.length_inches}″ × {slab.width_inches}″ · {slab.thickness} · {sqft} sqft
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Dimensions */}
+          {step === 4 && (
             <div className="space-y-6">
               <div>
                 <Label className="text-base font-display">Enter Your Countertop Dimensions</Label>
@@ -765,8 +833,8 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 4: Options */}
-          {step === 4 && (
+          {/* Step 5: Options */}
+          {step === 5 && (
             <div className="space-y-4">
               <Label className="text-base font-display">Customize Your Project</Label>
               <div>
@@ -785,13 +853,13 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 5: Result */}
-          {step === 5 && result && (
+          {/* Step 6: Result */}
+          {step === 6 && result && (
             <div className="text-center py-4">
               <CheckCircle2 className="h-12 w-12 text-accent mx-auto mb-4" />
               <h3 className="font-display text-2xl font-semibold mb-2">Your Preliminary Estimate</h3>
               <div className="bg-accent/5 rounded-lg p-6 my-6">
-                <p className="text-sm text-muted-foreground mb-1">{selectedMaterial?.name} · {result.calculated_sqft} sq ft</p>
+                <p className="text-sm text-muted-foreground mb-1">{selectedSlab ? `${selectedMaterial?.name} — ${selectedSlab.lot_number || "Slab"}` : selectedMaterial?.name} · {result.calculated_sqft} sq ft</p>
                 <p className="font-display text-3xl font-bold text-accent">{formatCurrency(result.range_min)} — {formatCurrency(result.range_max)}</p>
                 <p className="text-xs text-muted-foreground mt-2">Includes material, fabrication & installation</p>
               </div>
@@ -818,7 +886,7 @@ const Quote = () => {
                   clearDraft();
                   setStep(0); setResult(null); setLayoutFile(null); setLayoutPreview(null); setLayoutUrl(null); setLeadId(null);
                   setLeadForm({ full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" });
-                  setForm({ material_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
+                  setForm({ material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
                   setSections([createSection()]);
                 }}>
                   Start New Estimate
@@ -827,8 +895,8 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 6: Schedule Consultation */}
-          {step === 6 && (
+          {/* Step 7: Schedule Consultation */}
+          {step === 7 && (
             <div className="space-y-5">
               <div>
                 <Label className="text-base font-display">Schedule Your Free Consultation</Label>
@@ -913,7 +981,7 @@ const Quote = () => {
           {error && <p className="text-destructive text-sm mt-3">{error}</p>}
 
           {/* Navigation */}
-          {step < 5 && (
+          {step < 6 && (
             <div className="flex justify-between mt-8">
               <Button variant="ghost" onClick={() => setStep(step - 1)} disabled={step === 0}>
                 <ArrowLeft className="mr-1 h-4 w-4" /> Back
@@ -922,7 +990,7 @@ const Quote = () => {
                 <Button onClick={handleNext} disabled={!canNext() || submitting || customerLoading} className="bg-accent text-accent-foreground hover:bg-accent/90">
                   {submitting ? "Saving..." : loggedInCustomer ? "Confirm & Continue" : "Continue Your Estimate"} <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
-              ) : step < 4 ? (
+              ) : step < 5 ? (
                 <Button onClick={() => setStep(step + 1)} disabled={!canNext()} className="bg-accent text-accent-foreground hover:bg-accent/90">
                   Next <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
@@ -934,10 +1002,10 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 6 navigation */}
-          {step === 6 && (
+          {/* Step 7 navigation */}
+          {step === 7 && (
             <div className="flex justify-between mt-8">
-              <Button variant="ghost" onClick={() => setStep(5)}>
+              <Button variant="ghost" onClick={() => setStep(6)}>
                 <ArrowLeft className="mr-1 h-4 w-4" /> Back
               </Button>
               <Button onClick={handleConfirmAppointment} disabled={!isScheduleValid() || submitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
