@@ -425,8 +425,8 @@ const Quote = () => {
       });
       if (apptErr) throw apptErr;
 
-      // Update lead status
-      if (leadId) {
+      // Update lead status (only for non-logged-in users who created a lead)
+      if (!loggedInCustomer && leadId) {
         await supabase.from("leads").update({ status: "appointment_scheduled" }).eq("id", leadId);
       }
 
