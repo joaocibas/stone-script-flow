@@ -341,8 +341,9 @@ const Quote = () => {
     if (step === 0) return isLeadValid();
     if (step === 1) return true;
     if (step === 2) return !!form.material_id;
-    if (step === 3) return sections.some((s) => Number(s.length) > 0 && Number(s.depth) > 0);
-    if (step === 4) return true;
+    if (step === 3) return !!form.slab_id;
+    if (step === 4) return sections.some((s) => Number(s.length) > 0 && Number(s.depth) > 0);
+    if (step === 5) return true;
     return false;
   };
 
