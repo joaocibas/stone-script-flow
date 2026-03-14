@@ -149,8 +149,8 @@ Deno.serve(async (req) => {
     // If a specific slab is referenced, fetch its best_option overrides + assigned services
     if (body.slab_id) {
       fetchPromises.push(
-        supabase.from("slabs")
-          .select("best_option_preset, usable_sqft_override, overage_pct_override, sales_value")
+      supabase.from("slabs")
+          .select("best_option_preset, usable_sqft_override, overage_pct_override, sales_value, length_inches, width_inches")
           .eq("id", body.slab_id)
           .single()
       );

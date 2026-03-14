@@ -352,7 +352,7 @@ export const SlabsManager = () => {
               ))}
               {filteredSlabs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                     {slabs.length === 0
                       ? "No slabs yet. Add your first slab to get started."
                       : "No slabs match the current filters."}

@@ -870,18 +870,40 @@ const Quote = () => {
               <CheckCircle2 className="h-12 w-12 text-accent mx-auto mb-4" />
               <h3 className="font-display text-2xl font-semibold mb-2">Your Preliminary Estimate</h3>
               <div className="bg-accent/5 rounded-lg p-6 my-6">
-                <p className="text-sm text-muted-foreground mb-1">{selectedSlab ? `${selectedMaterial?.name} — ${selectedSlab.lot_number || "Slab"}` : selectedMaterial?.name} · {result.calculated_sqft} sq ft</p>
                 <p className="font-display text-3xl font-bold text-accent">{formatCurrency(result.range_min)} — {formatCurrency(result.range_max)}</p>
                 <p className="text-xs text-muted-foreground mt-2">Includes material, fabrication & installation</p>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-left bg-secondary/50 rounded-lg p-4 mb-6">
-                <div>
-                  <p className="text-xs text-muted-foreground">Slab Category</p>
-                  <p className="text-sm font-medium">{result.slab_category}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Slabs Needed</p>
-                  <p className="text-sm font-medium">{result.slabs_needed}</p>
+              <div className="text-left bg-secondary/50 rounded-lg p-4 mb-6 space-y-3">
+                {selectedSlab && (
+                  <div className="flex gap-3">
+                    {selectedSlab.image_urls?.[0] && (
+                      <img src={selectedSlab.image_urls[0]} alt={selectedSlab.name || "Slab"} className="w-14 h-14 rounded object-cover flex-shrink-0" />
+                    )}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Selected Product</p>
+                      <p className="text-sm font-medium">{selectedSlab.name || selectedMaterial?.name || "Slab"}</p>
+                      {selectedSlab.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{selectedSlab.description}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {selectedSlab.length_inches}″ × {selectedSlab.width_inches}″ · {selectedSlab.thickness}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Project Area</p>
+                    <p className="text-sm font-medium">{result.calculated_sqft} sq ft</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Slab Category</p>
+                    <p className="text-sm font-medium">{result.slab_category}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Slabs Needed</p>
+                    <p className="text-sm font-medium">{result.slabs_needed}</p>
+                  </div>
                 </div>
               </div>
               <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
