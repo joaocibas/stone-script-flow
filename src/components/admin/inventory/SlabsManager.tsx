@@ -259,6 +259,21 @@ export const SlabsManager = () => {
     load();
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase
+      .from("slabs")
+      .update({ status: "archived" as any })
+      .eq("id", deleteTarget.id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Slab archived successfully");
+      load();
+    }
+    setDeleteTarget(null);
+  };
+
   const filteredSlabs = slabs.filter((s) => {
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     if (materialFilter !== "all" && s.material_id !== materialFilter) return false;
