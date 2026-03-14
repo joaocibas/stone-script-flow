@@ -68,12 +68,16 @@ const SlabDetail = () => {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Badge variant="secondary">{slab.materials?.category}</Badge>
+            <Badge variant="secondary" className="text-xs">{slab.materials?.name}</Badge>
             <Badge className={slab.status === "available" ? "bg-sage text-white" : "bg-muted text-muted-foreground"}>
               {slab.status}
             </Badge>
           </div>
 
-          <h1 className="font-display text-3xl font-bold mb-2">{slab.materials?.name}</h1>
+          <h1 className="font-display text-3xl font-bold mb-2">{slab.name || slab.materials?.name}</h1>
+          {slab.description && (
+            <p className="text-muted-foreground mb-4">{slab.description}</p>
+          )}
 
           <div className="space-y-3 my-6">
             <div className="flex items-center gap-3 text-sm">
