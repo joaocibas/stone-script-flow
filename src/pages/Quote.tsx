@@ -197,6 +197,36 @@ const Quote = () => {
       .then(({ data }) => setMaterials(data || []));
   }, []);
 
+  // Detect logged-in customer and pre-fill form
+  useEffect(() => {
+    const loadCustomer = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setCustomerLoading(false); return; }
+      // Check if user has customer role
+      const { data: roles } = await supabase
+        .from("user_roles").select("role").eq("user_id", session.user.id);
+      const isCustomer = (roles || []).some((r) => r.role === "customer");
+      if (!isCustomer) { setCustomerLoading(false); return; }
+      // Fetch customer profile
+      const { data: cust } = await supabase
+        .from("customers").select("*").eq("user_id", session.user.id).single();
+      if (cust) {
+        setLoggedInCustomer(cust);
+        // Pre-fill lead form from customer profile (only if not already restored from draft)
+        setLeadForm((prev) => ({
+          ...prev,
+          full_name: prev.full_name || cust.full_name || "",
+          phone: prev.phone || cust.phone || "",
+          email: prev.email || cust.email || "",
+          city: prev.city || cust.address || "",
+          // Keep other fields from draft or empty
+        }));
+      }
+      setCustomerLoading(false);
+    };
+    loadCustomer();
+  }, []);
+
   const selectedMaterial = materials.find((m) => m.id === form.material_id);
 
   const isLeadValid = () =>
