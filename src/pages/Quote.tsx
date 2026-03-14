@@ -739,8 +739,8 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 3: Dimensions */}
-          {step === 3 && (
+          {/* Step 4: Dimensions */}
+          {step === 4 && (
             <div className="space-y-6">
               <div>
                 <Label className="text-base font-display">Enter Your Countertop Dimensions</Label>
