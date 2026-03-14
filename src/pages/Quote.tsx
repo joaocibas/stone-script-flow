@@ -886,7 +886,7 @@ const Quote = () => {
                   clearDraft();
                   setStep(0); setResult(null); setLayoutFile(null); setLayoutPreview(null); setLayoutUrl(null); setLeadId(null);
                   setLeadForm({ full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" });
-                  setForm({ material_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
+                  setForm({ material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
                   setSections([createSection()]);
                 }}>
                   Start New Estimate
