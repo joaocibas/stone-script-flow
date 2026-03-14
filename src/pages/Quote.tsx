@@ -507,13 +507,29 @@ const Quote = () => {
 
       <Card className="max-w-xl mx-auto border-0 shadow-sm">
         <CardContent className="p-6 md:p-8">
-          {/* Step 0: Lead Info */}
+          {/* Step 0: Lead Info / Customer Confirm */}
           {step === 0 && (
             <div className="space-y-4">
-              <Label className="text-base font-display">Tell Us About You & Your Project</Label>
+              {customerLoading ? (
+                <div className="h-32 flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Loading your profile...</p>
+                </div>
+              ) : (
+              <>
+              <Label className="text-base font-display">
+                {loggedInCustomer ? "Confirm or Update Your Information" : "Tell Us About You & Your Project"}
+              </Label>
               <p className="text-sm text-muted-foreground">
-                We'll use this to prepare your personalized estimate and follow up with you.
+                {loggedInCustomer
+                  ? "We've loaded your profile. Review your details below and update anything that's changed before continuing."
+                  : "We'll use this to prepare your personalized estimate and follow up with you."}
               </p>
+              {loggedInCustomer && (
+                <div className="bg-accent/5 border border-accent/20 rounded-lg p-3 flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-accent flex-shrink-0" />
+                  <span>Signed in as <strong>{loggedInCustomer.email}</strong> — your estimate will be linked to your account.</span>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="lead_name" className="text-sm">Full Name *</Label>
