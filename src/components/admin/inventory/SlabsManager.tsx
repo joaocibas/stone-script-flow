@@ -98,6 +98,9 @@ export const SlabsManager = () => {
   const [materialFilter, setMaterialFilter] = useState<string>("all");
   const [sizePresets, setSizePresets] = useState<SlabSizePreset[]>([]);
   const [serviceAssignments, setServiceAssignments] = useState<SlabServiceAssignment[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<Slab | null>(null);
+  const { isAdmin } = useUserRole();
+
   const load = useCallback(async () => {
     const [slabsRes, matsRes, presetsRes] = await Promise.all([
       supabase
