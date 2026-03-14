@@ -1002,10 +1002,10 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 6 navigation */}
-          {step === 6 && (
+          {/* Step 7 navigation */}
+          {step === 7 && (
             <div className="flex justify-between mt-8">
-              <Button variant="ghost" onClick={() => setStep(5)}>
+              <Button variant="ghost" onClick={() => setStep(6)}>
                 <ArrowLeft className="mr-1 h-4 w-4" /> Back
               </Button>
               <Button onClick={handleConfirmAppointment} disabled={!isScheduleValid() || submitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
