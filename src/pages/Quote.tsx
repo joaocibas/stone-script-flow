@@ -418,7 +418,7 @@ const Quote = () => {
       email: prev.email || leadForm.email,
       city: prev.city || leadForm.city,
     }));
-    setStep(6);
+    setStep(7);
   };
 
   const isScheduleValid = () =>
