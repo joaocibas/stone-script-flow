@@ -15,9 +15,17 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Loader2, ImagePlus, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Loader2, ImagePlus, Trash2, X, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { SlabServiceAssignments, type SlabServiceAssignment } from "./SlabServiceAssignments";
+import { useUserRole } from "@/hooks/useUserRole";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Slab {
   id: string;
