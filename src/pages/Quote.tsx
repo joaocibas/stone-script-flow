@@ -238,6 +238,23 @@ const Quote = () => {
     setSubmitting(true);
     setError("");
     try {
+      // If logged-in customer, save profile updates and skip lead creation
+      if (loggedInCustomer) {
+        setProfileSaving(true);
+        const { error: updateErr } = await supabase.from("customers").update({
+          full_name: leadForm.full_name.trim(),
+          phone: leadForm.phone.trim() || null,
+          address: leadForm.city.trim() || null,
+        }).eq("id", loggedInCustomer.id);
+        if (updateErr) throw updateErr;
+        setLoggedInCustomer({ ...loggedInCustomer, full_name: leadForm.full_name.trim(), phone: leadForm.phone.trim() || null, address: leadForm.city.trim() || null });
+        setProfileSaving(false);
+        trackEvent("estimator_start", { customer_id: loggedInCustomer.id, project_type: leadForm.project_type });
+        setStep(1);
+        return;
+      }
+
+      // Non-logged-in: create lead as before
       const { data, error: insertErr } = await supabase.from("leads").insert({
         full_name: leadForm.full_name.trim(), phone: leadForm.phone.trim(),
         email: leadForm.email.trim(), city: leadForm.city.trim(),
@@ -253,6 +270,7 @@ const Quote = () => {
       setStep(1);
     } catch (err: any) {
       setError(err.message || "Failed to save your info. Please try again.");
+      setProfileSaving(false);
     } finally {
       setSubmitting(false);
     }
