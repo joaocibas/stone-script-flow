@@ -575,6 +575,24 @@ export const SlabsManager = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Archive confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this slab?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteTarget?.materials?.name} — {(deleteTarget as any)?.name || deleteTarget?.lot_number}" will be archived and hidden from active inventory. This can be reversed by changing the status back.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
