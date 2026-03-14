@@ -859,7 +859,7 @@ const Quote = () => {
               <CheckCircle2 className="h-12 w-12 text-accent mx-auto mb-4" />
               <h3 className="font-display text-2xl font-semibold mb-2">Your Preliminary Estimate</h3>
               <div className="bg-accent/5 rounded-lg p-6 my-6">
-                <p className="text-sm text-muted-foreground mb-1">{selectedMaterial?.name} · {result.calculated_sqft} sq ft</p>
+                <p className="text-sm text-muted-foreground mb-1">{selectedSlab ? `${selectedMaterial?.name} — ${selectedSlab.lot_number || "Slab"}` : selectedMaterial?.name} · {result.calculated_sqft} sq ft</p>
                 <p className="font-display text-3xl font-bold text-accent">{formatCurrency(result.range_min)} — {formatCurrency(result.range_max)}</p>
                 <p className="text-xs text-muted-foreground mt-2">Includes material, fabrication & installation</p>
               </div>
