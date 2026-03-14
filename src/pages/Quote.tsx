@@ -680,19 +680,62 @@ const Quote = () => {
           {/* Step 2: Material */}
           {step === 2 && (
             <div className="space-y-4">
-              <Label className="text-base font-display">Select Your Material</Label>
+              <Label className="text-base font-display">Select Material Group</Label>
+              <p className="text-sm text-muted-foreground">Choose a material category to see available products.</p>
               <div className="grid grid-cols-1 gap-2">
                 {materials.map((mat) => (
-                  <button key={mat.id} onClick={() => { setForm({ ...form, material_id: mat.id }); handleEstimatorStart(); }}
+                  <button key={mat.id} onClick={() => { setForm({ ...form, material_id: mat.id, slab_id: "" }); handleEstimatorStart(); }}
                     className={cn("p-4 rounded-lg border text-left transition-all",
                       form.material_id === mat.id ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
                     )}>
                     <p className="font-medium">{mat.name}</p>
-                    <p className="text-sm text-muted-foreground">{mat.category}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{mat.category}</p>
                   </button>
                 ))}
                 {materials.length === 0 && <p className="text-muted-foreground text-sm">Loading materials...</p>}
               </div>
+            </div>
+          )}
+
+          {/* Step 3: Select Product (Slab) */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <Label className="text-base font-display">Select Your Product</Label>
+              <p className="text-sm text-muted-foreground">
+                Choose a slab from <strong>{selectedMaterial?.name}</strong> to continue.
+              </p>
+              {slabsLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : slabsForMaterial.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  No available slabs in this group. Please go back and choose a different material.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {slabsForMaterial.map((slab) => {
+                    const sqft = ((slab.length_inches * slab.width_inches) / 144).toFixed(1);
+                    const mainImg = slab.image_urls?.[0];
+                    return (
+                      <button key={slab.id} onClick={() => setForm({ ...form, slab_id: slab.id })}
+                        className={cn("p-4 rounded-lg border text-left transition-all flex gap-4 items-center",
+                          form.slab_id === slab.id ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
+                        )}>
+                        {mainImg && (
+                          <img src={mainImg} alt="Slab" className="w-16 h-16 rounded object-cover flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium">{slab.materials?.name || "Slab"}{slab.lot_number ? ` — ${slab.lot_number}` : ""}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {slab.length_inches}″ × {slab.width_inches}″ · {slab.thickness} · {sqft} sqft
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
