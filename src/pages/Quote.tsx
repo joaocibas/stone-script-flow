@@ -373,6 +373,7 @@ const Quote = () => {
       const { data, error: fnError } = await supabase.functions.invoke("calculate-quote", {
         body: {
           material_id: form.material_id,
+          slab_id: form.slab_id || undefined,
           length_inches: totalLength || 1,
           width_inches: Math.round(avgDepth) || 1,
           edge_profile: form.edge_profile || undefined,
