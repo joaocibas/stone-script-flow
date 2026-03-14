@@ -713,23 +713,34 @@ const Quote = () => {
                   No available slabs in this group. Please go back and choose a different material.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-3">
                   {slabsForMaterial.map((slab) => {
                     const sqft = ((slab.length_inches * slab.width_inches) / 144).toFixed(1);
                     const mainImg = slab.image_urls?.[0];
+                    const slabDisplayName = slab.name || slab.materials?.name || "Slab";
                     return (
                       <button key={slab.id} onClick={() => setForm({ ...form, slab_id: slab.id })}
-                        className={cn("p-4 rounded-lg border text-left transition-all flex gap-4 items-center",
+                        className={cn("p-4 rounded-lg border text-left transition-all flex gap-4",
                           form.slab_id === slab.id ? "border-accent bg-accent/5" : "border-border hover:border-accent/50"
                         )}>
-                        {mainImg && (
-                          <img src={mainImg} alt="Slab" className="w-16 h-16 rounded object-cover flex-shrink-0" />
+                        {mainImg ? (
+                          <img src={mainImg} alt={slabDisplayName} className="w-20 h-20 rounded object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-20 h-20 rounded bg-secondary flex items-center justify-center flex-shrink-0">
+                            <Package className="h-6 w-6 text-muted-foreground" />
+                          </div>
                         )}
-                        <div className="min-w-0">
-                          <p className="font-medium">{slab.materials?.name || "Slab"}{slab.lot_number ? ` — ${slab.lot_number}` : ""}</p>
-                          <p className="text-sm text-muted-foreground">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-base">{slabDisplayName}</p>
+                          {slab.description && (
+                            <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{slab.description}</p>
+                          )}
+                          <p className="text-sm text-muted-foreground mt-1">
                             {slab.length_inches}″ × {slab.width_inches}″ · {slab.thickness} · {sqft} sqft
                           </p>
+                          {slab.lot_number && (
+                            <p className="text-xs text-muted-foreground mt-0.5">Lot #{slab.lot_number}</p>
+                          )}
                         </div>
                       </button>
                     );
