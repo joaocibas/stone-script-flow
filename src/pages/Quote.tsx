@@ -77,7 +77,7 @@ const Quote = () => {
   const [customerLoading, setCustomerLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [form, setForm] = useState({
-    material_id: "", length_inches: "", width_inches: "",
+    material_id: "", slab_id: "", length_inches: "", width_inches: "",
     edge_profile: "", num_cutouts: "0", reference_measurement_inches: "",
   });
   const [layoutFile, setLayoutFile] = useState<File | null>(null);
