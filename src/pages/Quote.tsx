@@ -853,8 +853,8 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 5: Result */}
-          {step === 5 && result && (
+          {/* Step 6: Result */}
+          {step === 6 && result && (
             <div className="text-center py-4">
               <CheckCircle2 className="h-12 w-12 text-accent mx-auto mb-4" />
               <h3 className="font-display text-2xl font-semibold mb-2">Your Preliminary Estimate</h3>
