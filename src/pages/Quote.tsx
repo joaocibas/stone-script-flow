@@ -241,7 +241,7 @@ const Quote = () => {
     setForm((prev) => ({ ...prev, slab_id: "" }));
     supabase
       .from("slabs")
-      .select("id, lot_number, thickness, length_inches, width_inches, image_urls, notes, materials(name)")
+      .select("id, name, description, lot_number, thickness, length_inches, width_inches, image_urls, notes, materials(name)")
       .eq("material_id", form.material_id)
       .eq("status", "available")
       .order("created_at", { ascending: false })
