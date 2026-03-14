@@ -67,6 +67,7 @@ const Quote = () => {
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
   const [slabsForMaterial, setSlabsForMaterial] = useState<any[]>([]);
   const [slabsLoading, setSlabsLoading] = useState(false);
+  const [leadForm, setLeadForm] = useState({
     full_name: "", phone: "", email: "", city: "", project_type: "",
     company_name: "", timeline: "", preferred_contact_method: "", notes: "",
   });
