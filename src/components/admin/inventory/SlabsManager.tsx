@@ -197,6 +197,8 @@ export const SlabsManager = () => {
 
     setSaving(true);
     const payload = {
+      name: form.name.trim(),
+      description: form.description.trim(),
       material_id: form.material_id,
       length_inches: form.length_inches,
       width_inches: form.width_inches,
