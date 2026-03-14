@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Section } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,34 +25,35 @@ const CustomerDashboard = () => {
   const [editing, setEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "", address: "" });
 
+  const { user: authUser, loading: authLoading } = useAuth();
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        navigate("/login");
-        return;
-      }
-      setUser(data.user);
+    if (authLoading) return;
+    if (!authUser) {
+      navigate("/login");
+      return;
+    }
+    setUser(authUser);
 
-      supabase.from("customers").select("*").eq("user_id", data.user.id).single().then(({ data: cust }) => {
-        if (!cust) { setLoading(false); return; }
-        setCustomer(cust);
-        setProfileForm({ full_name: cust.full_name, phone: cust.phone || "", address: cust.address || "" });
+    supabase.from("customers").select("*").eq("user_id", authUser.id).single().then(({ data: cust }) => {
+      if (!cust) { setLoading(false); return; }
+      setCustomer(cust);
+      setProfileForm({ full_name: cust.full_name, phone: cust.phone || "", address: cust.address || "" });
 
-        Promise.all([
-          supabase.from("quotes").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-          supabase.from("orders").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-          supabase.from("reservations").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-          supabase.from("appointments").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-        ]).then(([q, o, r, a]) => {
-          setQuotes(q.data || []);
-          setOrders(o.data || []);
-          setReservations(r.data || []);
-          setAppointments(a.data || []);
-          setLoading(false);
-        });
+      Promise.all([
+        supabase.from("quotes").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+        supabase.from("orders").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+        supabase.from("reservations").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+        supabase.from("appointments").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+      ]).then(([q, o, r, a]) => {
+        setQuotes(q.data || []);
+        setOrders(o.data || []);
+        setReservations(r.data || []);
+        setAppointments(a.data || []);
+        setLoading(false);
       });
     });
-  }, [navigate]);
+  }, [authUser, authLoading, navigate]);
 
   const handleSaveProfile = async () => {
     if (!customer) return;
