@@ -833,8 +833,8 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 4: Options */}
-          {step === 4 && (
+          {/* Step 5: Options */}
+          {step === 5 && (
             <div className="space-y-4">
               <Label className="text-base font-display">Customize Your Project</Label>
               <div>
