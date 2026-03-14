@@ -24,7 +24,8 @@ const DRAFT_KEY = "estimator_draft_v1";
 const steps = [
   { label: "Your Info", icon: UserPlus },
   { label: "Upload Layout", icon: Upload },
-  { label: "Material", icon: Layers },
+  { label: "Material Group", icon: Layers },
+  { label: "Select Product", icon: Package },
   { label: "Dimensions", icon: Ruler },
   { label: "Options", icon: Scissors },
   { label: "Your Estimate", icon: DollarSign },
