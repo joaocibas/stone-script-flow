@@ -15,9 +15,17 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Loader2, ImagePlus, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Loader2, ImagePlus, Trash2, X, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { SlabServiceAssignments, type SlabServiceAssignment } from "./SlabServiceAssignments";
+import { useUserRole } from "@/hooks/useUserRole";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Slab {
   id: string;
@@ -90,6 +98,9 @@ export const SlabsManager = () => {
   const [materialFilter, setMaterialFilter] = useState<string>("all");
   const [sizePresets, setSizePresets] = useState<SlabSizePreset[]>([]);
   const [serviceAssignments, setServiceAssignments] = useState<SlabServiceAssignment[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<Slab | null>(null);
+  const { isAdmin } = useUserRole();
+
   const load = useCallback(async () => {
     const [slabsRes, matsRes, presetsRes] = await Promise.all([
       supabase
@@ -248,6 +259,21 @@ export const SlabsManager = () => {
     load();
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase
+      .from("slabs")
+      .update({ status: "archived" as any })
+      .eq("id", deleteTarget.id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Slab archived successfully");
+      load();
+    }
+    setDeleteTarget(null);
+  };
+
   const filteredSlabs = slabs.filter((s) => {
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     if (materialFilter !== "all" && s.material_id !== materialFilter) return false;
@@ -308,7 +334,7 @@ export const SlabsManager = () => {
                 <TableHead>Sales</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Photos</TableHead>
-                <TableHead className="w-[60px]" />
+                <TableHead className="w-[80px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -344,9 +370,26 @@ export const SlabsManager = () => {
                     {s.image_urls?.length ?? 0}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(s)}>
+                          <Pencil className="h-4 w-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        {isAdmin && s.status !== "archived" && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget(s)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Archive / Remove
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -532,6 +575,24 @@ export const SlabsManager = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Archive confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this slab?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteTarget?.materials?.name} — {(deleteTarget as any)?.name || deleteTarget?.lot_number}" will be archived and hidden from active inventory. This can be reversed by changing the status back.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
