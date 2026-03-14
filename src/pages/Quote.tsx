@@ -68,6 +68,11 @@ const Quote = () => {
     company_name: "", timeline: "", preferred_contact_method: "", notes: "",
   });
   const [leadId, setLeadId] = useState<string | null>(null);
+
+  // Logged-in customer state
+  const [loggedInCustomer, setLoggedInCustomer] = useState<Tables<"customers"> | null>(null);
+  const [customerLoading, setCustomerLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [form, setForm] = useState({
     material_id: "", length_inches: "", width_inches: "",
     edge_profile: "", num_cutouts: "0", reference_measurement_inches: "",
@@ -192,6 +197,36 @@ const Quote = () => {
       .then(({ data }) => setMaterials(data || []));
   }, []);
 
+  // Detect logged-in customer and pre-fill form
+  useEffect(() => {
+    const loadCustomer = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setCustomerLoading(false); return; }
+      // Check if user has customer role
+      const { data: roles } = await supabase
+        .from("user_roles").select("role").eq("user_id", session.user.id);
+      const isCustomer = (roles || []).some((r) => r.role === "customer");
+      if (!isCustomer) { setCustomerLoading(false); return; }
+      // Fetch customer profile
+      const { data: cust } = await supabase
+        .from("customers").select("*").eq("user_id", session.user.id).single();
+      if (cust) {
+        setLoggedInCustomer(cust);
+        // Pre-fill lead form from customer profile (only if not already restored from draft)
+        setLeadForm((prev) => ({
+          ...prev,
+          full_name: prev.full_name || cust.full_name || "",
+          phone: prev.phone || cust.phone || "",
+          email: prev.email || cust.email || "",
+          city: prev.city || cust.address || "",
+          // Keep other fields from draft or empty
+        }));
+      }
+      setCustomerLoading(false);
+    };
+    loadCustomer();
+  }, []);
+
   const selectedMaterial = materials.find((m) => m.id === form.material_id);
 
   const isLeadValid = () =>
@@ -203,6 +238,23 @@ const Quote = () => {
     setSubmitting(true);
     setError("");
     try {
+      // If logged-in customer, save profile updates and skip lead creation
+      if (loggedInCustomer) {
+        setProfileSaving(true);
+        const { error: updateErr } = await supabase.from("customers").update({
+          full_name: leadForm.full_name.trim(),
+          phone: leadForm.phone.trim() || null,
+          address: leadForm.city.trim() || null,
+        }).eq("id", loggedInCustomer.id);
+        if (updateErr) throw updateErr;
+        setLoggedInCustomer({ ...loggedInCustomer, full_name: leadForm.full_name.trim(), phone: leadForm.phone.trim() || null, address: leadForm.city.trim() || null });
+        setProfileSaving(false);
+        trackEvent("estimator_start", { customer_id: loggedInCustomer.id, project_type: leadForm.project_type });
+        setStep(1);
+        return;
+      }
+
+      // Non-logged-in: create lead as before
       const { data, error: insertErr } = await supabase.from("leads").insert({
         full_name: leadForm.full_name.trim(), phone: leadForm.phone.trim(),
         email: leadForm.email.trim(), city: leadForm.city.trim(),
@@ -218,6 +270,7 @@ const Quote = () => {
       setStep(1);
     } catch (err: any) {
       setError(err.message || "Failed to save your info. Please try again.");
+      setProfileSaving(false);
     } finally {
       setSubmitting(false);
     }
@@ -294,11 +347,17 @@ const Quote = () => {
           layout_url: uploadedUrl,
           reference_measurement_inches: Number(form.reference_measurement_inches) || undefined,
           calculated_sqft: totalSqft > 0 ? totalSqft : undefined,
+          customer_id: loggedInCustomer?.id || undefined,
         },
       });
       if (fnError) throw fnError;
       const quoteResult = data as QuoteResult;
       setResult(quoteResult);
+
+      // Link quote to customer if logged in
+      if (loggedInCustomer && quoteResult.quote_id) {
+        await supabase.from("quotes").update({ customer_id: loggedInCustomer.id }).eq("id", quoteResult.quote_id);
+      }
 
       if (leadId && quoteResult.quote_id) {
         await supabase.from("leads").update({ quote_id: quoteResult.quote_id, status: "quoted" }).eq("id", leadId);
@@ -454,13 +513,29 @@ const Quote = () => {
 
       <Card className="max-w-xl mx-auto border-0 shadow-sm">
         <CardContent className="p-6 md:p-8">
-          {/* Step 0: Lead Info */}
+          {/* Step 0: Lead Info / Customer Confirm */}
           {step === 0 && (
             <div className="space-y-4">
-              <Label className="text-base font-display">Tell Us About You & Your Project</Label>
+              {customerLoading ? (
+                <div className="h-32 flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Loading your profile...</p>
+                </div>
+              ) : (
+              <>
+              <Label className="text-base font-display">
+                {loggedInCustomer ? "Confirm or Update Your Information" : "Tell Us About You & Your Project"}
+              </Label>
               <p className="text-sm text-muted-foreground">
-                We'll use this to prepare your personalized estimate and follow up with you.
+                {loggedInCustomer
+                  ? "We've loaded your profile. Review your details below and update anything that's changed before continuing."
+                  : "We'll use this to prepare your personalized estimate and follow up with you."}
               </p>
+              {loggedInCustomer && (
+                <div className="bg-accent/5 border border-accent/20 rounded-lg p-3 flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-accent flex-shrink-0" />
+                  <span>Signed in as <strong>{loggedInCustomer.email}</strong> — your estimate will be linked to your account.</span>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="lead_name" className="text-sm">Full Name *</Label>
@@ -473,7 +548,7 @@ const Quote = () => {
               </div>
               <div>
                 <Label htmlFor="lead_email" className="text-sm">Email Address *</Label>
-                <Input id="lead_email" type="email" placeholder="jane@example.com" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} />
+                <Input id="lead_email" type="email" placeholder="jane@example.com" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} disabled={!!loggedInCustomer} className={loggedInCustomer ? "bg-muted" : ""} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -490,6 +565,7 @@ const Quote = () => {
                   </Select>
                 </div>
               </div>
+              {!loggedInCustomer && (
               <div className="border-t border-border pt-4 mt-2">
                 <p className="text-xs text-muted-foreground mb-3">Optional — helps us serve you better</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -523,6 +599,9 @@ const Quote = () => {
                   <Textarea id="lead_notes" placeholder="Anything else we should know?" rows={2} value={leadForm.notes} onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })} />
                 </div>
               </div>
+              )}
+              </>
+              )}
             </div>
           )}
 
@@ -831,8 +910,8 @@ const Quote = () => {
                 <ArrowLeft className="mr-1 h-4 w-4" /> Back
               </Button>
               {step === 0 ? (
-                <Button onClick={handleNext} disabled={!canNext() || submitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                  {submitting ? "Saving..." : "Continue Your Estimate"} <ArrowRight className="ml-1 h-4 w-4" />
+                <Button onClick={handleNext} disabled={!canNext() || submitting || customerLoading} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  {submitting ? "Saving..." : loggedInCustomer ? "Confirm & Continue" : "Continue Your Estimate"} <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
               ) : step < 4 ? (
                 <Button onClick={() => setStep(step + 1)} disabled={!canNext()} className="bg-accent text-accent-foreground hover:bg-accent/90">
