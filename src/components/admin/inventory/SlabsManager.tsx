@@ -334,7 +334,7 @@ export const SlabsManager = () => {
                 <TableHead>Sales</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Photos</TableHead>
-                <TableHead className="w-[60px]" />
+                <TableHead className="w-[80px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
