@@ -232,6 +232,25 @@ const Quote = () => {
   }, []);
 
   const selectedMaterial = materials.find((m) => m.id === form.material_id);
+  const selectedSlab = slabsForMaterial.find((s) => s.id === form.slab_id);
+
+  // Fetch slabs when material group changes
+  useEffect(() => {
+    if (!form.material_id) { setSlabsForMaterial([]); return; }
+    setSlabsLoading(true);
+    setForm((prev) => ({ ...prev, slab_id: "" }));
+    supabase
+      .from("slabs")
+      .select("id, lot_number, thickness, length_inches, width_inches, image_urls, notes, materials(name)")
+      .eq("material_id", form.material_id)
+      .eq("status", "available")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setSlabsForMaterial(data || []);
+        setSlabsLoading(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.material_id]);
 
   const isLeadValid = () =>
     leadForm.full_name.trim() !== "" && leadForm.phone.trim() !== "" &&
