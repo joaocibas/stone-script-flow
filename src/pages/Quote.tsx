@@ -981,7 +981,7 @@ const Quote = () => {
           {error && <p className="text-destructive text-sm mt-3">{error}</p>}
 
           {/* Navigation */}
-          {step < 5 && (
+          {step < 6 && (
             <div className="flex justify-between mt-8">
               <Button variant="ghost" onClick={() => setStep(step - 1)} disabled={step === 0}>
                 <ArrowLeft className="mr-1 h-4 w-4" /> Back
@@ -990,7 +990,7 @@ const Quote = () => {
                 <Button onClick={handleNext} disabled={!canNext() || submitting || customerLoading} className="bg-accent text-accent-foreground hover:bg-accent/90">
                   {submitting ? "Saving..." : loggedInCustomer ? "Confirm & Continue" : "Continue Your Estimate"} <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
-              ) : step < 4 ? (
+              ) : step < 5 ? (
                 <Button onClick={() => setStep(step + 1)} disabled={!canNext()} className="bg-accent text-accent-foreground hover:bg-accent/90">
                   Next <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
