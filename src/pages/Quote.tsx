@@ -68,6 +68,11 @@ const Quote = () => {
     company_name: "", timeline: "", preferred_contact_method: "", notes: "",
   });
   const [leadId, setLeadId] = useState<string | null>(null);
+
+  // Logged-in customer state
+  const [loggedInCustomer, setLoggedInCustomer] = useState<Tables<"customers"> | null>(null);
+  const [customerLoading, setCustomerLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [form, setForm] = useState({
     material_id: "", length_inches: "", width_inches: "",
     edge_profile: "", num_cutouts: "0", reference_measurement_inches: "",
