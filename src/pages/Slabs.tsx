@@ -22,7 +22,7 @@ const Slabs = () => {
   }, []);
 
   useEffect(() => {
-    let query = supabase.from("slabs").select("*, materials(name)");
+    let query = supabase.from("slabs").select("*, materials(name)") as any;
     if (materialFilter !== "all") query = query.eq("material_id", materialFilter);
     if (statusFilter !== "all") query = query.eq("status", statusFilter as any);
 
