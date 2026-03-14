@@ -16,7 +16,7 @@ import { trackEvent } from "@/lib/tracking";
 import { format } from "date-fns";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors,
-  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays,
+  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package,
 } from "lucide-react";
 
 const DRAFT_KEY = "estimator_draft_v1";
