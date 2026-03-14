@@ -238,18 +238,27 @@ const Quote = () => {
     setSubmitting(true);
     setError("");
     try {
+      // Double-check auth state to prevent RLS violations on leads table
+      const { data: { session } } = await supabase.auth.getSession();
+      const isAuthenticatedCustomer = loggedInCustomer || (session && await (async () => {
+        const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id);
+        return (roles || []).some((r) => r.role === "customer");
+      })());
+
       // If logged-in customer, save profile updates and skip lead creation
-      if (loggedInCustomer) {
+      if (isAuthenticatedCustomer && session) {
         setProfileSaving(true);
-        const { error: updateErr } = await supabase.from("customers").update({
-          full_name: leadForm.full_name.trim(),
-          phone: leadForm.phone.trim() || null,
-          address: leadForm.city.trim() || null,
-        }).eq("id", loggedInCustomer.id);
-        if (updateErr) throw updateErr;
-        setLoggedInCustomer({ ...loggedInCustomer, full_name: leadForm.full_name.trim(), phone: leadForm.phone.trim() || null, address: leadForm.city.trim() || null });
+        if (loggedInCustomer) {
+          const { error: updateErr } = await supabase.from("customers").update({
+            full_name: leadForm.full_name.trim(),
+            phone: leadForm.phone.trim() || null,
+            address: leadForm.city.trim() || null,
+          }).eq("id", loggedInCustomer.id);
+          if (updateErr) throw updateErr;
+          setLoggedInCustomer({ ...loggedInCustomer, full_name: leadForm.full_name.trim(), phone: leadForm.phone.trim() || null, address: leadForm.city.trim() || null });
+        }
         setProfileSaving(false);
-        trackEvent("estimator_start", { customer_id: loggedInCustomer.id, project_type: leadForm.project_type });
+        trackEvent("estimator_start", { customer_id: loggedInCustomer?.id, project_type: leadForm.project_type });
         setStep(1);
         return;
       }
@@ -359,7 +368,7 @@ const Quote = () => {
         await supabase.from("quotes").update({ customer_id: loggedInCustomer.id }).eq("id", quoteResult.quote_id);
       }
 
-      if (leadId && quoteResult.quote_id) {
+      if (!loggedInCustomer && leadId && quoteResult.quote_id) {
         await supabase.from("leads").update({ quote_id: quoteResult.quote_id, status: "quoted" }).eq("id", leadId);
       }
       trackEvent("sqft_calculated", {
@@ -416,8 +425,8 @@ const Quote = () => {
       });
       if (apptErr) throw apptErr;
 
-      // Update lead status
-      if (leadId) {
+      // Update lead status (only for non-logged-in users who created a lead)
+      if (!loggedInCustomer && leadId) {
         await supabase.from("leads").update({ status: "appointment_scheduled" }).eq("id", leadId);
       }
 
