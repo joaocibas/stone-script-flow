@@ -559,6 +559,7 @@ const Quote = () => {
                   </Select>
                 </div>
               </div>
+              {!loggedInCustomer && (
               <div className="border-t border-border pt-4 mt-2">
                 <p className="text-xs text-muted-foreground mb-3">Optional — helps us serve you better</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -592,6 +593,9 @@ const Quote = () => {
                   <Textarea id="lead_notes" placeholder="Anything else we should know?" rows={2} value={leadForm.notes} onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })} />
                 </div>
               </div>
+              )}
+              </>
+              )}
             </div>
           )}
 
