@@ -105,6 +105,18 @@ const AdminOrders = () => {
     setDeleteId(null);
   };
 
+  const handleDeleteQuote = async () => {
+    if (!deleteQuoteId) return;
+    const { error } = await supabase.from("quotes").delete().eq("id", deleteQuoteId);
+    if (error) {
+      toast.error("Failed to delete quote");
+    } else {
+      toast.success("Quote deleted");
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-quotes"] });
+    }
+    setDeleteQuoteId(null);
+  };
+
   const handleConvertQuoteToOrder = async (quoteId: string) => {
     setConvertingQuoteId(quoteId);
     const quote = (quotes || []).find((q) => q.id === quoteId);
