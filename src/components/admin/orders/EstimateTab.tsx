@@ -402,7 +402,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   const updateField = (key: keyof EstimateForm, value: any) => {
     const costFields: (keyof EstimateForm)[] = ["labor_cost", "material_cost", "addons_cost", "tax"];
-    if (costFields.includes(key)) {
+    if (key === "measurements_sqft" && rateData) {
+      // Reactive: recalculate labor from rate × new sqft
+      const newSqft = Number(value) || 0;
+      const newLabor = Math.round(((rateData.laborRatePerSqft * newSqft) + rateData.laborFixed) * 100) / 100;
+      setForm(recalculate({ measurements_sqft: newSqft, labor_cost: newLabor }));
+    } else if (costFields.includes(key)) {
       setForm(recalculate({ [key]: Number(value) || 0 }));
     } else if (key === "deposit_required") {
       setForm((prev) => ({ ...prev, deposit_required: Number(value) || 0 }));
