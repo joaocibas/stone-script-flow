@@ -29,6 +29,7 @@ import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import AdminInventory from "./pages/admin/AdminInventory";
 import AdminPricing from "./pages/admin/AdminPricing";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminOrderDetail from "./pages/admin/AdminOrderDetail";
 import AdminAppointments from "./pages/admin/AdminAppointments";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
