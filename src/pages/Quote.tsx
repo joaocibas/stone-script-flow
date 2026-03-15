@@ -62,6 +62,26 @@ interface QuoteResult {
   range_max: number;
 }
 
+interface LinkedEstimate {
+  estimate_number: string;
+  material: string | null;
+  color: string | null;
+  finish: string | null;
+  edge_profile: string | null;
+  measurements_sqft: number | null;
+  scope_of_work: string | null;
+  labor_cost: number | null;
+  material_cost: number | null;
+  addons_cost: number | null;
+  tax: number | null;
+  subtotal: number | null;
+  total: number | null;
+  deposit_required: number | null;
+  notes: string | null;
+  terms_conditions: string | null;
+  status: string;
+}
+
 const Quote = () => {
   const [step, setStep] = useState(0);
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
@@ -87,6 +107,7 @@ const Quote = () => {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<QuoteResult | null>(null);
+  const [linkedEstimate, setLinkedEstimate] = useState<LinkedEstimate | null>(null);
   const [error, setError] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
@@ -233,6 +254,53 @@ const Quote = () => {
 
   const selectedMaterial = materials.find((m) => m.id === form.material_id);
   const selectedSlab = slabsForMaterial.find((s) => s.id === form.slab_id);
+
+  // Refresh quote + linked estimate from DB when viewing result (step 6)
+  useEffect(() => {
+    if (step !== 6 || !result?.quote_id) return;
+    const refreshQuoteData = async () => {
+      try {
+        // Fetch latest quote values
+        const { data: q } = await supabase
+          .from("quotes")
+          .select("range_min, range_max, calculated_sqft, slabs_needed, slab_category, estimated_total")
+          .eq("id", result.quote_id)
+          .maybeSingle();
+        if (q) {
+          setResult((prev) => prev ? {
+            ...prev,
+            range_min: q.range_min ?? prev.range_min,
+            range_max: q.range_max ?? prev.range_max,
+            calculated_sqft: q.calculated_sqft?.toString() ?? prev.calculated_sqft,
+            slabs_needed: q.slabs_needed ?? prev.slabs_needed,
+            slab_category: q.slab_category ?? prev.slab_category,
+          } : prev);
+        }
+        // Check if there's an order linked to this quote, then fetch estimate
+        const { data: order } = await supabase
+          .from("orders")
+          .select("id")
+          .eq("quote_id", result.quote_id)
+          .maybeSingle();
+        if (order) {
+          const { data: est } = await supabase
+            .from("estimates")
+            .select("estimate_number, material, color, finish, edge_profile, measurements_sqft, scope_of_work, labor_cost, material_cost, addons_cost, tax, subtotal, total, deposit_required, notes, terms_conditions, status")
+            .eq("order_id", order.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          setLinkedEstimate(est || null);
+        } else {
+          setLinkedEstimate(null);
+        }
+      } catch (err) {
+        console.error("Failed to refresh quote data:", err);
+      }
+    };
+    refreshQuoteData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, result?.quote_id]);
 
   // Fetch slabs when material group changes
   useEffect(() => {
@@ -868,11 +936,116 @@ const Quote = () => {
           {step === 6 && result && (
             <div className="text-center py-4">
               <CheckCircle2 className="h-12 w-12 text-accent mx-auto mb-4" />
-              <h3 className="font-display text-2xl font-semibold mb-2">Your Preliminary Estimate</h3>
-              <div className="bg-accent/5 rounded-lg p-6 my-6">
-                <p className="font-display text-3xl font-bold text-accent">{formatCurrency(result.range_min)} — {formatCurrency(result.range_max)}</p>
-                <p className="text-xs text-muted-foreground mt-2">Includes material, fabrication & installation</p>
-              </div>
+              <h3 className="font-display text-2xl font-semibold mb-2">
+                {linkedEstimate ? "Your Detailed Estimate" : "Your Preliminary Estimate"}
+              </h3>
+
+              {/* Show detailed estimate if admin has created one */}
+              {linkedEstimate && linkedEstimate.total ? (
+                <div className="bg-accent/5 rounded-lg p-6 my-6">
+                  <p className="font-display text-3xl font-bold text-accent">{formatCurrency(Number(linkedEstimate.total))}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {linkedEstimate.estimate_number && `Estimate ${linkedEstimate.estimate_number} · `}
+                    Status: {linkedEstimate.status}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-accent/5 rounded-lg p-6 my-6">
+                  <p className="font-display text-3xl font-bold text-accent">{formatCurrency(result.range_min)} — {formatCurrency(result.range_max)}</p>
+                  <p className="text-xs text-muted-foreground mt-2">Includes material, fabrication & installation</p>
+                </div>
+              )}
+
+              {/* Detailed pricing breakdown from admin estimate */}
+              {linkedEstimate && (
+                <div className="text-left bg-secondary/50 rounded-lg p-4 mb-4 space-y-2">
+                  {linkedEstimate.material && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Material</span>
+                      <span className="font-medium">{linkedEstimate.material}{linkedEstimate.color ? ` — ${linkedEstimate.color}` : ""}{linkedEstimate.finish ? ` (${linkedEstimate.finish})` : ""}</span>
+                    </div>
+                  )}
+                  {linkedEstimate.edge_profile && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Edge Profile</span>
+                      <span className="font-medium">{linkedEstimate.edge_profile}</span>
+                    </div>
+                  )}
+                  {linkedEstimate.measurements_sqft != null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Measurements</span>
+                      <span className="font-medium">{Number(linkedEstimate.measurements_sqft).toFixed(1)} sq ft</span>
+                    </div>
+                  )}
+                  {linkedEstimate.scope_of_work && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Scope of Work</span>
+                      <span className="font-medium">{linkedEstimate.scope_of_work}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-border pt-2 mt-2 space-y-1">
+                    {linkedEstimate.material_cost != null && Number(linkedEstimate.material_cost) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Material / Slab Cost</span>
+                        <span className="font-medium">{formatCurrency(Number(linkedEstimate.material_cost))}</span>
+                      </div>
+                    )}
+                    {linkedEstimate.labor_cost != null && Number(linkedEstimate.labor_cost) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Labor Cost</span>
+                        <span className="font-medium">{formatCurrency(Number(linkedEstimate.labor_cost))}</span>
+                      </div>
+                    )}
+                    {linkedEstimate.addons_cost != null && Number(linkedEstimate.addons_cost) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Add-ons</span>
+                        <span className="font-medium">{formatCurrency(Number(linkedEstimate.addons_cost))}</span>
+                      </div>
+                    )}
+                    {linkedEstimate.subtotal != null && Number(linkedEstimate.subtotal) > 0 && (
+                      <div className="flex justify-between text-sm font-medium border-t border-border pt-1 mt-1">
+                        <span>Subtotal</span>
+                        <span>{formatCurrency(Number(linkedEstimate.subtotal))}</span>
+                      </div>
+                    )}
+                    {linkedEstimate.tax != null && Number(linkedEstimate.tax) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Tax</span>
+                        <span className="font-medium">{formatCurrency(Number(linkedEstimate.tax))}</span>
+                      </div>
+                    )}
+                    {linkedEstimate.total != null && (
+                      <div className="flex justify-between text-sm font-semibold border-t border-border pt-1 mt-1">
+                        <span>Total</span>
+                        <span>{formatCurrency(Number(linkedEstimate.total))}</span>
+                      </div>
+                    )}
+                    {linkedEstimate.deposit_required != null && Number(linkedEstimate.deposit_required) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Deposit Required</span>
+                        <span className="font-medium">{formatCurrency(Number(linkedEstimate.deposit_required))}</span>
+                      </div>
+                    )}
+                    {linkedEstimate.total != null && linkedEstimate.deposit_required != null && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Remaining Balance</span>
+                        <span className="font-medium">{formatCurrency(Number(linkedEstimate.total) - Number(linkedEstimate.deposit_required))}</span>
+                      </div>
+                    )}
+                  </div>
+                  {linkedEstimate.notes && (
+                    <div className="border-t border-border pt-2 mt-2">
+                      <p className="text-xs text-muted-foreground">{linkedEstimate.notes}</p>
+                    </div>
+                  )}
+                  {linkedEstimate.terms_conditions && (
+                    <div className="border-t border-border pt-2 mt-2">
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{linkedEstimate.terms_conditions}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="text-left bg-secondary/50 rounded-lg p-4 mb-6 space-y-3">
                 {selectedSlab && (
                   <div className="flex gap-3">
@@ -894,7 +1067,7 @@ const Quote = () => {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Project Area</p>
-                    <p className="text-sm font-medium">{result.calculated_sqft} sq ft</p>
+                    <p className="text-sm font-medium">{linkedEstimate?.measurements_sqft ? Number(linkedEstimate.measurements_sqft).toFixed(1) : result.calculated_sqft} sq ft</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Slab Category</p>
@@ -908,7 +1081,7 @@ const Quote = () => {
               </div>
               <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  <strong>Please note:</strong> This is a preliminary estimate based on the information provided. Final pricing will depend on exact measurements taken during your in-home consultation, final material selection, edge profile details, number and complexity of cutouts, and installation conditions.
+                  <strong>Please note:</strong> {linkedEstimate ? "This estimate reflects the latest pricing from our team." : "This is a preliminary estimate based on the information provided. Final pricing will depend on exact measurements taken during your in-home consultation, final material selection, edge profile details, number and complexity of cutouts, and installation conditions."}
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -917,7 +1090,7 @@ const Quote = () => {
                 </Button>
                 <Button variant="outline" onClick={() => {
                   clearDraft();
-                  setStep(0); setResult(null); setLayoutFile(null); setLayoutPreview(null); setLayoutUrl(null); setLeadId(null);
+                  setStep(0); setResult(null); setLinkedEstimate(null); setLayoutFile(null); setLayoutPreview(null); setLayoutUrl(null); setLeadId(null);
                   setLeadForm({ full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" });
                   setForm({ material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
                   setSections([createSection()]);
