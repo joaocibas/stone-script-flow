@@ -173,17 +173,17 @@ const AdminOrders = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Customer</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("id")}>Order ID <SortIcon col="id" /></TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("customer")}>Customer <SortIcon col="customer" /></TableHead>
                     <TableHead>Total</TableHead>
-                    <TableHead>Deposit</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("deposit_paid")}>Deposit <SortIcon col="deposit_paid" /></TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>Date <SortIcon col="created_at" /></TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((order) => {
+                  {sorted.map((order) => {
                     const cust = order.customers as any;
                     return (
                       <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/orders/${order.id}`)}>
@@ -203,6 +203,9 @@ const AdminOrders = () => {
                           <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/orders/${order.id}`)}>
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(order.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -213,6 +216,19 @@ const AdminOrders = () => {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this order?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
