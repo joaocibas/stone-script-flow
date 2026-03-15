@@ -39,6 +39,7 @@ const AdminOrders = () => {
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null);
   const [convertingQuoteId, setConvertingQuoteId] = useState<string | null>(null);
 
   const { data: orders, isLoading } = useQuery({
