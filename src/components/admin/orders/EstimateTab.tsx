@@ -214,9 +214,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const taxAmount = calcTaxAmount(form.subtotal, form.tax);
       const payload = {
         order_id: orderId,
         ...form,
+        // Store the computed total (subtotal + taxAmount) not subtotal + taxPct
+        total: form.subtotal + taxAmount,
         date: form.date || null,
         expiration_date: form.expiration_date || null,
         measurements_sqft: form.measurements_sqft || null,
@@ -240,6 +243,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   if (isLoading) return <p className="text-muted-foreground py-4">Loading...</p>;
 
+  const taxAmount = calcTaxAmount(form.subtotal, form.tax);
   const remainingBalance = Number((form.total - form.deposit_required).toFixed(2));
   const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
 
