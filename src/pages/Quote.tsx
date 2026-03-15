@@ -107,6 +107,7 @@ const Quote = () => {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<QuoteResult | null>(null);
+  const [linkedEstimate, setLinkedEstimate] = useState<LinkedEstimate | null>(null);
   const [error, setError] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
