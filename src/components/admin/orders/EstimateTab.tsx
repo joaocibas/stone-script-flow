@@ -162,6 +162,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const payload = {
         order_id: orderId,
         ...form,
+        date: form.date || null,
+        expiration_date: form.expiration_date || null,
         measurements_sqft: form.measurements_sqft || null,
         status: "active",
       };
