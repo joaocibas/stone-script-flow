@@ -203,6 +203,107 @@ export type Database = {
         }
         Relationships: []
       }
+      estimates: {
+        Row: {
+          addons_cost: number | null
+          billing_address: string | null
+          color: string | null
+          created_at: string
+          customer_name: string
+          date: string
+          deposit_required: number | null
+          edge_profile: string | null
+          email: string | null
+          estimate_number: string
+          expiration_date: string | null
+          finish: string | null
+          id: string
+          labor_cost: number | null
+          material: string | null
+          material_cost: number | null
+          measurements_sqft: number | null
+          notes: string | null
+          order_id: string
+          phone: string | null
+          project_address: string | null
+          scope_of_work: string | null
+          status: string
+          subtotal: number | null
+          tax: number | null
+          terms_conditions: string | null
+          total: number | null
+          updated_at: string
+        }
+        Insert: {
+          addons_cost?: number | null
+          billing_address?: string | null
+          color?: string | null
+          created_at?: string
+          customer_name?: string
+          date?: string
+          deposit_required?: number | null
+          edge_profile?: string | null
+          email?: string | null
+          estimate_number?: string
+          expiration_date?: string | null
+          finish?: string | null
+          id?: string
+          labor_cost?: number | null
+          material?: string | null
+          material_cost?: number | null
+          measurements_sqft?: number | null
+          notes?: string | null
+          order_id: string
+          phone?: string | null
+          project_address?: string | null
+          scope_of_work?: string | null
+          status?: string
+          subtotal?: number | null
+          tax?: number | null
+          terms_conditions?: string | null
+          total?: number | null
+          updated_at?: string
+        }
+        Update: {
+          addons_cost?: number | null
+          billing_address?: string | null
+          color?: string | null
+          created_at?: string
+          customer_name?: string
+          date?: string
+          deposit_required?: number | null
+          edge_profile?: string | null
+          email?: string | null
+          estimate_number?: string
+          expiration_date?: string | null
+          finish?: string | null
+          id?: string
+          labor_cost?: number | null
+          material?: string | null
+          material_cost?: number | null
+          measurements_sqft?: number | null
+          notes?: string | null
+          order_id?: string
+          phone?: string | null
+          project_address?: string | null
+          scope_of_work?: string | null
+          status?: string
+          subtotal?: number | null
+          tax?: number | null
+          terms_conditions?: string | null
+          total?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimates_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_ai_analyses: {
         Row: {
           analysis_type: string
@@ -410,6 +511,135 @@ export type Database = {
           },
         ]
       }
+      payment_orders: {
+        Row: {
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          deposit_amount: number | null
+          due_date: string | null
+          estimate_id: string | null
+          estimate_total: number | null
+          id: string
+          internal_notes: string | null
+          order_id: string
+          payment_link: string | null
+          payment_method: string | null
+          payment_notes: string | null
+          payment_order_number: string
+          remaining_balance: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          deposit_amount?: number | null
+          due_date?: string | null
+          estimate_id?: string | null
+          estimate_total?: number | null
+          id?: string
+          internal_notes?: string | null
+          order_id: string
+          payment_link?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_order_number?: string
+          remaining_balance?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          deposit_amount?: number | null
+          due_date?: string | null
+          estimate_id?: string | null
+          estimate_total?: number | null
+          id?: string
+          internal_notes?: string | null
+          order_id?: string
+          payment_link?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_order_number?: string
+          remaining_balance?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_orders_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          notes: string | null
+          order_id: string
+          payment_date: string
+          payment_method: string | null
+          payment_order_id: string | null
+          status: string
+          transaction_reference: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          payment_date?: string
+          payment_method?: string | null
+          payment_order_id?: string | null
+          status?: string
+          transaction_reference?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          payment_date?: string
+          payment_method?: string | null
+          payment_order_id?: string | null
+          status?: string
+          transaction_reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pricing_rules: {
         Row: {
           created_at: string
@@ -525,6 +755,101 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipts: {
+        Row: {
+          amount: number
+          company_info: string | null
+          created_at: string
+          date: string
+          description: string | null
+          estimate_id: string | null
+          id: string
+          notes: string | null
+          order_id: string
+          payment_id: string | null
+          payment_method: string | null
+          payment_order_id: string | null
+          receipt_number: string
+          receipt_type: string
+          received_from: string
+          remaining_balance: number | null
+          status: string
+          transaction_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          company_info?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          estimate_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id: string
+          payment_id?: string | null
+          payment_method?: string | null
+          payment_order_id?: string | null
+          receipt_number?: string
+          receipt_type?: string
+          received_from?: string
+          remaining_balance?: number | null
+          status?: string
+          transaction_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          company_info?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          estimate_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string
+          payment_id?: string | null
+          payment_method?: string | null
+          payment_order_id?: string | null
+          receipt_number?: string
+          receipt_type?: string
+          received_from?: string
+          remaining_balance?: number | null
+          status?: string
+          transaction_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
             referencedColumns: ["id"]
           },
         ]

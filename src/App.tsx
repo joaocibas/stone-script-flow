@@ -29,6 +29,7 @@ import AdminAiInsights from "./pages/admin/AdminAiInsights";
 import AdminInventory from "./pages/admin/AdminInventory";
 import AdminPricing from "./pages/admin/AdminPricing";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminOrderDetail from "./pages/admin/AdminOrderDetail";
 import AdminAppointments from "./pages/admin/AdminAppointments";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
@@ -70,6 +71,7 @@ const App = () => (
           <Route path="/admin/inventory" element={<AdminLayout><AdminInventory /></AdminLayout>} />
           <Route path="/admin/pricing" element={<AdminLayout><AdminPricing /></AdminLayout>} />
           <Route path="/admin/orders" element={<AdminLayout><AdminOrders /></AdminLayout>} />
+          <Route path="/admin/orders/:id" element={<AdminLayout><AdminOrderDetail /></AdminLayout>} />
           <Route path="/admin/appointments" element={<AdminLayout><AdminAppointments /></AdminLayout>} />
           <Route path="/admin/availability" element={<AdminLayout><AdminAvailability /></AdminLayout>} />
           <Route path="/admin/customers" element={<AdminLayout><AdminCustomers /></AdminLayout>} />
