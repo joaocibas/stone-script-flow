@@ -302,10 +302,18 @@ const CustomerDashboard = () => {
                   <ul className="space-y-2">
                     {receipts.map((r) => (
                       <li key={r.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">
+                        <button
+                          className="text-accent hover:underline truncate text-left"
+                          onClick={() => { setSelectedReceipt(r); setViewerType("receipt"); setViewerOpen(true); }}
+                        >
                           {r.receipt_number || new Date(r.created_at).toLocaleDateString()}
-                        </span>
-                        <Badge variant="secondary" className="capitalize">{r.status}</Badge>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">{r.status}</Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setSelectedReceipt(r); setViewerType("receipt"); setViewerOpen(true); }}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
