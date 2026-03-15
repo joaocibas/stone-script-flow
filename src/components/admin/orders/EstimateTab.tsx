@@ -235,6 +235,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         tax: taxPct,
         total,
         deposit_required: Math.round(total * 0.5 * 100) / 100,
+        terms_conditions: DEFAULT_TERMS,
       }));
       setEditing(true);
     }
