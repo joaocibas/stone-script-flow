@@ -107,7 +107,7 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
       setEditing(false);
     } else {
       const estTotal = Number(estimate?.total) || 0;
-      const deposit = Number(estimate?.deposit_required) || 0;
+      const deposit = Math.round(estTotal * 0.5 * 100) / 100;
       setForm({
         payment_order_number: `PO-${orderId.slice(0, 6).toUpperCase()}`,
         estimate_total: estTotal,
