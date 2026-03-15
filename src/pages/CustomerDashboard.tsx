@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { LogOut, FileText, Package, CalendarDays, User, Save, Receipt } from "lucide-react";
+import { LogOut, FileText, Package, CalendarDays, User, Save, Receipt, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DocumentViewerDialog } from "@/components/customer/DocumentViewerDialog";
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
@@ -26,6 +27,11 @@ const CustomerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "", address: "" });
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerType, setViewerType] = useState<"estimate" | "receipt" | "quote">("quote");
+  const [selectedEstimate, setSelectedEstimate] = useState<Tables<"estimates"> | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<Tables<"receipts"> | null>(null);
+  const [selectedQuote, setSelectedQuote] = useState<Tables<"quotes"> | null>(null);
 
   const { user: authUser, loading: authLoading } = useAuth();
 
@@ -202,8 +208,18 @@ const CustomerDashboard = () => {
                   <ul className="space-y-2">
                     {quotes.map((q) => (
                       <li key={q.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">{new Date(q.created_at).toLocaleDateString()}</span>
-                        <Badge variant="secondary" className="capitalize">{q.status}</Badge>
+                        <button
+                          className="text-accent hover:underline truncate text-left"
+                          onClick={() => { setSelectedQuote(q); setViewerType("quote"); setViewerOpen(true); }}
+                        >
+                          {new Date(q.created_at).toLocaleDateString()}
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">{q.status}</Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setSelectedQuote(q); setViewerType("quote"); setViewerOpen(true); }}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -253,10 +269,18 @@ const CustomerDashboard = () => {
                   <ul className="space-y-2">
                     {estimates.map((e) => (
                       <li key={e.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">
+                        <button
+                          className="text-accent hover:underline truncate text-left"
+                          onClick={() => { setSelectedEstimate(e); setViewerType("estimate"); setViewerOpen(true); }}
+                        >
                           {e.estimate_number || new Date(e.created_at).toLocaleDateString()}
-                        </span>
-                        <Badge variant="secondary" className="capitalize">{e.status}</Badge>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">{e.status}</Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setSelectedEstimate(e); setViewerType("estimate"); setViewerOpen(true); }}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -278,10 +302,18 @@ const CustomerDashboard = () => {
                   <ul className="space-y-2">
                     {receipts.map((r) => (
                       <li key={r.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">
+                        <button
+                          className="text-accent hover:underline truncate text-left"
+                          onClick={() => { setSelectedReceipt(r); setViewerType("receipt"); setViewerOpen(true); }}
+                        >
                           {r.receipt_number || new Date(r.created_at).toLocaleDateString()}
-                        </span>
-                        <Badge variant="secondary" className="capitalize">{r.status}</Badge>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">{r.status}</Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setSelectedReceipt(r); setViewerType("receipt"); setViewerOpen(true); }}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -342,6 +374,15 @@ const CustomerDashboard = () => {
           </div>
         </div>
       )}
+
+      <DocumentViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        type={viewerType}
+        estimate={selectedEstimate}
+        receipt={selectedReceipt}
+        quote={selectedQuote}
+      />
     </Section>
   );
 };
