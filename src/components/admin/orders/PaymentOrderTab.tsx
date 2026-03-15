@@ -208,6 +208,33 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
             Payment Order {paymentOrder && <Badge variant="secondary" className="ml-2">{paymentOrder.status}</Badge>}
           </CardTitle>
           <div className="flex gap-2">
+            {paymentOrder && (
+              <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
+                title: "Payment Order",
+                documentNumber: form.payment_order_number,
+                date: form.due_date ? format(new Date(form.due_date + "T12:00:00"), "MMMM d, yyyy") : "N/A",
+                sections: [
+                  { heading: "Customer", rows: [
+                    { label: "Customer Name", value: form.customer_name },
+                    { label: "Email", value: form.customer_email },
+                  ]},
+                  { heading: "Amounts", rows: [
+                    { label: "Estimate Total", value: form.estimate_total },
+                    { label: "Deposit Amount (50%)", value: form.deposit_amount },
+                    { label: "Remaining Balance", value: form.remaining_balance },
+                  ]},
+                  { heading: "Payment Details", rows: [
+                    { label: "Payment Method", value: form.payment_method?.replace(/_/g, " ") || "" },
+                    { label: "Payment Link", value: form.payment_link },
+                    { label: "Due Date", value: form.due_date ? format(new Date(form.due_date + "T12:00:00"), "MMMM d, yyyy") : "" },
+                  ]},
+                ],
+                notes: form.payment_notes,
+                companyInfo: "Altar Stones Countertops\nSarasota, FL",
+              })}>
+                <FileDown className="mr-2 h-4 w-4" /> Export PDF
+              </Button>
+            )}
             {!editing && paymentOrder && (
               <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                 <Pencil className="mr-2 h-4 w-4" /> Edit

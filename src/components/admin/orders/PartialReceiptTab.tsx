@@ -192,10 +192,34 @@ export function PartialReceiptTab({ orderId, customer }: PartialReceiptTabProps)
                     <p className="font-medium">{r.receipt_number}</p>
                     <p className="text-muted-foreground text-xs">{r.received_from} · {r.payment_method || "N/A"}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">${Number(r.amount).toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(r.date), "MMM d, yyyy")}</p>
-                    <Badge variant="secondary" className="text-xs">{r.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => generatePdfDocument({
+                      title: "Partial Receipt",
+                      documentNumber: r.receipt_number,
+                      date: format(new Date(r.date), "MMMM d, yyyy"),
+                      companyInfo: "Altar Stones Countertops\nSarasota, FL",
+                      sections: [
+                        { heading: "Payment Details", rows: [
+                          { label: "Received From", value: r.received_from },
+                          { label: "Amount Received", value: Number(r.amount) },
+                          { label: "Payment Method", value: (r.payment_method || "").replace(/_/g, " ") },
+                          { label: "Transaction Reference", value: r.transaction_reference || "" },
+                          { label: "Remaining Balance", value: Number(r.remaining_balance || 0) },
+                        ]},
+                        ...(estimate ? [{ heading: "References", rows: [
+                          { label: "Related Estimate", value: estimate.estimate_number },
+                          { label: "Related Order", value: `#${orderId.slice(0, 8).toUpperCase()}` },
+                        ]}] : []),
+                      ],
+                      notes: r.notes || undefined,
+                    })}>
+                      <FileDown className="h-4 w-4" />
+                    </Button>
+                    <div className="text-right">
+                      <p className="font-medium">${Number(r.amount).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(r.date), "MMM d, yyyy")}</p>
+                      <Badge variant="secondary" className="text-xs">{r.status}</Badge>
+                    </div>
                   </div>
                 </div>
               ))}

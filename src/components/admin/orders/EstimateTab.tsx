@@ -185,6 +185,44 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           Estimate {estimate && <Badge variant="secondary" className="ml-2">{estimate.status}</Badge>}
         </CardTitle>
         <div className="flex gap-2">
+          {estimate && (
+            <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
+              title: "Estimate",
+              documentNumber: form.estimate_number,
+              date: form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "",
+              sections: [
+                { heading: "Customer Information", rows: [
+                  { label: "Customer Name", value: form.customer_name },
+                  { label: "Phone", value: form.phone },
+                  { label: "Email", value: form.email },
+                  { label: "Billing Address", value: form.billing_address },
+                  { label: "Project Address", value: form.project_address },
+                ]},
+                { heading: "Materials & Scope", rows: [
+                  { label: "Material", value: form.material },
+                  { label: "Color", value: form.color },
+                  { label: "Finish", value: form.finish },
+                  { label: "Edge Profile", value: form.edge_profile },
+                  { label: "Measurements (Sq Ft)", value: form.measurements_sqft ? String(form.measurements_sqft) : "" },
+                  { label: "Scope of Work", value: form.scope_of_work },
+                ]},
+                { heading: "Pricing", rows: [
+                  { label: "Labor Cost", value: form.labor_cost },
+                  { label: "Material Cost", value: form.material_cost },
+                  { label: "Add-ons", value: form.addons_cost },
+                  { label: "Subtotal", value: form.subtotal },
+                  { label: "Tax", value: form.tax },
+                  { label: "Total", value: form.total },
+                  { label: "Deposit Required (50%)", value: form.deposit_required },
+                  { label: "Remaining Balance", value: Number((form.total - form.deposit_required).toFixed(2)) },
+                ]},
+              ],
+              notes: form.notes,
+              footer: form.terms_conditions ? `Terms & Conditions\n${form.terms_conditions}` : undefined,
+            })}>
+              <FileDown className="mr-2 h-4 w-4" /> Export PDF
+            </Button>
+          )}
           {!editing && estimate && (
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit

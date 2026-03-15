@@ -155,6 +155,32 @@ export function ReceiptTab({ orderId, customer }: ReceiptTabProps) {
         </CardTitle>
         <div className="flex gap-2">
           {receipt && (
+            <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
+              title: "Receipt",
+              documentNumber: form.receipt_number,
+              date: form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "",
+              companyInfo: form.company_info || "Altar Stones Countertops\nSarasota, FL",
+              sections: [
+                { heading: "Payment Details", rows: [
+                  { label: "Received From", value: form.received_from },
+                  { label: "Amount Paid", value: form.amount },
+                  { label: "Payment Method", value: form.payment_method?.replace(/_/g, " ") || "" },
+                  { label: "Reference Number", value: form.transaction_reference },
+                ]},
+                { heading: "Order Information", rows: [
+                  { label: "Description", value: form.description },
+                  ...(estimate ? [
+                    { label: "Related Estimate", value: estimate.estimate_number },
+                    { label: "Related Order", value: `#${orderId.slice(0, 8).toUpperCase()}` },
+                  ] : []),
+                ]},
+              ],
+              notes: form.notes,
+            })}>
+              <FileDown className="mr-2 h-4 w-4" /> Export PDF
+            </Button>
+          )}
+          {receipt && (
             <Button variant="outline" size="sm" onClick={handlePrint}>
               <Printer className="mr-2 h-4 w-4" /> Print
             </Button>
