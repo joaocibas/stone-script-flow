@@ -394,7 +394,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const taxPct = Number(merged.tax);
     const taxAmount = calcTaxAmount(subtotal, taxPct);
     const total = subtotal + taxAmount;
-    const deposit_required = ("labor_cost" in updated || "material_cost" in updated || "addons_cost" in updated || "tax" in updated)
+    const deposit_required = ("labor_cost" in updated || "material_cost" in updated || "addons_cost" in updated || "tax" in updated || "measurements_sqft" in updated)
       ? Math.round(total * 0.5 * 100) / 100
       : merged.deposit_required;
     return { ...merged, subtotal, total, deposit_required };
