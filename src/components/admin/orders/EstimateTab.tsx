@@ -13,6 +13,14 @@ import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
 import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox, DisclaimerBlock } from "./DocumentLayout";
 
+const DEFAULT_TERMS = `Altar Stone Countertops does not connect or disconnect any plumbing, electrical systems, or appliances. It is the client's responsibility to hire licensed professionals to ensure that all conditions required for countertop installation are properly prepared before our team arrives.
+
+Our team will perform only the tasks listed in the proposal or invoice. The client must arrange in advance for any necessary water, gas, or electrical connections or disconnections required for the installation.
+
+If the service includes the removal of existing countertops, the client must ensure that all appliances, plumbing lines, sinks, cooktops, and electrical connections are properly disconnected prior to our team's arrival. If this condition is not met and our team is required to return to complete the installation, a return trip fee of $200 will be applied.
+
+For payments made by credit card, a 3.5% processing fee will be added to the total amount.`;
+
 type EstimateForm = {
   estimate_number: string;
   date: string;
