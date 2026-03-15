@@ -27,6 +27,11 @@ const CustomerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "", address: "" });
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerType, setViewerType] = useState<"estimate" | "receipt" | "quote">("quote");
+  const [selectedEstimate, setSelectedEstimate] = useState<Tables<"estimates"> | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<Tables<"receipts"> | null>(null);
+  const [selectedQuote, setSelectedQuote] = useState<Tables<"quotes"> | null>(null);
 
   const { user: authUser, loading: authLoading } = useAuth();
 
