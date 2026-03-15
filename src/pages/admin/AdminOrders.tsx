@@ -251,7 +251,7 @@ const AdminOrders = () => {
                         <TableCell className="text-sm text-muted-foreground">
                           {format(new Date(q.created_at), "MMM d, yyyy")}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
                           <Button
                             variant="outline"
                             size="sm"
@@ -260,7 +260,13 @@ const AdminOrders = () => {
                           >
                             <Plus className="h-3 w-3 mr-1" /> Create Order
                           </Button>
-                        </TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteQuoteId(q.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                       </TableRow>
                     );
                   })}
