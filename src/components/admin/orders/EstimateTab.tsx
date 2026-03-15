@@ -275,7 +275,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
               { label: "Material Cost", value: form.material_cost },
               { label: "Add-ons", value: form.addons_cost },
               { label: "Subtotal", value: form.subtotal },
-              { label: "Tax", value: form.tax },
+              { label: `Tax (${form.tax}%)`, value: taxAmount },
               { label: "Total", value: form.total },
               { label: "Deposit Required (50%)", value: form.deposit_required },
               { label: "Remaining Balance", value: remainingBalance },
