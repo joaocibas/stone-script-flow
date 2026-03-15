@@ -139,7 +139,10 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const subtotal = Number(merged.labor_cost) + Number(merged.material_cost) + Number(merged.addons_cost);
     const tax = Number(merged.tax);
     const total = subtotal + tax;
-    const deposit_required = Math.round(total * 0.5 * 100) / 100;
+    // Auto-suggest 50% deposit only when total changes, preserve manual edits otherwise
+    const deposit_required = ("labor_cost" in updated || "material_cost" in updated || "addons_cost" in updated || "tax" in updated)
+      ? Math.round(total * 0.5 * 100) / 100
+      : merged.deposit_required;
     return { ...merged, subtotal, total, deposit_required };
   };
 
@@ -147,6 +150,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const costFields: (keyof EstimateForm)[] = ["labor_cost", "material_cost", "addons_cost", "tax"];
     if (costFields.includes(key)) {
       setForm(recalculate({ [key]: Number(value) || 0 }));
+    } else if (key === "deposit_required") {
+      setForm((prev) => ({ ...prev, deposit_required: Number(value) || 0 }));
     } else {
       setForm((prev) => ({ ...prev, [key]: value }));
     }
@@ -269,7 +274,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           <Field label="Subtotal" type="number" value={String(form.subtotal)} disabled />
           <Field label="Tax" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
           <Field label="Total" type="number" value={String(form.total)} disabled />
-          <Field label="Deposit Required (50%)" type="number" value={String(form.deposit_required)} disabled />
+          <Field label="Deposit Required (50%)" type="number" value={String(form.deposit_required)} onChange={(v) => updateField("deposit_required", v)} disabled={!editing} />
           <Field label="Remaining Balance" type="number" value={String((form.total - form.deposit_required).toFixed(2))} disabled />
         </div>
 
