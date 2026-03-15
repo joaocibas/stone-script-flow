@@ -229,7 +229,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           <Field label="Subtotal" type="number" value={String(form.subtotal)} disabled />
           <Field label="Tax" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
           <Field label="Total" type="number" value={String(form.total)} disabled />
-          <Field label="Deposit Required" type="number" value={String(form.deposit_required)} onChange={(v) => updateField("deposit_required", v)} disabled={!editing} />
+          <Field label="Deposit Required (50%)" type="number" value={String(form.deposit_required)} disabled />
+          <Field label="Remaining Balance" type="number" value={String((form.total - form.deposit_required).toFixed(2))} disabled />
         </div>
 
         <div className="grid grid-cols-1 gap-4 mt-4">
