@@ -62,6 +62,26 @@ interface QuoteResult {
   range_max: number;
 }
 
+interface LinkedEstimate {
+  estimate_number: string;
+  material: string | null;
+  color: string | null;
+  finish: string | null;
+  edge_profile: string | null;
+  measurements_sqft: number | null;
+  scope_of_work: string | null;
+  labor_cost: number | null;
+  material_cost: number | null;
+  addons_cost: number | null;
+  tax: number | null;
+  subtotal: number | null;
+  total: number | null;
+  deposit_required: number | null;
+  notes: string | null;
+  terms_conditions: string | null;
+  status: string;
+}
+
 const Quote = () => {
   const [step, setStep] = useState(0);
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
