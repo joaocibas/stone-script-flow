@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Save } from "lucide-react";
+import { Plus, Save, FileDown } from "lucide-react";
 import { format } from "date-fns";
+import { generatePdfDocument } from "@/lib/pdf-generator";
 
 interface PartialReceiptTabProps {
   orderId: string;
