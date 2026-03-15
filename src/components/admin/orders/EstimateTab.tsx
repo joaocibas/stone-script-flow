@@ -198,7 +198,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         total: Number(ce.total) || Number(order?.total_amount) || 0,
         deposit_required: Number(ce.deposit_required) || Math.round((Number(ce.total) || Number(order?.total_amount) || 0) * 0.5 * 100) / 100,
         notes: ce.notes || "",
-        terms_conditions: ce.terms_conditions || "",
+        terms_conditions: ce.terms_conditions || DEFAULT_TERMS,
       }));
       setEditing(true);
     } else {
