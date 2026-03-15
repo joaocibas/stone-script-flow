@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,9 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, ShoppingCart, DollarSign, Clock, CheckCircle2, Eye } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Search, ShoppingCart, DollarSign, Clock, CheckCircle2, Eye, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+type SortKey = "id" | "customer" | "deposit_paid" | "status" | "created_at";
+type SortDir = "asc" | "desc";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
@@ -22,8 +27,12 @@ const statusColors: Record<string, string> = {
 
 const AdminOrders = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["admin-orders", search, statusFilter],
@@ -43,6 +52,32 @@ const AdminOrders = () => {
     },
   });
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return null;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3 inline ml-1" /> : <ArrowDown className="h-3 w-3 inline ml-1" />;
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from("orders").delete().eq("id", deleteId);
+    if (error) {
+      toast.error("Failed to delete order");
+    } else {
+      toast.success("Order deleted");
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    }
+    setDeleteId(null);
+  };
+
   const filtered = (orders || []).filter((o) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -52,6 +87,20 @@ const AdminOrders = () => {
       (cust?.full_name || "").toLowerCase().includes(q) ||
       (cust?.email || "").toLowerCase().includes(q)
     );
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const custA = a.customers as any;
+    const custB = b.customers as any;
+    switch (sortKey) {
+      case "id": return dir * a.id.localeCompare(b.id);
+      case "customer": return dir * (custA?.full_name || "").localeCompare(custB?.full_name || "");
+      case "deposit_paid": return dir * (Number(a.deposit_paid) - Number(b.deposit_paid));
+      case "status": return dir * a.status.localeCompare(b.status);
+      case "created_at": return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      default: return 0;
+    }
   });
 
   const counts = {
@@ -124,17 +173,17 @@ const AdminOrders = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Customer</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("id")}>Order ID <SortIcon col="id" /></TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("customer")}>Customer <SortIcon col="customer" /></TableHead>
                     <TableHead>Total</TableHead>
-                    <TableHead>Deposit</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("deposit_paid")}>Deposit <SortIcon col="deposit_paid" /></TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("created_at")}>Date <SortIcon col="created_at" /></TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((order) => {
+                  {sorted.map((order) => {
                     const cust = order.customers as any;
                     return (
                       <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/orders/${order.id}`)}>
@@ -154,6 +203,9 @@ const AdminOrders = () => {
                           <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/orders/${order.id}`)}>
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(order.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -164,6 +216,19 @@ const AdminOrders = () => {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this order?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
