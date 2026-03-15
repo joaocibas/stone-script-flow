@@ -164,8 +164,66 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.slab_id && !estimate,
   });
 
+  // Helper: compute service costs from slab-assigned services
+  const computeSlabServiceCosts = () => {
+    if (!slabServiceData || slabServiceData.slabServices.length === 0) return null;
+    const { slab, services, slabServices } = slabServiceData;
+    const assignedIds = slabServices.map((ss: any) => ss.service_id);
+    const overrides = new Map<string, { cost: number | null; multiplier: number | null }>();
+    for (const ss of slabServices) {
+      overrides.set(ss.service_id, {
+        cost: ss.override_cost != null ? Number(ss.override_cost) : null,
+        multiplier: ss.override_multiplier != null ? Number(ss.override_multiplier) : null,
+      });
+    }
+
+    const sqft = Number(quoteData?.calculated_sqft) || 0;
+    const numCutouts = Number(quoteData?.num_cutouts) || 0;
+    const lengthIn = Number(quoteData?.length_inches) || 0;
+    const widthIn = Number(quoteData?.width_inches) || 0;
+    const perimeterLinFt = (lengthIn && widthIn) ? (2 * (lengthIn + widthIn)) / 12 : 0;
+
+    const sumCat = (cat: string) => {
+      const items = services.filter((s: any) => s.category === cat && assignedIds.includes(s.id));
+      return items.reduce((total: number, s: any) => {
+        const ov = overrides.get(s.id);
+        const costVal = ov?.cost != null ? ov.cost : s.cost_value;
+        const mult = ov?.multiplier != null ? ov.multiplier : 1;
+        let unitCost: number;
+        switch (s.pricing_unit) {
+          case "per_sqft": unitCost = costVal * sqft; break;
+          case "per_linear_ft": unitCost = costVal * perimeterLinFt; break;
+          case "per_cutout": unitCost = costVal * numCutouts; break;
+          default: unitCost = costVal; break;
+        }
+        return total + unitCost * mult;
+      }, 0);
+    };
+
+    return {
+      labor: sumCat("labor"),
+      edge: sumCat("edge_profile"),
+      cutout: sumCat("cutout"),
+      fabrication: sumCat("fabrication"),
+      addon: sumCat("addon"),
+      slabCost: Number(slab?.sales_value) || 0,
+      slabMaterial: (slab?.materials as any)?.name || "",
+      slabCategory: (slab?.materials as any)?.category || "",
+    };
+  };
+
   useEffect(() => {
     if (estimate) {
+      // Load saved estimate — recalculate to ensure consistency
+      const labor = Number(estimate.labor_cost) || 0;
+      const material = Number(estimate.material_cost) || 0;
+      const addons = Number(estimate.addons_cost) || 0;
+      const taxPct = Number(estimate.tax) || 0;
+      const subtotal = labor + material + addons;
+      const taxAmt = Math.round(subtotal * (taxPct / 100) * 100) / 100;
+      const total = subtotal + taxAmt;
+      const deposit = Number(estimate.deposit_required) || 0;
+
       setForm({
         estimate_number: estimate.estimate_number || "",
         date: estimate.date || format(new Date(), "yyyy-MM-dd"),
@@ -181,20 +239,28 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         edge_profile: estimate.edge_profile || "",
         scope_of_work: estimate.scope_of_work || "",
         measurements_sqft: Number(estimate.measurements_sqft) || 0,
-        labor_cost: Number(estimate.labor_cost) || 0,
-        material_cost: Number(estimate.material_cost) || 0,
-        addons_cost: Number(estimate.addons_cost) || 0,
-        subtotal: Number(estimate.subtotal) || 0,
-        tax: Number(estimate.tax) || 0,
-        total: Number(estimate.total) || 0,
-        deposit_required: Number(estimate.deposit_required) || 0,
+        labor_cost: labor,
+        material_cost: material,
+        addons_cost: addons,
+        subtotal,
+        tax: taxPct,
+        total,
+        deposit_required: deposit,
         notes: estimate.notes || "",
         terms_conditions: estimate.terms_conditions || DEFAULT_TERMS,
       });
       setEditing(false);
     } else if (customerEstimate) {
-      // Fallback: use customer's most recent estimate from another order
+      // Fallback: use customer's most recent estimate — recalculate for consistency
       const ce = customerEstimate;
+      const labor = Number(ce.labor_cost) || 0;
+      const material = Number(ce.material_cost) || 0;
+      const addons = Number(ce.addons_cost) || 0;
+      const taxPct = Number(ce.tax) || 0;
+      const subtotal = labor + material + addons;
+      const taxAmt = Math.round(subtotal * (taxPct / 100) * 100) / 100;
+      const total = subtotal + taxAmt;
+
       setForm((prev) => ({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
@@ -209,19 +275,19 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         edge_profile: ce.edge_profile || "",
         scope_of_work: ce.scope_of_work || "",
         measurements_sqft: Number(ce.measurements_sqft) || 0,
-        labor_cost: Number(ce.labor_cost) || 0,
-        material_cost: Number(ce.material_cost) || 0,
-        addons_cost: Number(ce.addons_cost) || 0,
-        subtotal: Number(ce.subtotal) || 0,
-        tax: Number(ce.tax) || 0,
-        total: Number(ce.total) || Number(order?.total_amount) || 0,
-        deposit_required: Number(ce.deposit_required) || Math.round((Number(ce.total) || Number(order?.total_amount) || 0) * 0.5 * 100) / 100,
+        labor_cost: labor,
+        material_cost: material,
+        addons_cost: addons,
+        subtotal,
+        tax: taxPct,
+        total,
+        deposit_required: Number(ce.deposit_required) || Math.round(total * 0.5 * 100) / 100,
         notes: ce.notes || "",
         terms_conditions: ce.terms_conditions || DEFAULT_TERMS,
       }));
       setEditing(true);
     } else {
-      // Cascade: customer → lead for contact info
+      // New estimate — cascade: customer → lead for contact info
       const name = customer?.full_name || leadData?.full_name || "";
       const phone = customer?.phone || leadData?.phone || "";
       const email = customer?.email || leadData?.email || "";
@@ -229,14 +295,21 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
       // Quote/material data
       const materialObj = quoteData?.materials as any;
-      const material = materialObj?.name || "";
-      const color = materialObj?.category || "";
       const edge_profile = quoteData?.edge_profile || "";
       const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
 
-      const subtotal = 0;
+      // Auto-populate from slab services if available
+      const svcCosts = computeSlabServiceCosts();
+
+      const labor_cost = svcCosts ? (svcCosts.labor + svcCosts.edge + svcCosts.cutout + svcCosts.fabrication) : 0;
+      const material_cost = svcCosts ? svcCosts.slabCost : 0;
+      const addons_cost = svcCosts ? svcCosts.addon : 0;
+      const material = svcCosts?.slabMaterial || materialObj?.name || "";
+      const color = svcCosts?.slabCategory || materialObj?.category || "";
+
+      const subtotal = labor_cost + material_cost + addons_cost;
       const taxPct = 0;
-      const total = Number(order?.total_amount) || 0;
+      const total = subtotal; // tax 0% initially
 
       setForm((prev) => ({
         ...prev,
@@ -250,6 +323,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         color,
         edge_profile,
         measurements_sqft,
+        labor_cost,
+        material_cost,
+        addons_cost,
         subtotal,
         tax: taxPct,
         total,
@@ -258,7 +334,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       }));
       setEditing(true);
     }
-  }, [estimate, customer, order, orderId, quoteData, leadData, customerEstimate]);
+  }, [estimate, customer, order, orderId, quoteData, leadData, customerEstimate, slabServiceData]);
 
   // Tax is stored as percentage; taxAmount is derived
   const calcTaxAmount = (subtotal: number, taxPct: number) =>
