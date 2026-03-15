@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Pencil, Link2, CreditCard, FileDown } from "lucide-react";
+import { Save, Pencil, CreditCard, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
+import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox } from "./DocumentLayout";
 
 interface PaymentOrderTabProps {
   orderId: string;
@@ -161,7 +162,6 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Manual payment recording
   const [manualPayment, setManualPayment] = useState({ amount: 0, method: "", reference: "", notes: "" });
   const [showManual, setShowManual] = useState(false);
 
@@ -199,135 +199,160 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
   }
 
   const totalPaid = (payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+  const dueDateDisplay = form.due_date ? format(new Date(form.due_date + "T12:00:00"), "MMMM d, yyyy") : "N/A";
+
+  const actionButtons = (
+    <>
+      {paymentOrder && (
+        <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
+          title: "Payment Order",
+          documentNumber: form.payment_order_number,
+          date: dueDateDisplay,
+          sections: [
+            { heading: "Customer", rows: [
+              { label: "Customer Name", value: form.customer_name },
+              { label: "Email", value: form.customer_email },
+            ]},
+            { heading: "Amounts", rows: [
+              { label: "Estimate Total", value: form.estimate_total },
+              { label: "Deposit Amount (50%)", value: form.deposit_amount },
+              { label: "Remaining Balance", value: form.remaining_balance },
+            ]},
+            { heading: "Payment Details", rows: [
+              { label: "Payment Method", value: form.payment_method?.replace(/_/g, " ") || "" },
+              { label: "Payment Link", value: form.payment_link },
+              { label: "Due Date", value: dueDateDisplay },
+            ]},
+          ],
+          notes: form.payment_notes,
+          companyInfo: "Altar Stones Countertops\nSarasota, FL",
+        })}>
+          <FileDown className="mr-2 h-4 w-4" /> Export PDF
+        </Button>
+      )}
+      {!editing && paymentOrder && (
+        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+          <Pencil className="mr-2 h-4 w-4" /> Edit
+        </Button>
+      )}
+      {editing && (
+        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Save className="mr-2 h-4 w-4" /> {saveMutation.isPending ? "Saving..." : "Save"}
+        </Button>
+      )}
+    </>
+  );
 
   return (
     <div className="space-y-4 mt-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">
-            Payment Order {paymentOrder && <Badge variant="secondary" className="ml-2">{paymentOrder.status}</Badge>}
-          </CardTitle>
-          <div className="flex gap-2">
-            {paymentOrder && (
-              <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
-                title: "Payment Order",
-                documentNumber: form.payment_order_number,
-                date: form.due_date ? format(new Date(form.due_date + "T12:00:00"), "MMMM d, yyyy") : "N/A",
-                sections: [
-                  { heading: "Customer", rows: [
-                    { label: "Customer Name", value: form.customer_name },
-                    { label: "Email", value: form.customer_email },
-                  ]},
-                  { heading: "Amounts", rows: [
-                    { label: "Estimate Total", value: form.estimate_total },
-                    { label: "Deposit Amount (50%)", value: form.deposit_amount },
-                    { label: "Remaining Balance", value: form.remaining_balance },
-                  ]},
-                  { heading: "Payment Details", rows: [
-                    { label: "Payment Method", value: form.payment_method?.replace(/_/g, " ") || "" },
-                    { label: "Payment Link", value: form.payment_link },
-                    { label: "Due Date", value: form.due_date ? format(new Date(form.due_date + "T12:00:00"), "MMMM d, yyyy") : "" },
-                  ]},
-                ],
-                notes: form.payment_notes,
-                companyInfo: "Altar Stones Countertops\nSarasota, FL",
-              })}>
-                <FileDown className="mr-2 h-4 w-4" /> Export PDF
-              </Button>
+      <Card className="overflow-hidden">
+        <CardContent className="p-6 space-y-6">
+          {/* Header */}
+          <DocumentHeader
+            documentTitle="Payment Order"
+            documentNumber={form.payment_order_number}
+            date={dueDateDisplay}
+            status={paymentOrder?.status}
+            actions={actionButtons}
+          />
+
+          {/* Customer info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {editing ? (
+              <DocumentSection title="Customer">
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <Label className="text-sm">Customer Name</Label>
+                    <Input value={form.customer_name} onChange={(e) => updateField("customer_name", e.target.value)} disabled={!editing} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Customer Email</Label>
+                    <Input value={form.customer_email} onChange={(e) => updateField("customer_email", e.target.value)} disabled={!editing} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Due Date</Label>
+                    <Input type="date" value={form.due_date} onChange={(e) => updateField("due_date", e.target.value)} disabled={!editing} className="mt-1" />
+                  </div>
+                </div>
+              </DocumentSection>
+            ) : (
+              <InfoBlock title="Bill To" items={[
+                { label: "Name", value: form.customer_name },
+                { label: "Email", value: form.customer_email },
+                { label: "Due Date", value: dueDateDisplay },
+              ]} />
             )}
-            {!editing && paymentOrder && (
-              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit
-              </Button>
-            )}
-            {editing && (
-              <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                <Save className="mr-2 h-4 w-4" /> {saveMutation.isPending ? "Saving..." : "Save"}
-              </Button>
-            )}
+
+            {/* Amounts summary */}
+            <SummaryBox rows={[
+              { label: "Estimate Total", value: `$${form.estimate_total.toFixed(2)}` },
+              { label: "Deposit Amount (50%)", value: `$${form.deposit_amount.toFixed(2)}` },
+              { label: "Remaining Balance", value: `$${form.remaining_balance.toFixed(2)}`, bold: true, accent: true },
+            ]} />
           </div>
-        </CardHeader>
-        <CardContent>
+
+          {/* Payment Options */}
+          <DocumentSection title="Payment Options">
+            {editing ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm">Payment Method</Label>
+                  <Select value={form.payment_method} onValueChange={(v) => updateField("payment_method", v)} disabled={!editing}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select method" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="credit_card">Credit Card</SelectItem>
+                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="check">Check</SelectItem>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="payment_link">Payment Link</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-sm">Payment Link</Label>
+                  <Input value={form.payment_link} onChange={(e) => updateField("payment_link", e.target.value)} disabled={!editing} placeholder="https://..." className="mt-1" />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-6 text-sm">
+                <p><span className="text-muted-foreground">Method:</span> <span className="font-medium">{form.payment_method?.replace(/_/g, " ") || "—"}</span></p>
+                {form.payment_link && <p><span className="text-muted-foreground">Link:</span> <a href={form.payment_link} target="_blank" rel="noopener noreferrer" className="font-medium text-accent underline">{form.payment_link}</a></p>}
+              </div>
+            )}
+          </DocumentSection>
+
+          {/* Notes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm">Payment Order #</Label>
-              <Input value={form.payment_order_number} onChange={(e) => updateField("payment_order_number", e.target.value)} disabled={!editing} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-sm">Customer Name</Label>
-              <Input value={form.customer_name} onChange={(e) => updateField("customer_name", e.target.value)} disabled={!editing} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-sm">Customer Email</Label>
-              <Input value={form.customer_email} onChange={(e) => updateField("customer_email", e.target.value)} disabled={!editing} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-sm">Due Date</Label>
-              <Input type="date" value={form.due_date} onChange={(e) => updateField("due_date", e.target.value)} disabled={!editing} className="mt-1" />
-            </div>
-          </div>
-
-          <h3 className="text-sm font-semibold mt-6 mb-3 text-muted-foreground uppercase tracking-wide">Amounts</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <Label className="text-sm">Estimate Total</Label>
-              <Input type="number" value={String(form.estimate_total)} disabled className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-sm">Deposit Amount (50%)</Label>
-              <Input type="number" value={String(form.deposit_amount)} disabled className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-sm">Remaining Balance</Label>
-              <Input type="number" value={String(form.remaining_balance)} disabled className="mt-1" />
-            </div>
-          </div>
-
-          <h3 className="text-sm font-semibold mt-6 mb-3 text-muted-foreground uppercase tracking-wide">Payment Options</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm">Payment Method</Label>
-              <Select value={form.payment_method} onValueChange={(v) => updateField("payment_method", v)} disabled={!editing}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select method" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="credit_card">Credit Card</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="check">Check</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="payment_link">Payment Link</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm">Payment Link</Label>
-              <Input value={form.payment_link} onChange={(e) => updateField("payment_link", e.target.value)} disabled={!editing} placeholder="https://..." className="mt-1" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 mt-4">
-            <div>
-              <Label className="text-sm">Payment Notes</Label>
-              <Textarea value={form.payment_notes} onChange={(e) => updateField("payment_notes", e.target.value)} disabled={!editing} rows={2} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-sm">Internal Notes</Label>
-              <Textarea value={form.internal_notes} onChange={(e) => updateField("internal_notes", e.target.value)} disabled={!editing} rows={2} className="mt-1" />
-            </div>
+            <DocumentSection title="Payment Notes">
+              {editing ? (
+                <Textarea value={form.payment_notes} onChange={(e) => updateField("payment_notes", e.target.value)} disabled={!editing} rows={2} className="mt-1" />
+              ) : (
+                <p className="text-sm text-foreground whitespace-pre-wrap">{form.payment_notes || "—"}</p>
+              )}
+            </DocumentSection>
+            <DocumentSection title="Internal Notes">
+              {editing ? (
+                <Textarea value={form.internal_notes} onChange={(e) => updateField("internal_notes", e.target.value)} disabled={!editing} rows={2} className="mt-1" />
+              ) : (
+                <p className="text-sm text-foreground whitespace-pre-wrap">{form.internal_notes || "—"}</p>
+              )}
+            </DocumentSection>
           </div>
         </CardContent>
       </Card>
 
-      {/* Payment History & Manual Entry */}
+      {/* Payment History */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Payment History</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setShowManual(!showManual)}>
-            <CreditCard className="mr-2 h-4 w-4" /> Record Payment
-          </Button>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-accent">Payment History</h3>
+            <Button variant="outline" size="sm" onClick={() => setShowManual(!showManual)}>
+              <CreditCard className="mr-2 h-4 w-4" /> Record Payment
+            </Button>
+          </div>
+
           {showManual && (
-            <div className="border rounded-md p-4 mb-4 space-y-3 bg-muted/30">
+            <div className="border rounded-md p-4 space-y-3 bg-muted/30">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm">Amount</Label>
