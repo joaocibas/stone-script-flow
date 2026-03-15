@@ -103,6 +103,25 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.quote_id && !estimate,
   });
 
+  // Fetch customer's most recent estimate from any order as fallback
+  const { data: customerEstimate } = useQuery({
+    queryKey: ["customer-latest-estimate", customer?.id, orderId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("estimates")
+        .select("*")
+        .neq("order_id", orderId)
+        .in("order_id", 
+          (await supabase.from("orders").select("id").eq("customer_id", customer.id)).data?.map((o: any) => o.id) || []
+        )
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!customer?.id && !estimate,
+  });
+
   // Fetch lead for fallback auto-population
   const { data: leadData } = useQuery({
     queryKey: ["estimate-lead", order?.quote_id],
@@ -115,7 +134,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         .maybeSingle();
       return data;
     },
-    enabled: !!order?.quote_id && !estimate && !customer,
+    enabled: !!order?.quote_id && !estimate && !customer && !customerEstimate,
   });
 
   useEffect(() => {
