@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { LogOut, FileText, Package, CalendarDays, User, Save } from "lucide-react";
+import { LogOut, FileText, Package, CalendarDays, User, Save, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const CustomerDashboard = () => {
@@ -19,6 +19,8 @@ const CustomerDashboard = () => {
   const [customer, setCustomer] = useState<Tables<"customers"> | null>(null);
   const [quotes, setQuotes] = useState<Tables<"quotes">[]>([]);
   const [orders, setOrders] = useState<Tables<"orders">[]>([]);
+  const [estimates, setEstimates] = useState<Tables<"estimates">[]>([]);
+  const [receipts, setReceipts] = useState<Tables<"receipts">[]>([]);
   const [reservations, setReservations] = useState<Tables<"reservations">[]>([]);
   const [appointments, setAppointments] = useState<Tables<"appointments">[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,10 +49,25 @@ const CustomerDashboard = () => {
         supabase.from("appointments").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
       ]).then(([q, o, r, a]) => {
         setQuotes(q.data || []);
-        setOrders(o.data || []);
+        const orderData = o.data || [];
+        setOrders(orderData);
         setReservations(r.data || []);
         setAppointments(a.data || []);
-        setLoading(false);
+
+        // Load estimates & receipts linked to customer's orders
+        const orderIds = orderData.map((ord) => ord.id);
+        if (orderIds.length > 0) {
+          Promise.all([
+            supabase.from("estimates").select("*").in("order_id", orderIds).order("created_at", { ascending: false }),
+            supabase.from("receipts").select("*").in("order_id", orderIds).order("created_at", { ascending: false }),
+          ]).then(([est, rec]) => {
+            setEstimates(est.data || []);
+            setReceipts(rec.data || []);
+            setLoading(false);
+          });
+        } else {
+          setLoading(false);
+        }
       });
     });
   }, [authUser, authLoading, navigate]);
@@ -188,6 +205,56 @@ const CustomerDashboard = () => {
                           {new Date(o.created_at).toLocaleDateString()}
                         </Link>
                         <Badge variant="secondary" className="capitalize">{o.status}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Estimates (from Orders) */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-accent" /> My Estimates
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {estimates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No estimates yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {estimates.map((e) => (
+                      <li key={e.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate">
+                          {e.estimate_number || new Date(e.created_at).toLocaleDateString()}
+                        </span>
+                        <Badge variant="secondary" className="capitalize">{e.status}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Invoices (Receipts) */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-accent" /> My Invoices
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {receipts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No invoices yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {receipts.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate">
+                          {r.receipt_number || new Date(r.created_at).toLocaleDateString()}
+                        </span>
+                        <Badge variant="secondary" className="capitalize">{r.status}</Badge>
                       </li>
                     ))}
                   </ul>
