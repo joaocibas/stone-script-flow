@@ -430,7 +430,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
             <div className="md:col-span-2">
               <SummaryBox rows={[
                 { label: "Subtotal", value: `$${form.subtotal.toFixed(2)}` },
-                { label: "Tax", value: `$${form.tax.toFixed(2)}` },
+                { label: `Tax (${form.tax}%)`, value: `$${taxAmount.toFixed(2)}` },
                 { label: "Total", value: `$${form.total.toFixed(2)}`, bold: true },
                 { label: "Deposit Required (50%)", value: editing
                   ? ""
