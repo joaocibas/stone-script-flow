@@ -145,6 +145,25 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.quote_id && !estimate && !customer && !customerEstimate,
   });
 
+  // Fetch slab + assigned services for auto-populating costs on new estimates
+  const { data: slabServiceData } = useQuery({
+    queryKey: ["estimate-slab-services", order?.slab_id],
+    queryFn: async () => {
+      const slabId = order.slab_id;
+      const [slabRes, servicesRes, slabServicesRes] = await Promise.all([
+        supabase.from("slabs").select("sales_value, length_inches, width_inches, usable_sqft_override, material_id, materials(name, category)").eq("id", slabId).single(),
+        supabase.from("service_items").select("id, category, pricing_unit, cost_value, name").eq("is_active", true),
+        supabase.from("slab_services").select("service_id, override_cost, override_multiplier, is_active").eq("slab_id", slabId).eq("is_active", true),
+      ]);
+      return {
+        slab: slabRes.data,
+        services: servicesRes.data || [],
+        slabServices: slabServicesRes.data || [],
+      };
+    },
+    enabled: !!order?.slab_id && !estimate,
+  });
+
   useEffect(() => {
     if (estimate) {
       setForm({
