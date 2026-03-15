@@ -170,7 +170,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         total: Number(estimate.total) || 0,
         deposit_required: Number(estimate.deposit_required) || 0,
         notes: estimate.notes || "",
-        terms_conditions: estimate.terms_conditions || "",
+        terms_conditions: estimate.terms_conditions || DEFAULT_TERMS,
       });
       setEditing(false);
     } else if (customerEstimate) {
