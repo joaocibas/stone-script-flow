@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, ShoppingCart, DollarSign, Clock, CheckCircle2, Eye, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, ShoppingCart, DollarSign, Clock, CheckCircle2, Eye, Trash2, ArrowUp, ArrowDown, FileText, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,6 +25,12 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-red-100 text-red-800 border-red-200",
 };
 
+const quoteStatusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  calculated: "bg-blue-100 text-blue-800 border-blue-200",
+  expired: "bg-red-100 text-red-800 border-red-200",
+};
+
 const AdminOrders = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -33,6 +39,7 @@ const AdminOrders = () => {
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [convertingQuoteId, setConvertingQuoteId] = useState<string | null>(null);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["admin-orders", search, statusFilter],
@@ -50,6 +57,25 @@ const AdminOrders = () => {
       if (error) throw error;
       return data || [];
     },
+  });
+
+  // Fetch customer quotes (same source as /dashboard → My Quotes)
+  const { data: quotes } = useQuery({
+    queryKey: ["admin-customer-quotes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quotes")
+        .select("*, customers(full_name, email), materials(name)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Filter quotes that are NOT yet linked to an order
+  const unlinkedQuotes = (quotes || []).filter((q) => {
+    const linkedQuoteIds = (orders || []).map((o) => o.quote_id).filter(Boolean);
+    return !linkedQuoteIds.includes(q.id);
   });
 
   const handleSort = (key: SortKey) => {
@@ -76,6 +102,34 @@ const AdminOrders = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
     }
     setDeleteId(null);
+  };
+
+  const handleConvertQuoteToOrder = async (quoteId: string) => {
+    setConvertingQuoteId(quoteId);
+    const quote = (quotes || []).find((q) => q.id === quoteId);
+    if (!quote || !quote.customer_id) {
+      toast.error("Quote must be linked to a customer");
+      setConvertingQuoteId(null);
+      return;
+    }
+
+    const { data: order, error } = await supabase.from("orders").insert({
+      customer_id: quote.customer_id,
+      quote_id: quote.id,
+      total_amount: quote.estimated_total || 0,
+      deposit_paid: 0,
+      status: "pending",
+    }).select().single();
+
+    if (error) {
+      toast.error("Failed to create order: " + error.message);
+    } else {
+      toast.success("Order created from quote");
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-quotes"] });
+      navigate(`/admin/orders/${order.id}`);
+    }
+    setConvertingQuoteId(null);
   };
 
   const filtered = (orders || []).filter((o) => {
@@ -141,6 +195,68 @@ const AdminOrders = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Customer Quotes — not yet converted to orders */}
+      {unlinkedQuotes.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4 text-accent" /> Customer Quotes — Not Yet Converted to Orders
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Quote ID</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Material</TableHead>
+                    <TableHead>Sq Ft</TableHead>
+                    <TableHead>Estimated Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {unlinkedQuotes.map((q) => {
+                    const cust = q.customers as any;
+                    const mat = q.materials as any;
+                    return (
+                      <TableRow key={q.id}>
+                        <TableCell className="font-mono text-xs">{q.id.slice(0, 8).toUpperCase()}</TableCell>
+                        <TableCell className="font-medium">{cust?.full_name || "Guest"}</TableCell>
+                        <TableCell>{mat?.name || "—"}</TableCell>
+                        <TableCell>{q.calculated_sqft ? Number(q.calculated_sqft).toFixed(1) : "—"}</TableCell>
+                        <TableCell>{q.estimated_total ? `$${Number(q.estimated_total).toFixed(2)}` : "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn("text-xs", quoteStatusColors[q.status] || "")}>
+                            {q.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {format(new Date(q.created_at), "MMM d, yyyy")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!q.customer_id || convertingQuoteId === q.id}
+                            onClick={() => handleConvertQuoteToOrder(q.id)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Create Order
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>
