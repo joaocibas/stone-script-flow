@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { LogOut, FileText, Package, CalendarDays, User, Save, Receipt } from "lucide-react";
+import { LogOut, FileText, Package, CalendarDays, User, Save, Receipt, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DocumentViewerDialog } from "@/components/customer/DocumentViewerDialog";
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
