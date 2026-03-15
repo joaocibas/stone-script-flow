@@ -269,10 +269,18 @@ const CustomerDashboard = () => {
                   <ul className="space-y-2">
                     {estimates.map((e) => (
                       <li key={e.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">
+                        <button
+                          className="text-accent hover:underline truncate text-left"
+                          onClick={() => { setSelectedEstimate(e); setViewerType("estimate"); setViewerOpen(true); }}
+                        >
                           {e.estimate_number || new Date(e.created_at).toLocaleDateString()}
-                        </span>
-                        <Badge variant="secondary" className="capitalize">{e.status}</Badge>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">{e.status}</Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setSelectedEstimate(e); setViewerType("estimate"); setViewerOpen(true); }}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
