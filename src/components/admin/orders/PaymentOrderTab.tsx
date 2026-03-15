@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Pencil, Link2, CreditCard } from "lucide-react";
+import { Save, Pencil, Link2, CreditCard, FileDown } from "lucide-react";
 import { format } from "date-fns";
+import { generatePdfDocument } from "@/lib/pdf-generator";
 
 interface PaymentOrderTabProps {
   orderId: string;
