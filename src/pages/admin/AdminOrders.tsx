@@ -27,8 +27,12 @@ const statusColors: Record<string, string> = {
 
 const AdminOrders = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["admin-orders", search, statusFilter],
@@ -48,6 +52,32 @@ const AdminOrders = () => {
     },
   });
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return null;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3 inline ml-1" /> : <ArrowDown className="h-3 w-3 inline ml-1" />;
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from("orders").delete().eq("id", deleteId);
+    if (error) {
+      toast.error("Failed to delete order");
+    } else {
+      toast.success("Order deleted");
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    }
+    setDeleteId(null);
+  };
+
   const filtered = (orders || []).filter((o) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -57,6 +87,20 @@ const AdminOrders = () => {
       (cust?.full_name || "").toLowerCase().includes(q) ||
       (cust?.email || "").toLowerCase().includes(q)
     );
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const custA = a.customers as any;
+    const custB = b.customers as any;
+    switch (sortKey) {
+      case "id": return dir * a.id.localeCompare(b.id);
+      case "customer": return dir * (custA?.full_name || "").localeCompare(custB?.full_name || "");
+      case "deposit_paid": return dir * (Number(a.deposit_paid) - Number(b.deposit_paid));
+      case "status": return dir * a.status.localeCompare(b.status);
+      case "created_at": return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      default: return 0;
+    }
   });
 
   const counts = {
