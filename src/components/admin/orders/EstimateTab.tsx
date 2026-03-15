@@ -89,6 +89,35 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     },
   });
 
+  // Fetch quote + material for auto-population
+  const { data: quoteData } = useQuery({
+    queryKey: ["estimate-quote", order?.quote_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("quotes")
+        .select("*, materials(name, category)")
+        .eq("id", order.quote_id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!order?.quote_id && !estimate,
+  });
+
+  // Fetch lead for fallback auto-population
+  const { data: leadData } = useQuery({
+    queryKey: ["estimate-lead", order?.quote_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("quote_id", order.quote_id)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!order?.quote_id && !estimate && !customer,
+  });
+
   useEffect(() => {
     if (estimate) {
       setForm({
@@ -118,27 +147,54 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       });
       setEditing(false);
     } else {
+      // Cascade: customer → lead for contact info
+      const name = customer?.full_name || leadData?.full_name || "";
+      const phone = customer?.phone || leadData?.phone || "";
+      const email = customer?.email || leadData?.email || "";
+      const address = customer?.address || "";
+
+      // Quote/material data
+      const materialObj = quoteData?.materials as any;
+      const material = materialObj?.name || "";
+      const color = materialObj?.category || "";
+      const edge_profile = quoteData?.edge_profile || "";
+      const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
+
+      const subtotal = 0;
+      const taxPct = 0;
       const total = Number(order?.total_amount) || 0;
+
       setForm((prev) => ({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
-        customer_name: customer?.full_name || "",
-        phone: customer?.phone || "",
-        email: customer?.email || "",
-        billing_address: customer?.address || "",
-        project_address: customer?.address || "",
+        customer_name: name,
+        phone,
+        email,
+        billing_address: address,
+        project_address: address,
+        material,
+        color,
+        edge_profile,
+        measurements_sqft,
+        subtotal,
+        tax: taxPct,
         total,
         deposit_required: Math.round(total * 0.5 * 100) / 100,
       }));
       setEditing(true);
     }
-  }, [estimate, customer, order, orderId]);
+  }, [estimate, customer, order, orderId, quoteData, leadData]);
+
+  // Tax is stored as percentage; taxAmount is derived
+  const calcTaxAmount = (subtotal: number, taxPct: number) =>
+    Math.round(subtotal * (taxPct / 100) * 100) / 100;
 
   const recalculate = (updated: Partial<EstimateForm>) => {
     const merged = { ...form, ...updated };
     const subtotal = Number(merged.labor_cost) + Number(merged.material_cost) + Number(merged.addons_cost);
-    const tax = Number(merged.tax);
-    const total = subtotal + tax;
+    const taxPct = Number(merged.tax);
+    const taxAmount = calcTaxAmount(subtotal, taxPct);
+    const total = subtotal + taxAmount;
     const deposit_required = ("labor_cost" in updated || "material_cost" in updated || "addons_cost" in updated || "tax" in updated)
       ? Math.round(total * 0.5 * 100) / 100
       : merged.deposit_required;
