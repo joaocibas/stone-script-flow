@@ -208,8 +208,18 @@ const CustomerDashboard = () => {
                   <ul className="space-y-2">
                     {quotes.map((q) => (
                       <li key={q.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">{new Date(q.created_at).toLocaleDateString()}</span>
-                        <Badge variant="secondary" className="capitalize">{q.status}</Badge>
+                        <button
+                          className="text-accent hover:underline truncate text-left"
+                          onClick={() => { setSelectedQuote(q); setViewerType("quote"); setViewerOpen(true); }}
+                        >
+                          {new Date(q.created_at).toLocaleDateString()}
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">{q.status}</Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setSelectedQuote(q); setViewerType("quote"); setViewerOpen(true); }}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
