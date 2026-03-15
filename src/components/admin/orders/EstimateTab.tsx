@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Pencil } from "lucide-react";
+import { Save, Pencil, FileDown } from "lucide-react";
 import { format } from "date-fns";
+import { generatePdfDocument } from "@/lib/pdf-generator";
 
 type EstimateForm = {
   estimate_number: string;
