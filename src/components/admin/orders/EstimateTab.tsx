@@ -137,7 +137,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const subtotal = Number(merged.labor_cost) + Number(merged.material_cost) + Number(merged.addons_cost);
     const tax = Number(merged.tax);
     const total = subtotal + tax;
-    return { ...merged, subtotal, total };
+    const deposit_required = Math.round(total * 0.5 * 100) / 100;
+    return { ...merged, subtotal, total, deposit_required };
   };
 
   const updateField = (key: keyof EstimateForm, value: any) => {
