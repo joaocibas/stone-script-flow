@@ -188,7 +188,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       });
     }
 
-    const sqft = sqftOverride ?? Number(quoteData?.calculated_sqft) || 0;
+    const sqft = sqftOverride ?? (Number(quoteData?.calculated_sqft) || 0);
     const numCutouts = Number(quoteData?.num_cutouts) || 0;
     const lengthIn = Number(quoteData?.length_inches) || 0;
     const widthIn = Number(quoteData?.width_inches) || 0;
