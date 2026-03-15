@@ -103,6 +103,25 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.quote_id && !estimate,
   });
 
+  // Fetch customer's most recent estimate from any order as fallback
+  const { data: customerEstimate } = useQuery({
+    queryKey: ["customer-latest-estimate", customer?.id, orderId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("estimates")
+        .select("*")
+        .neq("order_id", orderId)
+        .in("order_id", 
+          (await supabase.from("orders").select("id").eq("customer_id", customer.id)).data?.map((o: any) => o.id) || []
+        )
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!customer?.id && !estimate,
+  });
+
   // Fetch lead for fallback auto-population
   const { data: leadData } = useQuery({
     queryKey: ["estimate-lead", order?.quote_id],
@@ -115,7 +134,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         .maybeSingle();
       return data;
     },
-    enabled: !!order?.quote_id && !estimate && !customer,
+    enabled: !!order?.quote_id && !estimate && !customer && !customerEstimate,
   });
 
   useEffect(() => {
@@ -146,6 +165,34 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         terms_conditions: estimate.terms_conditions || "",
       });
       setEditing(false);
+    } else if (customerEstimate) {
+      // Fallback: use customer's most recent estimate from another order
+      const ce = customerEstimate;
+      setForm((prev) => ({
+        ...prev,
+        estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
+        customer_name: ce.customer_name || customer?.full_name || "",
+        phone: ce.phone || customer?.phone || "",
+        email: ce.email || customer?.email || "",
+        billing_address: ce.billing_address || customer?.address || "",
+        project_address: ce.project_address || customer?.address || "",
+        material: ce.material || "",
+        color: ce.color || "",
+        finish: ce.finish || "",
+        edge_profile: ce.edge_profile || "",
+        scope_of_work: ce.scope_of_work || "",
+        measurements_sqft: Number(ce.measurements_sqft) || 0,
+        labor_cost: Number(ce.labor_cost) || 0,
+        material_cost: Number(ce.material_cost) || 0,
+        addons_cost: Number(ce.addons_cost) || 0,
+        subtotal: Number(ce.subtotal) || 0,
+        tax: Number(ce.tax) || 0,
+        total: Number(ce.total) || Number(order?.total_amount) || 0,
+        deposit_required: Number(ce.deposit_required) || Math.round((Number(ce.total) || Number(order?.total_amount) || 0) * 0.5 * 100) / 100,
+        notes: ce.notes || "",
+        terms_conditions: ce.terms_conditions || "",
+      }));
+      setEditing(true);
     } else {
       // Cascade: customer → lead for contact info
       const name = customer?.full_name || leadData?.full_name || "";
@@ -183,7 +230,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       }));
       setEditing(true);
     }
-  }, [estimate, customer, order, orderId, quoteData, leadData]);
+  }, [estimate, customer, order, orderId, quoteData, leadData, customerEstimate]);
 
   // Tax is stored as percentage; taxAmount is derived
   const calcTaxAmount = (subtotal: number, taxPct: number) =>
