@@ -175,7 +175,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   });
 
   // Helper: compute service costs from slab-assigned services
-  const computeSlabServiceCosts = () => {
+  // Returns both totals and rate data for reactive recalculation
+  const computeSlabServiceCosts = (sqftOverride?: number) => {
     if (!slabServiceData || slabServiceData.slabServices.length === 0) return null;
     const { slab, services, slabServices } = slabServiceData;
     const assignedIds = slabServices.map((ss: any) => ss.service_id);
@@ -187,12 +188,30 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       });
     }
 
-    const sqft = Number(quoteData?.calculated_sqft) || 0;
+    const sqft = sqftOverride ?? Number(quoteData?.calculated_sqft) || 0;
     const numCutouts = Number(quoteData?.num_cutouts) || 0;
     const lengthIn = Number(quoteData?.length_inches) || 0;
     const widthIn = Number(quoteData?.width_inches) || 0;
     const perimeterLinFt = (lengthIn && widthIn) ? (2 * (lengthIn + widthIn)) / 12 : 0;
+    const slabsNeeded = Number(quoteData?.slabs_needed) || 1;
 
+    // Separate per_sqft labor rate from fixed costs for reactive recalc
+    let laborRatePerSqft = 0;
+    let laborFixed = 0;
+
+    const laborItems = services.filter((s: any) => s.category === "labor" && assignedIds.includes(s.id));
+    for (const s of laborItems) {
+      const ov = overrides.get(s.id);
+      const costVal = ov?.cost != null ? ov.cost : s.cost_value;
+      const mult = ov?.multiplier != null ? ov.multiplier : 1;
+      if (s.pricing_unit === "per_sqft") {
+        laborRatePerSqft += costVal * mult;
+      } else {
+        laborFixed += costVal * mult;
+      }
+    }
+
+    // Sum non-labor service categories
     const sumCat = (cat: string) => {
       const items = services.filter((s: any) => s.category === cat && assignedIds.includes(s.id));
       return items.reduce((total: number, s: any) => {
@@ -210,15 +229,30 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       }, 0);
     };
 
+    const edgeCost = sumCat("edge_profile");
+    const cutoutCost = sumCat("cutout");
+    const fabricationCost = sumCat("fabrication");
+    const addonTotal = sumCat("addon");
+
+    // Labor Total = laborRatePerSqft × sqft + laborFixed + edge + cutout + fabrication
+    const laborTotal = (laborRatePerSqft * sqft) + laborFixed + edgeCost + cutoutCost + fabricationCost;
+    // Material Total = slab price × quantity
+    const slabUnitPrice = Number(slab?.sales_value) || 0;
+    const materialTotal = slabUnitPrice * slabsNeeded;
+
     return {
-      labor: sumCat("labor"),
-      edge: sumCat("edge_profile"),
-      cutout: sumCat("cutout"),
-      fabrication: sumCat("fabrication"),
-      addon: sumCat("addon"),
-      slabCost: Number(slab?.sales_value) || 0,
+      labor: laborTotal,
+      addon: addonTotal,
+      materialCost: materialTotal,
       slabMaterial: (slab?.materials as any)?.name || "",
       slabCategory: (slab?.materials as any)?.category || "",
+      rates: {
+        laborRatePerSqft,
+        laborFixed: laborFixed + edgeCost + cutoutCost + fabricationCost,
+        addonTotal,
+        slabUnitPrice,
+        slabQuantity: slabsNeeded,
+      } as RateData,
     };
   };
 
