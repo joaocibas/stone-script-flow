@@ -343,17 +343,21 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
 
       // Auto-populate from slab services if available
-      const svcCosts = computeSlabServiceCosts();
+      const svcCosts = computeSlabServiceCosts(measurements_sqft || undefined);
 
-      const labor_cost = svcCosts ? (svcCosts.labor + svcCosts.edge + svcCosts.cutout + svcCosts.fabrication) : 0;
-      const material_cost = svcCosts ? svcCosts.slabCost : 0;
+      const labor_cost = svcCosts ? svcCosts.labor : 0;
+      const material_cost = svcCosts ? svcCosts.materialCost : 0;
       const addons_cost = svcCosts ? svcCosts.addon : 0;
       const material = svcCosts?.slabMaterial || materialObj?.name || "";
       const color = svcCosts?.slabCategory || materialObj?.category || "";
 
+      // Store rate data for reactive recalculation
+      if (svcCosts?.rates) setRateData(svcCosts.rates);
+
       const subtotal = labor_cost + material_cost + addons_cost;
-      const taxPct = 0;
-      const total = subtotal; // tax 0% initially
+      const taxPct = 7;
+      const taxAmount = Math.round(subtotal * (taxPct / 100) * 100) / 100;
+      const total = subtotal + taxAmount;
 
       setForm((prev) => ({
         ...prev,
