@@ -53,10 +53,20 @@ interface EstimateTabProps {
   customer: any;
 }
 
+// Rate data extracted from slab services for reactive recalculation
+type RateData = {
+  laborRatePerSqft: number;   // sum of per_sqft labor service costs
+  laborFixed: number;          // sum of fixed/non-sqft labor+edge+cutout+fabrication costs
+  addonTotal: number;          // sum of addon service costs
+  slabUnitPrice: number;       // single slab sales_value
+  slabQuantity: number;        // slabs needed
+};
+
 export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [rateData, setRateData] = useState<RateData | null>(null);
   const [form, setForm] = useState<EstimateForm>({
     estimate_number: "",
     date: format(new Date(), "yyyy-MM-dd"),
