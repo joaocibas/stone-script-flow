@@ -255,6 +255,53 @@ const Quote = () => {
   const selectedMaterial = materials.find((m) => m.id === form.material_id);
   const selectedSlab = slabsForMaterial.find((s) => s.id === form.slab_id);
 
+  // Refresh quote + linked estimate from DB when viewing result (step 6)
+  useEffect(() => {
+    if (step !== 6 || !result?.quote_id) return;
+    const refreshQuoteData = async () => {
+      try {
+        // Fetch latest quote values
+        const { data: q } = await supabase
+          .from("quotes")
+          .select("range_min, range_max, calculated_sqft, slabs_needed, slab_category, estimated_total")
+          .eq("id", result.quote_id)
+          .maybeSingle();
+        if (q) {
+          setResult((prev) => prev ? {
+            ...prev,
+            range_min: q.range_min ?? prev.range_min,
+            range_max: q.range_max ?? prev.range_max,
+            calculated_sqft: q.calculated_sqft?.toString() ?? prev.calculated_sqft,
+            slabs_needed: q.slabs_needed ?? prev.slabs_needed,
+            slab_category: q.slab_category ?? prev.slab_category,
+          } : prev);
+        }
+        // Check if there's an order linked to this quote, then fetch estimate
+        const { data: order } = await supabase
+          .from("orders")
+          .select("id")
+          .eq("quote_id", result.quote_id)
+          .maybeSingle();
+        if (order) {
+          const { data: est } = await supabase
+            .from("estimates")
+            .select("estimate_number, material, color, finish, edge_profile, measurements_sqft, scope_of_work, labor_cost, material_cost, addons_cost, tax, subtotal, total, deposit_required, notes, terms_conditions, status")
+            .eq("order_id", order.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          setLinkedEstimate(est || null);
+        } else {
+          setLinkedEstimate(null);
+        }
+      } catch (err) {
+        console.error("Failed to refresh quote data:", err);
+      }
+    };
+    refreshQuoteData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, result?.quote_id]);
+
   // Fetch slabs when material group changes
   useEffect(() => {
     if (!form.material_id) { setSlabsForMaterial([]); return; }
