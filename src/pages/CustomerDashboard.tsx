@@ -37,17 +37,39 @@ const CustomerDashboard = () => {
     }
     setUser(authUser);
 
-    supabase.from("customers").select("*").eq("user_id", authUser.id).single().then(({ data: cust }) => {
-      if (!cust) { setLoading(false); return; }
-      setCustomer(cust);
-      setProfileForm({ full_name: cust.full_name, phone: cust.phone || "", address: cust.address || "" });
+    const loadDashboard = async () => {
+      try {
+        const { data: cust, error: custError } = await supabase
+          .from("customers")
+          .select("*")
+          .eq("user_id", authUser.id)
+          .maybeSingle();
 
-      Promise.all([
-        supabase.from("quotes").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-        supabase.from("orders").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-        supabase.from("reservations").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-        supabase.from("appointments").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-      ]).then(([q, o, r, a]) => {
+        if (custError) {
+          console.error("Customer fetch error:", custError);
+          toast({ title: "Error loading profile", description: custError.message, variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        if (!cust) {
+          console.warn("No customer record found for user:", authUser.id);
+          setLoading(false);
+          return;
+        }
+
+        setCustomer(cust);
+        setProfileForm({ full_name: cust.full_name, phone: cust.phone || "", address: cust.address || "" });
+
+        const [q, o, r, a] = await Promise.all([
+          supabase.from("quotes").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+          supabase.from("orders").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+          supabase.from("reservations").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+          supabase.from("appointments").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
+        ]);
+
+        if (q.error) console.error("Quotes fetch error:", q.error);
+        if (o.error) console.error("Orders fetch error:", o.error);
+
         setQuotes(q.data || []);
         const orderData = o.data || [];
         setOrders(orderData);
@@ -57,20 +79,25 @@ const CustomerDashboard = () => {
         // Load estimates & receipts linked to customer's orders
         const orderIds = orderData.map((ord) => ord.id);
         if (orderIds.length > 0) {
-          Promise.all([
+          const [est, rec] = await Promise.all([
             supabase.from("estimates").select("*").in("order_id", orderIds).order("created_at", { ascending: false }),
             supabase.from("receipts").select("*").in("order_id", orderIds).order("created_at", { ascending: false }),
-          ]).then(([est, rec]) => {
-            setEstimates(est.data || []);
-            setReceipts(rec.data || []);
-            setLoading(false);
-          });
-        } else {
-          setLoading(false);
+          ]);
+          if (est.error) console.error("Estimates fetch error:", est.error);
+          if (rec.error) console.error("Receipts fetch error:", rec.error);
+          setEstimates(est.data || []);
+          setReceipts(rec.data || []);
         }
-      });
-    });
-  }, [authUser, authLoading, navigate]);
+      } catch (err) {
+        console.error("Dashboard load error:", err);
+        toast({ title: "Error", description: "Failed to load dashboard data", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, [authUser, authLoading, navigate, toast]);
 
   const handleSaveProfile = async () => {
     if (!customer) return;
