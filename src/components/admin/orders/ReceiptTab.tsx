@@ -1,17 +1,17 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Pencil, Printer, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
+import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox, DisclaimerBlock } from "./DocumentLayout";
 
 interface ReceiptTabProps {
   orderId: string;
@@ -147,111 +147,161 @@ export function ReceiptTab({ orderId, customer }: ReceiptTabProps) {
 
   if (isLoading) return <p className="text-muted-foreground py-4">Loading...</p>;
 
+  const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
+
+  const actionButtons = (
+    <>
+      {receipt && (
+        <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
+          title: "Receipt",
+          documentNumber: form.receipt_number,
+          date: dateDisplay,
+          companyInfo: form.company_info || "Altar Stones Countertops\nSarasota, FL",
+          sections: [
+            { heading: "Payment Details", rows: [
+              { label: "Received From", value: form.received_from },
+              { label: "Amount Paid", value: form.amount },
+              { label: "Payment Method", value: form.payment_method?.replace(/_/g, " ") || "" },
+              { label: "Reference Number", value: form.transaction_reference },
+            ]},
+            { heading: "Order Information", rows: [
+              { label: "Description", value: form.description },
+              ...(estimate ? [
+                { label: "Related Estimate", value: estimate.estimate_number },
+                { label: "Related Order", value: `#${orderId.slice(0, 8).toUpperCase()}` },
+              ] : []),
+            ]},
+          ],
+          notes: form.notes,
+        })}>
+          <FileDown className="mr-2 h-4 w-4" /> Export PDF
+        </Button>
+      )}
+      {receipt && (
+        <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Printer className="mr-2 h-4 w-4" /> Print
+        </Button>
+      )}
+      {!editing && receipt && (
+        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+          <Pencil className="mr-2 h-4 w-4" /> Edit
+        </Button>
+      )}
+      {editing && (
+        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Save className="mr-2 h-4 w-4" /> {saveMutation.isPending ? "Saving..." : "Save Receipt"}
+        </Button>
+      )}
+    </>
+  );
+
   return (
-    <Card className="mt-4">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg">
-          Final Receipt {receipt && <Badge variant="secondary" className="ml-2">{receipt.status}</Badge>}
-        </CardTitle>
-        <div className="flex gap-2">
-          {receipt && (
-            <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
-              title: "Receipt",
-              documentNumber: form.receipt_number,
-              date: form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "",
-              companyInfo: form.company_info || "Altar Stones Countertops\nSarasota, FL",
-              sections: [
-                { heading: "Payment Details", rows: [
-                  { label: "Received From", value: form.received_from },
-                  { label: "Amount Paid", value: form.amount },
-                  { label: "Payment Method", value: form.payment_method?.replace(/_/g, " ") || "" },
-                  { label: "Reference Number", value: form.transaction_reference },
-                ]},
-                { heading: "Order Information", rows: [
-                  { label: "Description", value: form.description },
-                  ...(estimate ? [
-                    { label: "Related Estimate", value: estimate.estimate_number },
-                    { label: "Related Order", value: `#${orderId.slice(0, 8).toUpperCase()}` },
-                  ] : []),
-                ]},
-              ],
-              notes: form.notes,
-            })}>
-              <FileDown className="mr-2 h-4 w-4" /> Export PDF
-            </Button>
+    <Card className="mt-4 overflow-hidden">
+      <CardContent className="p-6 space-y-6">
+        {/* Header */}
+        <DocumentHeader
+          documentTitle="Final Receipt"
+          documentNumber={form.receipt_number}
+          date={dateDisplay}
+          status={receipt?.status}
+          actions={actionButtons}
+        />
+
+        {/* Customer & Payment Info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {editing ? (
+            <DocumentSection title="Receipt Details">
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <Label className="text-sm">Receipt Number</Label>
+                  <Input value={form.receipt_number} onChange={(e) => setForm((p) => ({ ...p, receipt_number: e.target.value }))} disabled={!editing} className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-sm">Date</Label>
+                  <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} disabled={!editing} className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-sm">Received From</Label>
+                  <Input value={form.received_from} onChange={(e) => setForm((p) => ({ ...p, received_from: e.target.value }))} disabled={!editing} className="mt-1" />
+                </div>
+              </div>
+            </DocumentSection>
+          ) : (
+            <InfoBlock title="Received From" items={[
+              { label: "Name", value: form.received_from },
+              { label: "Date", value: dateDisplay },
+            ]} />
           )}
-          {receipt && (
-            <Button variant="outline" size="sm" onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" /> Print
-            </Button>
-          )}
-          {!editing && receipt && (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil className="mr-2 h-4 w-4" /> Edit
-            </Button>
-          )}
-          {editing && (
-            <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-              <Save className="mr-2 h-4 w-4" /> {saveMutation.isPending ? "Saving..." : "Save Receipt"}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label className="text-sm">Receipt Number</Label>
-            <Input value={form.receipt_number} onChange={(e) => setForm((p) => ({ ...p, receipt_number: e.target.value }))} disabled={!editing} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-sm">Date</Label>
-            <Input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} disabled={!editing} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-sm">Received From</Label>
-            <Input value={form.received_from} onChange={(e) => setForm((p) => ({ ...p, received_from: e.target.value }))} disabled={!editing} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-sm">Amount Paid</Label>
-            <Input type="number" value={String(form.amount)} onChange={(e) => setForm((p) => ({ ...p, amount: Number(e.target.value) }))} disabled={!editing} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-sm">Payment Method</Label>
-            <Select value={form.payment_method} onValueChange={(v) => setForm((p) => ({ ...p, payment_method: v }))} disabled={!editing}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="credit_card">Credit Card</SelectItem>
-                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                <SelectItem value="check">Check</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-sm">Reference Number</Label>
-            <Input value={form.transaction_reference} onChange={(e) => setForm((p) => ({ ...p, transaction_reference: e.target.value }))} disabled={!editing} className="mt-1" />
-          </div>
+
+          <SummaryBox rows={[
+            { label: "Amount Paid", value: `$${form.amount.toFixed(2)}`, bold: true, accent: true },
+            { label: "Payment Method", value: form.payment_method?.replace(/_/g, " ") || "—" },
+            { label: "Reference", value: form.transaction_reference || "—" },
+          ]} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 mt-4">
-          <div>
-            <Label className="text-sm">Description</Label>
-            <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} disabled={!editing} rows={2} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-sm">Notes</Label>
-            <Textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} disabled={!editing} rows={2} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-sm">Company Information</Label>
-            <Textarea value={form.company_info} onChange={(e) => setForm((p) => ({ ...p, company_info: e.target.value }))} disabled={!editing} rows={3} className="mt-1" />
-          </div>
+        {/* Payment fields in edit mode */}
+        {editing && (
+          <DocumentSection title="Payment Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Amount Paid</Label>
+                <Input type="number" value={String(form.amount)} onChange={(e) => setForm((p) => ({ ...p, amount: Number(e.target.value) }))} disabled={!editing} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm">Payment Method</Label>
+                <Select value={form.payment_method} onValueChange={(v) => setForm((p) => ({ ...p, payment_method: v }))} disabled={!editing}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm">Reference Number</Label>
+                <Input value={form.transaction_reference} onChange={(e) => setForm((p) => ({ ...p, transaction_reference: e.target.value }))} disabled={!editing} className="mt-1" />
+              </div>
+            </div>
+          </DocumentSection>
+        )}
+
+        {/* Description & Notes */}
+        <div className="grid grid-cols-1 gap-4">
+          <DocumentSection title="Description">
+            {editing ? (
+              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} disabled={!editing} rows={2} className="mt-1" />
+            ) : (
+              <p className="text-sm text-foreground whitespace-pre-wrap">{form.description || "—"}</p>
+            )}
+          </DocumentSection>
+
+          <DocumentSection title="Notes">
+            {editing ? (
+              <Textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} disabled={!editing} rows={2} className="mt-1" />
+            ) : form.notes ? (
+              <DisclaimerBlock text={form.notes} title="Notes" />
+            ) : (
+              <p className="text-sm text-muted-foreground">—</p>
+            )}
+          </DocumentSection>
+
+          <DocumentSection title="Company Information">
+            {editing ? (
+              <Textarea value={form.company_info} onChange={(e) => setForm((p) => ({ ...p, company_info: e.target.value }))} disabled={!editing} rows={3} className="mt-1" />
+            ) : (
+              <p className="text-sm text-foreground whitespace-pre-wrap">{form.company_info || "—"}</p>
+            )}
+          </DocumentSection>
         </div>
 
-        {estimate && (
-          <div className="mt-4 p-3 border rounded-md bg-muted/30 text-sm space-y-1">
-            <p><span className="text-muted-foreground">Related Estimate:</span> {estimate.estimate_number}</p>
-            <p><span className="text-muted-foreground">Related Order:</span> #{orderId.slice(0, 8).toUpperCase()}</p>
+        {/* Related info */}
+        {estimate && !editing && (
+          <div className="pt-4 border-t border-border text-sm space-y-1">
+            <p><span className="text-muted-foreground">Related Estimate:</span> <span className="font-medium">{estimate.estimate_number}</span></p>
+            <p><span className="text-muted-foreground">Related Order:</span> <span className="font-medium">#{orderId.slice(0, 8).toUpperCase()}</span></p>
           </div>
         )}
       </CardContent>

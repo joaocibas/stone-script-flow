@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Pencil, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
+import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox, DisclaimerBlock } from "./DocumentLayout";
 
 type EstimateForm = {
   estimate_number: string;
@@ -117,7 +118,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       });
       setEditing(false);
     } else {
-      // Pre-fill from customer/order data
       const total = Number(order?.total_amount) || 0;
       setForm((prev) => ({
         ...prev,
@@ -139,7 +139,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const subtotal = Number(merged.labor_cost) + Number(merged.material_cost) + Number(merged.addons_cost);
     const tax = Number(merged.tax);
     const total = subtotal + tax;
-    // Auto-suggest 50% deposit only when total changes, preserve manual edits otherwise
     const deposit_required = ("labor_cost" in updated || "material_cost" in updated || "addons_cost" in updated || "tax" in updated)
       ? Math.round(total * 0.5 * 100) / 100
       : merged.deposit_required;
@@ -185,110 +184,228 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   if (isLoading) return <p className="text-muted-foreground py-4">Loading...</p>;
 
+  const remainingBalance = Number((form.total - form.deposit_required).toFixed(2));
+  const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
+
+  const actionButtons = (
+    <>
+      {estimate && (
+        <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
+          title: "Estimate",
+          documentNumber: form.estimate_number,
+          date: dateDisplay,
+          sections: [
+            { heading: "Customer Information", rows: [
+              { label: "Customer Name", value: form.customer_name },
+              { label: "Phone", value: form.phone },
+              { label: "Email", value: form.email },
+              { label: "Billing Address", value: form.billing_address },
+              { label: "Project Address", value: form.project_address },
+            ]},
+            { heading: "Materials & Scope", rows: [
+              { label: "Material", value: form.material },
+              { label: "Color", value: form.color },
+              { label: "Finish", value: form.finish },
+              { label: "Edge Profile", value: form.edge_profile },
+              { label: "Measurements (Sq Ft)", value: form.measurements_sqft ? String(form.measurements_sqft) : "" },
+              { label: "Scope of Work", value: form.scope_of_work },
+            ]},
+            { heading: "Pricing", rows: [
+              { label: "Labor Cost", value: form.labor_cost },
+              { label: "Material Cost", value: form.material_cost },
+              { label: "Add-ons", value: form.addons_cost },
+              { label: "Subtotal", value: form.subtotal },
+              { label: "Tax", value: form.tax },
+              { label: "Total", value: form.total },
+              { label: "Deposit Required (50%)", value: form.deposit_required },
+              { label: "Remaining Balance", value: remainingBalance },
+            ]},
+          ],
+          notes: form.notes,
+          footer: form.terms_conditions ? `Terms & Conditions\n${form.terms_conditions}` : undefined,
+        })}>
+          <FileDown className="mr-2 h-4 w-4" /> Export PDF
+        </Button>
+      )}
+      {!editing && estimate && (
+        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+          <Pencil className="mr-2 h-4 w-4" /> Edit
+        </Button>
+      )}
+      {editing && (
+        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Save className="mr-2 h-4 w-4" /> {saveMutation.isPending ? "Saving..." : "Save Estimate"}
+        </Button>
+      )}
+    </>
+  );
+
   return (
-    <Card className="mt-4">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg">
-          Estimate {estimate && <Badge variant="secondary" className="ml-2">{estimate.status}</Badge>}
-        </CardTitle>
-        <div className="flex gap-2">
-          {estimate && (
-            <Button variant="outline" size="sm" onClick={() => generatePdfDocument({
-              title: "Estimate",
-              documentNumber: form.estimate_number,
-              date: form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "",
-              sections: [
-                { heading: "Customer Information", rows: [
-                  { label: "Customer Name", value: form.customer_name },
-                  { label: "Phone", value: form.phone },
-                  { label: "Email", value: form.email },
-                  { label: "Billing Address", value: form.billing_address },
-                  { label: "Project Address", value: form.project_address },
-                ]},
-                { heading: "Materials & Scope", rows: [
-                  { label: "Material", value: form.material },
-                  { label: "Color", value: form.color },
-                  { label: "Finish", value: form.finish },
-                  { label: "Edge Profile", value: form.edge_profile },
-                  { label: "Measurements (Sq Ft)", value: form.measurements_sqft ? String(form.measurements_sqft) : "" },
-                  { label: "Scope of Work", value: form.scope_of_work },
-                ]},
-                { heading: "Pricing", rows: [
-                  { label: "Labor Cost", value: form.labor_cost },
-                  { label: "Material Cost", value: form.material_cost },
-                  { label: "Add-ons", value: form.addons_cost },
-                  { label: "Subtotal", value: form.subtotal },
-                  { label: "Tax", value: form.tax },
-                  { label: "Total", value: form.total },
-                  { label: "Deposit Required (50%)", value: form.deposit_required },
-                  { label: "Remaining Balance", value: Number((form.total - form.deposit_required).toFixed(2)) },
-                ]},
-              ],
-              notes: form.notes,
-              footer: form.terms_conditions ? `Terms & Conditions\n${form.terms_conditions}` : undefined,
-            })}>
-              <FileDown className="mr-2 h-4 w-4" /> Export PDF
-            </Button>
-          )}
-          {!editing && estimate && (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil className="mr-2 h-4 w-4" /> Edit
-            </Button>
-          )}
-          {editing && (
-            <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-              <Save className="mr-2 h-4 w-4" /> {saveMutation.isPending ? "Saving..." : "Save Estimate"}
-            </Button>
+    <Card className="mt-4 overflow-hidden">
+      <CardContent className="p-6 space-y-6">
+        {/* Document Header */}
+        <DocumentHeader
+          documentTitle="Estimate"
+          documentNumber={form.estimate_number}
+          date={dateDisplay}
+          status={estimate?.status}
+          actions={actionButtons}
+        />
+
+        {/* Customer & Project Info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {editing ? (
+            <>
+              <DocumentSection title="Customer Information">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Customer Name" value={form.customer_name} onChange={(v) => updateField("customer_name", v)} disabled={!editing} />
+                  <Field label="Phone" value={form.phone} onChange={(v) => updateField("phone", v)} disabled={!editing} />
+                  <Field label="Email" value={form.email} onChange={(v) => updateField("email", v)} disabled={!editing} />
+                  <Field label="Date" type="date" value={form.date} onChange={(v) => updateField("date", v)} disabled={!editing} />
+                  <Field label="Expiration Date" type="date" value={form.expiration_date} onChange={(v) => updateField("expiration_date", v)} disabled={!editing} />
+                </div>
+              </DocumentSection>
+              <DocumentSection title="Project Details">
+                <div className="grid grid-cols-1 gap-3">
+                  <Field label="Billing Address" value={form.billing_address} onChange={(v) => updateField("billing_address", v)} disabled={!editing} />
+                  <Field label="Project Address" value={form.project_address} onChange={(v) => updateField("project_address", v)} disabled={!editing} />
+                </div>
+              </DocumentSection>
+            </>
+          ) : (
+            <>
+              <InfoBlock title="Bill To" items={[
+                { label: "Name", value: form.customer_name },
+                { label: "Phone", value: form.phone },
+                { label: "Email", value: form.email },
+                { label: "Billing Address", value: form.billing_address },
+              ]} />
+              <InfoBlock title="Project" items={[
+                { label: "Project Address", value: form.project_address },
+                { label: "Expiration", value: form.expiration_date ? format(new Date(form.expiration_date + "T12:00:00"), "MMMM d, yyyy") : "" },
+              ]} />
+            </>
           )}
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Estimate Number" value={form.estimate_number} onChange={(v) => updateField("estimate_number", v)} disabled={!editing} />
-          <Field label="Date" type="date" value={form.date} onChange={(v) => updateField("date", v)} disabled={!editing} />
-          <Field label="Expiration Date" type="date" value={form.expiration_date} onChange={(v) => updateField("expiration_date", v)} disabled={!editing} />
-          <Field label="Customer Name" value={form.customer_name} onChange={(v) => updateField("customer_name", v)} disabled={!editing} />
-          <Field label="Phone" value={form.phone} onChange={(v) => updateField("phone", v)} disabled={!editing} />
-          <Field label="Email" value={form.email} onChange={(v) => updateField("email", v)} disabled={!editing} />
-          <Field label="Billing Address" value={form.billing_address} onChange={(v) => updateField("billing_address", v)} disabled={!editing} />
-          <Field label="Project Address" value={form.project_address} onChange={(v) => updateField("project_address", v)} disabled={!editing} />
-        </div>
 
-        <h3 className="text-sm font-semibold mt-6 mb-3 text-muted-foreground uppercase tracking-wide">Materials & Scope</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Material" value={form.material} onChange={(v) => updateField("material", v)} disabled={!editing} />
-          <Field label="Color" value={form.color} onChange={(v) => updateField("color", v)} disabled={!editing} />
-          <Field label="Finish" value={form.finish} onChange={(v) => updateField("finish", v)} disabled={!editing} />
-          <Field label="Edge Profile" value={form.edge_profile} onChange={(v) => updateField("edge_profile", v)} disabled={!editing} />
-          <Field label="Measurements (Sq Ft)" type="number" value={String(form.measurements_sqft)} onChange={(v) => updateField("measurements_sqft", v)} disabled={!editing} />
-        </div>
-
-        <div className="mt-4">
-          <Label className="text-sm">Scope of Work</Label>
-          <Textarea value={form.scope_of_work} onChange={(e) => updateField("scope_of_work", e.target.value)} disabled={!editing} rows={3} className="mt-1" />
-        </div>
-
-        <h3 className="text-sm font-semibold mt-6 mb-3 text-muted-foreground uppercase tracking-wide">Pricing</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <Field label="Labor Cost" type="number" value={String(form.labor_cost)} onChange={(v) => updateField("labor_cost", v)} disabled={!editing} />
-          <Field label="Material Cost" type="number" value={String(form.material_cost)} onChange={(v) => updateField("material_cost", v)} disabled={!editing} />
-          <Field label="Add-ons" type="number" value={String(form.addons_cost)} onChange={(v) => updateField("addons_cost", v)} disabled={!editing} />
-          <Field label="Subtotal" type="number" value={String(form.subtotal)} disabled />
-          <Field label="Tax" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
-          <Field label="Total" type="number" value={String(form.total)} disabled />
-          <Field label="Deposit Required (50%)" type="number" value={String(form.deposit_required)} onChange={(v) => updateField("deposit_required", v)} disabled={!editing} />
-          <Field label="Remaining Balance" type="number" value={String((form.total - form.deposit_required).toFixed(2))} disabled />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 mt-4">
-          <div>
-            <Label className="text-sm">Notes</Label>
-            <Textarea value={form.notes} onChange={(e) => updateField("notes", e.target.value)} disabled={!editing} rows={2} className="mt-1" />
+        {/* Materials & Scope */}
+        <DocumentSection title="Materials & Scope">
+          {editing ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <Field label="Material" value={form.material} onChange={(v) => updateField("material", v)} disabled={!editing} />
+              <Field label="Color" value={form.color} onChange={(v) => updateField("color", v)} disabled={!editing} />
+              <Field label="Finish" value={form.finish} onChange={(v) => updateField("finish", v)} disabled={!editing} />
+              <Field label="Edge Profile" value={form.edge_profile} onChange={(v) => updateField("edge_profile", v)} disabled={!editing} />
+              <Field label="Measurements (Sq Ft)" type="number" value={String(form.measurements_sqft)} onChange={(v) => updateField("measurements_sqft", v)} disabled={!editing} />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Material</TableHead>
+                  <TableHead>Color</TableHead>
+                  <TableHead>Finish</TableHead>
+                  <TableHead>Edge Profile</TableHead>
+                  <TableHead className="text-right">Sq Ft</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">{form.material || "—"}</TableCell>
+                  <TableCell>{form.color || "—"}</TableCell>
+                  <TableCell>{form.finish || "—"}</TableCell>
+                  <TableCell>{form.edge_profile || "—"}</TableCell>
+                  <TableCell className="text-right">{form.measurements_sqft || "—"}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          )}
+          <div className="mt-2">
+            <Label className="text-sm">Scope of Work</Label>
+            {editing ? (
+              <Textarea value={form.scope_of_work} onChange={(e) => updateField("scope_of_work", e.target.value)} disabled={!editing} rows={3} className="mt-1" />
+            ) : (
+              <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{form.scope_of_work || "—"}</p>
+            )}
           </div>
-          <div>
-            <Label className="text-sm">Terms & Conditions</Label>
-            <Textarea value={form.terms_conditions} onChange={(e) => updateField("terms_conditions", e.target.value)} disabled={!editing} rows={3} className="mt-1" />
+        </DocumentSection>
+
+        {/* Pricing Table + Summary */}
+        <DocumentSection title="Pricing">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+            {/* Itemized pricing table */}
+            <div className="md:col-span-3">
+              {editing ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Labor Cost" type="number" value={String(form.labor_cost)} onChange={(v) => updateField("labor_cost", v)} disabled={!editing} />
+                  <Field label="Material Cost" type="number" value={String(form.material_cost)} onChange={(v) => updateField("material_cost", v)} disabled={!editing} />
+                  <Field label="Add-ons" type="number" value={String(form.addons_cost)} onChange={(v) => updateField("addons_cost", v)} disabled={!editing} />
+                  <Field label="Tax" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      { label: "Labor", value: form.labor_cost },
+                      { label: "Material", value: form.material_cost },
+                      { label: "Add-ons", value: form.addons_cost },
+                    ].filter(r => r.value > 0).map((r) => (
+                      <TableRow key={r.label}>
+                        <TableCell>{r.label}</TableCell>
+                        <TableCell className="text-right">${r.value.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+
+            {/* Summary box */}
+            <div className="md:col-span-2">
+              <SummaryBox rows={[
+                { label: "Subtotal", value: `$${form.subtotal.toFixed(2)}` },
+                { label: "Tax", value: `$${form.tax.toFixed(2)}` },
+                { label: "Total", value: `$${form.total.toFixed(2)}`, bold: true },
+                { label: "Deposit Required (50%)", value: editing
+                  ? ""
+                  : `$${form.deposit_required.toFixed(2)}` },
+                { label: "Remaining Balance", value: `$${remainingBalance.toFixed(2)}`, accent: true },
+              ].filter(r => r.value !== "")} />
+
+              {editing && (
+                <div className="mt-3 space-y-2">
+                  <Field label="Deposit Required (50%)" type="number" value={String(form.deposit_required)} onChange={(v) => updateField("deposit_required", v)} disabled={!editing} />
+                </div>
+              )}
+            </div>
           </div>
+        </DocumentSection>
+
+        {/* Notes & Terms */}
+        <div className="grid grid-cols-1 gap-4">
+          <DocumentSection title="Notes">
+            {editing ? (
+              <Textarea value={form.notes} onChange={(e) => updateField("notes", e.target.value)} disabled={!editing} rows={2} className="mt-1" />
+            ) : (
+              <p className="text-sm text-foreground whitespace-pre-wrap">{form.notes || "—"}</p>
+            )}
+          </DocumentSection>
+
+          {(editing || form.terms_conditions) && (
+            editing ? (
+              <DocumentSection title="Terms & Conditions">
+                <Textarea value={form.terms_conditions} onChange={(e) => updateField("terms_conditions", e.target.value)} disabled={!editing} rows={3} className="mt-1" />
+              </DocumentSection>
+            ) : (
+              <DisclaimerBlock text={form.terms_conditions} />
+            )
+          )}
         </div>
       </CardContent>
     </Card>
