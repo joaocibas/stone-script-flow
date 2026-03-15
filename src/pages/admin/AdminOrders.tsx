@@ -39,6 +39,7 @@ const AdminOrders = () => {
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null);
   const [convertingQuoteId, setConvertingQuoteId] = useState<string | null>(null);
 
   const { data: orders, isLoading } = useQuery({
@@ -102,6 +103,18 @@ const AdminOrders = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
     }
     setDeleteId(null);
+  };
+
+  const handleDeleteQuote = async () => {
+    if (!deleteQuoteId) return;
+    const { error } = await supabase.from("quotes").delete().eq("id", deleteQuoteId);
+    if (error) {
+      toast.error("Failed to delete quote");
+    } else {
+      toast.success("Quote deleted");
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-quotes"] });
+    }
+    setDeleteQuoteId(null);
   };
 
   const handleConvertQuoteToOrder = async (quoteId: string) => {
@@ -238,7 +251,7 @@ const AdminOrders = () => {
                         <TableCell className="text-sm text-muted-foreground">
                           {format(new Date(q.created_at), "MMM d, yyyy")}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
                           <Button
                             variant="outline"
                             size="sm"
@@ -246,6 +259,13 @@ const AdminOrders = () => {
                             onClick={() => handleConvertQuoteToOrder(q.id)}
                           >
                             <Plus className="h-3 w-3 mr-1" /> Create Order
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteQuoteId(q.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -342,6 +362,19 @@ const AdminOrders = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteQuoteId} onOpenChange={(open) => !open && setDeleteQuoteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this quote?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteQuote} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
