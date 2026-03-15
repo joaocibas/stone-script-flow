@@ -374,6 +374,15 @@ const CustomerDashboard = () => {
           </div>
         </div>
       )}
+
+      <DocumentViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        type={viewerType}
+        estimate={selectedEstimate}
+        receipt={selectedReceipt}
+        quote={selectedQuote}
+      />
     </Section>
   );
 };
