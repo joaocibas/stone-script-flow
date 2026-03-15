@@ -107,7 +107,7 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
       setEditing(false);
     } else {
       const estTotal = Number(estimate?.total) || 0;
-      const deposit = Number(estimate?.deposit_required) || 0;
+      const deposit = Math.round(estTotal * 0.5 * 100) / 100;
       setForm({
         payment_order_number: `PO-${orderId.slice(0, 6).toUpperCase()}`,
         estimate_total: estTotal,
@@ -128,8 +128,9 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
   const updateField = (key: keyof PaymentOrderForm, value: any) => {
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
-      if (key === "deposit_amount" || key === "estimate_total") {
-        updated.remaining_balance = Number(updated.estimate_total) - Number(updated.deposit_amount);
+      if (key === "estimate_total") {
+        updated.deposit_amount = Math.round(Number(updated.estimate_total) * 0.5 * 100) / 100;
+        updated.remaining_balance = Number(updated.estimate_total) - updated.deposit_amount;
       }
       return updated;
     });
@@ -242,11 +243,11 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <Label className="text-sm">Estimate Total</Label>
-              <Input type="number" value={String(form.estimate_total)} onChange={(e) => updateField("estimate_total", Number(e.target.value))} disabled={!editing} className="mt-1" />
+              <Input type="number" value={String(form.estimate_total)} disabled className="mt-1" />
             </div>
             <div>
-              <Label className="text-sm">Deposit Amount</Label>
-              <Input type="number" value={String(form.deposit_amount)} onChange={(e) => updateField("deposit_amount", Number(e.target.value))} disabled={!editing} className="mt-1" />
+              <Label className="text-sm">Deposit Amount (50%)</Label>
+              <Input type="number" value={String(form.deposit_amount)} disabled className="mt-1" />
             </div>
             <div>
               <Label className="text-sm">Remaining Balance</Label>

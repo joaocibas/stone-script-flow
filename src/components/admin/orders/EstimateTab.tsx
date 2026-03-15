@@ -117,6 +117,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       setEditing(false);
     } else {
       // Pre-fill from customer/order data
+      const total = Number(order?.total_amount) || 0;
       setForm((prev) => ({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
@@ -125,8 +126,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         email: customer?.email || "",
         billing_address: customer?.address || "",
         project_address: customer?.address || "",
-        total: Number(order?.total_amount) || 0,
-        deposit_required: Number(order?.deposit_paid) || 0,
+        total,
+        deposit_required: Math.round(total * 0.5 * 100) / 100,
       }));
       setEditing(true);
     }
@@ -137,7 +138,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const subtotal = Number(merged.labor_cost) + Number(merged.material_cost) + Number(merged.addons_cost);
     const tax = Number(merged.tax);
     const total = subtotal + tax;
-    return { ...merged, subtotal, total };
+    const deposit_required = Math.round(total * 0.5 * 100) / 100;
+    return { ...merged, subtotal, total, deposit_required };
   };
 
   const updateField = (key: keyof EstimateForm, value: any) => {
@@ -228,7 +230,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           <Field label="Subtotal" type="number" value={String(form.subtotal)} disabled />
           <Field label="Tax" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
           <Field label="Total" type="number" value={String(form.total)} disabled />
-          <Field label="Deposit Required" type="number" value={String(form.deposit_required)} onChange={(v) => updateField("deposit_required", v)} disabled={!editing} />
+          <Field label="Deposit Required (50%)" type="number" value={String(form.deposit_required)} disabled />
+          <Field label="Remaining Balance" type="number" value={String((form.total - form.deposit_required).toFixed(2))} disabled />
         </div>
 
         <div className="grid grid-cols-1 gap-4 mt-4">
