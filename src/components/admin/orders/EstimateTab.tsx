@@ -89,6 +89,35 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     },
   });
 
+  // Fetch quote + material for auto-population
+  const { data: quoteData } = useQuery({
+    queryKey: ["estimate-quote", order?.quote_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("quotes")
+        .select("*, materials(name, category)")
+        .eq("id", order.quote_id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!order?.quote_id && !estimate,
+  });
+
+  // Fetch lead for fallback auto-population
+  const { data: leadData } = useQuery({
+    queryKey: ["estimate-lead", order?.quote_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("quote_id", order.quote_id)
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!order?.quote_id && !estimate && !customer,
+  });
+
   useEffect(() => {
     if (estimate) {
       setForm({
@@ -118,27 +147,54 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       });
       setEditing(false);
     } else {
+      // Cascade: customer → lead for contact info
+      const name = customer?.full_name || leadData?.full_name || "";
+      const phone = customer?.phone || leadData?.phone || "";
+      const email = customer?.email || leadData?.email || "";
+      const address = customer?.address || "";
+
+      // Quote/material data
+      const materialObj = quoteData?.materials as any;
+      const material = materialObj?.name || "";
+      const color = materialObj?.category || "";
+      const edge_profile = quoteData?.edge_profile || "";
+      const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
+
+      const subtotal = 0;
+      const taxPct = 0;
       const total = Number(order?.total_amount) || 0;
+
       setForm((prev) => ({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
-        customer_name: customer?.full_name || "",
-        phone: customer?.phone || "",
-        email: customer?.email || "",
-        billing_address: customer?.address || "",
-        project_address: customer?.address || "",
+        customer_name: name,
+        phone,
+        email,
+        billing_address: address,
+        project_address: address,
+        material,
+        color,
+        edge_profile,
+        measurements_sqft,
+        subtotal,
+        tax: taxPct,
         total,
         deposit_required: Math.round(total * 0.5 * 100) / 100,
       }));
       setEditing(true);
     }
-  }, [estimate, customer, order, orderId]);
+  }, [estimate, customer, order, orderId, quoteData, leadData]);
+
+  // Tax is stored as percentage; taxAmount is derived
+  const calcTaxAmount = (subtotal: number, taxPct: number) =>
+    Math.round(subtotal * (taxPct / 100) * 100) / 100;
 
   const recalculate = (updated: Partial<EstimateForm>) => {
     const merged = { ...form, ...updated };
     const subtotal = Number(merged.labor_cost) + Number(merged.material_cost) + Number(merged.addons_cost);
-    const tax = Number(merged.tax);
-    const total = subtotal + tax;
+    const taxPct = Number(merged.tax);
+    const taxAmount = calcTaxAmount(subtotal, taxPct);
+    const total = subtotal + taxAmount;
     const deposit_required = ("labor_cost" in updated || "material_cost" in updated || "addons_cost" in updated || "tax" in updated)
       ? Math.round(total * 0.5 * 100) / 100
       : merged.deposit_required;
@@ -158,9 +214,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const taxAmount = calcTaxAmount(form.subtotal, form.tax);
       const payload = {
         order_id: orderId,
         ...form,
+        // Store the computed total (subtotal + taxAmount) not subtotal + taxPct
+        total: form.subtotal + taxAmount,
         date: form.date || null,
         expiration_date: form.expiration_date || null,
         measurements_sqft: form.measurements_sqft || null,
@@ -184,6 +243,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   if (isLoading) return <p className="text-muted-foreground py-4">Loading...</p>;
 
+  const taxAmount = calcTaxAmount(form.subtotal, form.tax);
   const remainingBalance = Number((form.total - form.deposit_required).toFixed(2));
   const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
 
@@ -215,7 +275,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
               { label: "Material Cost", value: form.material_cost },
               { label: "Add-ons", value: form.addons_cost },
               { label: "Subtotal", value: form.subtotal },
-              { label: "Tax", value: form.tax },
+              { label: `Tax (${form.tax}%)`, value: taxAmount },
               { label: "Total", value: form.total },
               { label: "Deposit Required (50%)", value: form.deposit_required },
               { label: "Remaining Balance", value: remainingBalance },
@@ -340,7 +400,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
                   <Field label="Labor Cost" type="number" value={String(form.labor_cost)} onChange={(v) => updateField("labor_cost", v)} disabled={!editing} />
                   <Field label="Material Cost" type="number" value={String(form.material_cost)} onChange={(v) => updateField("material_cost", v)} disabled={!editing} />
                   <Field label="Add-ons" type="number" value={String(form.addons_cost)} onChange={(v) => updateField("addons_cost", v)} disabled={!editing} />
-                  <Field label="Tax" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
+                  <Field label="Tax (%)" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
                 </div>
               ) : (
                 <Table>
@@ -370,7 +430,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
             <div className="md:col-span-2">
               <SummaryBox rows={[
                 { label: "Subtotal", value: `$${form.subtotal.toFixed(2)}` },
-                { label: "Tax", value: `$${form.tax.toFixed(2)}` },
+                { label: `Tax (${form.tax}%)`, value: `$${taxAmount.toFixed(2)}` },
                 { label: "Total", value: `$${form.total.toFixed(2)}`, bold: true },
                 { label: "Deposit Required (50%)", value: editing
                   ? ""
