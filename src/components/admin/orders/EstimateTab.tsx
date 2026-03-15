@@ -400,7 +400,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
                   <Field label="Labor Cost" type="number" value={String(form.labor_cost)} onChange={(v) => updateField("labor_cost", v)} disabled={!editing} />
                   <Field label="Material Cost" type="number" value={String(form.material_cost)} onChange={(v) => updateField("material_cost", v)} disabled={!editing} />
                   <Field label="Add-ons" type="number" value={String(form.addons_cost)} onChange={(v) => updateField("addons_cost", v)} disabled={!editing} />
-                  <Field label="Tax" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
+                  <Field label="Tax (%)" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
                 </div>
               ) : (
                 <Table>
