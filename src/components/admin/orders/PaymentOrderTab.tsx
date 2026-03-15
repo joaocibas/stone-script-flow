@@ -128,8 +128,9 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
   const updateField = (key: keyof PaymentOrderForm, value: any) => {
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
-      if (key === "deposit_amount" || key === "estimate_total") {
-        updated.remaining_balance = Number(updated.estimate_total) - Number(updated.deposit_amount);
+      if (key === "estimate_total") {
+        updated.deposit_amount = Math.round(Number(updated.estimate_total) * 0.5 * 100) / 100;
+        updated.remaining_balance = Number(updated.estimate_total) - updated.deposit_amount;
       }
       return updated;
     });
