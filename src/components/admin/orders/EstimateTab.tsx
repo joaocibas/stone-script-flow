@@ -258,15 +258,29 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   useEffect(() => {
     if (estimate) {
-      // Load saved estimate — recalculate to ensure consistency
-      const labor = Number(estimate.labor_cost) || 0;
-      const material = Number(estimate.material_cost) || 0;
-      const addons = Number(estimate.addons_cost) || 0;
-      const taxPct = Number(estimate.tax) || 0;
+      // Load saved estimate
+      let labor = Number(estimate.labor_cost) || 0;
+      let material = Number(estimate.material_cost) || 0;
+      let addons = Number(estimate.addons_cost) || 0;
+      let taxPct = Number(estimate.tax) || 7; // default 7% if not set
+      const savedSqft = Number(estimate.measurements_sqft) || 0;
+
+      // If costs are all zero but slab services exist, re-populate from slab config
+      const costsEmpty = labor === 0 && material === 0 && addons === 0;
+      if (costsEmpty && slabServiceData && slabServiceData.slabServices.length > 0) {
+        const svcCosts = computeSlabServiceCosts(savedSqft || undefined);
+        if (svcCosts) {
+          labor = svcCosts.labor;
+          material = svcCosts.materialCost;
+          addons = svcCosts.addon;
+          if (svcCosts.rates) setRateData(svcCosts.rates);
+        }
+      }
+
       const subtotal = labor + material + addons;
       const taxAmt = Math.round(subtotal * (taxPct / 100) * 100) / 100;
       const total = subtotal + taxAmt;
-      const deposit = Number(estimate.deposit_required) || 0;
+      const deposit = Number(estimate.deposit_required) || Math.round(total * 0.5 * 100) / 100;
 
       setForm({
         estimate_number: estimate.estimate_number || "",
@@ -282,7 +296,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         finish: estimate.finish || "",
         edge_profile: estimate.edge_profile || "",
         scope_of_work: estimate.scope_of_work || "",
-        measurements_sqft: Number(estimate.measurements_sqft) || 0,
+        measurements_sqft: savedSqft,
         labor_cost: labor,
         material_cost: material,
         addons_cost: addons,
@@ -300,7 +314,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const labor = Number(ce.labor_cost) || 0;
       const material = Number(ce.material_cost) || 0;
       const addons = Number(ce.addons_cost) || 0;
-      const taxPct = Number(ce.tax) || 0;
+      const taxPct = Number(ce.tax) || 7;
       const subtotal = labor + material + addons;
       const taxAmt = Math.round(subtotal * (taxPct / 100) * 100) / 100;
       const total = subtotal + taxAmt;
