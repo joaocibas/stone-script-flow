@@ -359,8 +359,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   // ── Hydrate form from saved data ──
   useEffect(() => {
-    if (!serviceIdsInitialized && (slabServiceData || allServices !== undefined)) return;
-
+    if (!serviceIdsInitialized) return;
+    if (allServices === undefined && !slabServiceData) return;
     if (estimate) {
       const savedSqft = Number(estimate.measurements_sqft) || 0;
 
