@@ -335,10 +335,10 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const svcCosts = computeServiceCosts(form.measurements_sqft || undefined, ids);
     if (svcCosts?.rates) setRateData(svcCosts.rates);
     setForm((prev) => {
-      // When slab service data is available, use computed costs; otherwise keep existing form values
+      // Use computed service costs when available; zero out service-driven costs when no services selected
       const pricingOverride = svcCosts
         ? { labor_cost: svcCosts.labor, material_cost: svcCosts.materialCost, addons_cost: svcCosts.addon }
-        : { labor_cost: prev.labor_cost, material_cost: prev.material_cost, addons_cost: prev.addons_cost };
+        : { labor_cost: 0, material_cost: prev.material_cost, addons_cost: 0 };
       return recalculateEstimate(prev, {}, pricingOverride, svcs);
     });
   };
