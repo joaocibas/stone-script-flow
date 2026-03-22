@@ -538,13 +538,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  if (isLoading) return <p className="text-muted-foreground py-4">Loading...</p>;
-
-  const taxAmount = calcTaxAmount(form.subtotal, form.tax);
-  const remainingBalance = Number((form.total - form.deposit_required).toFixed(2));
-  const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
-
-  // Group available services by category for the picker
+  // Group available services by category for the picker (must be before early return)
   const servicesByCategory = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     for (const svc of availableServices) {
@@ -554,6 +548,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     }
     return grouped;
   }, [availableServices]);
+
+  if (isLoading) return <p className="text-muted-foreground py-4">Loading...</p>;
+
+  const taxAmount = calcTaxAmount(form.subtotal, form.tax);
+  const remainingBalance = Number((form.total - form.deposit_required).toFixed(2));
+  const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
 
   const categoryLabels: Record<string, string> = {
     labor: "Labor",
