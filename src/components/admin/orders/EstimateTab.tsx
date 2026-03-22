@@ -246,20 +246,24 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   // ── Compute costs from selected services ──
   const computeServiceCosts = (sqftOverride?: number, serviceIds?: Set<string>) => {
-    if (!slabServiceData) return null;
-    const { slab, services } = slabServiceData;
     const activeIds = serviceIds ?? selectedServiceIds;
     if (activeIds.size === 0) return null;
 
+    const hasSlab = !!slabServiceData;
+    const slab = slabServiceData?.slab;
+    const allSvcs = allServices || slabServiceData?.services || [];
+    if (allSvcs.length === 0) return null;
+
     const overrides = new Map<string, { cost: number | null; multiplier: number | null }>();
-    for (const ss of slabServiceData.slabServices) {
-      overrides.set(ss.service_id, {
-        cost: ss.override_cost != null ? Number(ss.override_cost) : null,
-        multiplier: ss.override_multiplier != null ? Number(ss.override_multiplier) : null,
-      });
+    if (hasSlab) {
+      for (const ss of slabServiceData!.slabServices) {
+        overrides.set(ss.service_id, {
+          cost: ss.override_cost != null ? Number(ss.override_cost) : null,
+          multiplier: ss.override_multiplier != null ? Number(ss.override_multiplier) : null,
+        });
+      }
     }
 
-    const allSvcs = allServices || services;
     const sqft = sqftOverride ?? (Number(quoteData?.calculated_sqft) || 0);
     const numCutouts = Number(quoteData?.num_cutouts) || 0;
     const lengthIn = Number(quoteData?.length_inches) || 0;
@@ -331,10 +335,10 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const svcCosts = computeServiceCosts(form.measurements_sqft || undefined, ids);
     if (svcCosts?.rates) setRateData(svcCosts.rates);
     setForm((prev) => {
-      // When slab service data is available, use computed costs; otherwise keep existing form values
+      // Use computed service costs when available; zero out service-driven costs when no services selected
       const pricingOverride = svcCosts
         ? { labor_cost: svcCosts.labor, material_cost: svcCosts.materialCost, addons_cost: svcCosts.addon }
-        : { labor_cost: prev.labor_cost, material_cost: prev.material_cost, addons_cost: prev.addons_cost };
+        : { labor_cost: 0, material_cost: prev.material_cost, addons_cost: 0 };
       return recalculateEstimate(prev, {}, pricingOverride, svcs);
     });
   };
