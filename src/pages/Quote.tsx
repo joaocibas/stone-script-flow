@@ -13,6 +13,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
+import { resolveEdgeProfile } from "@/components/admin/orders/estimateDisplay";
 import { format } from "date-fns";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors,
@@ -965,10 +966,10 @@ const Quote = () => {
                       <span className="font-medium">{linkedEstimate.material}{linkedEstimate.color ? ` — ${linkedEstimate.color}` : ""}{linkedEstimate.finish ? ` (${linkedEstimate.finish})` : ""}</span>
                     </div>
                   )}
-                  {linkedEstimate.edge_profile && (
+                  {resolveEdgeProfile(linkedEstimate.edge_profile, form.edge_profile) && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Edge Profile</span>
-                      <span className="font-medium">{linkedEstimate.edge_profile}</span>
+                      <span className="font-medium">{resolveEdgeProfile(linkedEstimate.edge_profile, form.edge_profile)}</span>
                     </div>
                   )}
                   {linkedEstimate.measurements_sqft != null && (

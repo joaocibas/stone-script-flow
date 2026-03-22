@@ -12,6 +12,7 @@ import { Save, Pencil, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
 import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox, DisclaimerBlock } from "./DocumentLayout";
+import { derivePricingSummary, resolveEdgeProfile } from "./estimateDisplay";
 
 const DEFAULT_TERMS = `Altar Stone Countertops does not connect or disconnect any plumbing, electrical systems, or appliances. It is the client's responsibility to hire licensed professionals to ensure that all conditions required for countertop installation are properly prepared before our team arrives.
 
@@ -86,7 +87,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     material_cost: 0,
     addons_cost: 0,
     subtotal: 0,
-    tax: 0,
+    tax: 7,
     total: 0,
     deposit_required: 0,
     notes: "",
@@ -105,7 +106,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const material_cost = Number(pricingOverride?.material_cost ?? merged.material_cost) || 0;
     const addons_cost = Number(pricingOverride?.addons_cost ?? merged.addons_cost) || 0;
     const subtotal = roundMoney(labor_cost + material_cost + addons_cost);
-    const tax = Number(merged.tax) || 0;
+    const tax = Number(merged.tax) || 7;
     const total = roundMoney(subtotal + roundMoney(subtotal * (tax / 100)));
     const deposit_required =
       updates.deposit_required !== undefined || Number(merged.deposit_required) > 0
@@ -333,7 +334,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         material: estimate.material || "",
         color: estimate.color || "",
         finish: estimate.finish || "",
-        edge_profile: estimate.edge_profile || "",
+        edge_profile: resolveEdgeProfile(estimate.edge_profile, quoteData?.edge_profile),
         scope_of_work: estimate.scope_of_work || "",
         measurements_sqft: savedSqft,
         labor_cost: 0,
@@ -356,7 +357,17 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     } else if (customerEstimate) {
       // Fallback: use customer's most recent estimate — recalculate for consistency
       const ce = customerEstimate;
-      const taxPct = Number(ce.tax) || 7;
+      const taxPct = 7;
+      const materialObj = quoteData?.materials as any;
+      const currentSqft = Number(quoteData?.calculated_sqft) || Number(ce.measurements_sqft) || 0;
+      const svcCosts = computeSlabServiceCosts(currentSqft || undefined);
+      const fallbackSummary = derivePricingSummary({
+        total: quoteData?.estimated_total ?? ce.total,
+        depositRequired: ce.deposit_required,
+        taxRate: taxPct,
+      });
+
+      if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       setForm((prev) => recalculateEstimate({
         ...prev,
@@ -366,19 +377,19 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         email: ce.email || customer?.email || "",
         billing_address: ce.billing_address || customer?.address || "",
         project_address: ce.project_address || customer?.address || "",
-        material: ce.material || "",
-        color: ce.color || "",
+        material: svcCosts?.slabMaterial || materialObj?.name || ce.material || "",
+        color: svcCosts?.slabCategory || materialObj?.category || ce.color || "",
         finish: ce.finish || "",
-        edge_profile: ce.edge_profile || "",
+        edge_profile: resolveEdgeProfile(quoteData?.edge_profile, ce.edge_profile),
         scope_of_work: ce.scope_of_work || "",
-        measurements_sqft: Number(ce.measurements_sqft) || 0,
-        labor_cost: Number(ce.labor_cost) || 0,
-        material_cost: Number(ce.material_cost) || 0,
-        addons_cost: Number(ce.addons_cost) || 0,
+        measurements_sqft: currentSqft,
+        labor_cost: svcCosts?.labor ?? (Number(ce.labor_cost) || 0),
+        material_cost: svcCosts?.materialCost ?? (Number(ce.material_cost) || 0),
+        addons_cost: svcCosts?.addon ?? (Number(ce.addons_cost) || 0),
         subtotal: 0,
         tax: taxPct,
         total: 0,
-        deposit_required: Number(ce.deposit_required) || 0,
+        deposit_required: Number(ce.deposit_required) || fallbackSummary.depositRequired,
         notes: ce.notes || "",
         terms_conditions: ce.terms_conditions || DEFAULT_TERMS,
       }));
@@ -392,7 +403,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
       // Quote/material data
       const materialObj = quoteData?.materials as any;
-      const edge_profile = quoteData?.edge_profile || "";
+      const edge_profile = resolveEdgeProfile(quoteData?.edge_profile);
       const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
 
       // Auto-populate from slab services if available
