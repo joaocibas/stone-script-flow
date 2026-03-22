@@ -13,6 +13,8 @@ import { Search, ShoppingCart, DollarSign, Clock, CheckCircle2, Eye, Trash2, Arr
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { CustomerQuotePreviewDialog } from "@/components/admin/orders/CustomerQuotePreviewDialog";
+import { resolveEdgeProfile } from "@/components/admin/orders/estimateDisplay";
 
 type SortKey = "id" | "customer" | "deposit_paid" | "status" | "created_at";
 type SortDir = "asc" | "desc";
@@ -41,6 +43,7 @@ const AdminOrders = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null);
   const [convertingQuoteId, setConvertingQuoteId] = useState<string | null>(null);
+  const [previewQuoteId, setPreviewQuoteId] = useState<string | null>(null);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["admin-orders", search, statusFilter],
@@ -66,7 +69,7 @@ const AdminOrders = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quotes")
-        .select("*, customers(full_name, email), materials(name)")
+        .select("*, customers(full_name, email, phone, address), materials(name, category)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -78,6 +81,8 @@ const AdminOrders = () => {
     const linkedQuoteIds = (orders || []).map((o) => o.quote_id).filter(Boolean);
     return !linkedQuoteIds.includes(q.id);
   });
+
+  const previewQuote = unlinkedQuotes.find((q) => q.id === previewQuoteId) || null;
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -247,11 +252,19 @@ const AdminOrders = () => {
                           <Badge variant="outline" className={cn("text-xs", quoteStatusColors[q.status] || "")}>
                             {q.status}
                           </Badge>
+                          <div className="mt-1 text-xs text-muted-foreground">{resolveEdgeProfile(q.edge_profile)}</div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {format(new Date(q.created_at), "MMM d, yyyy")}
                         </TableCell>
                         <TableCell className="text-right space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setPreviewQuoteId(q.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -378,6 +391,12 @@ const AdminOrders = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CustomerQuotePreviewDialog
+        open={!!previewQuoteId}
+        onOpenChange={(open) => !open && setPreviewQuoteId(null)}
+        quote={previewQuote}
+      />
     </div>
   );
 };
