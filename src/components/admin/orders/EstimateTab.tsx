@@ -221,9 +221,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   });
 
   useEffect(() => {
-    if (serviceIdsInitialized || (allServices === undefined && !slabServiceData)) {
-      return;
-    }
+    if (serviceIdsInitialized) return;
+    // Wait until at least one service source is available
+    if (allServices === undefined && !slabServiceData) return;
 
     let hasStoredState = false;
     let persistedServiceIds = new Set<string>();
@@ -267,11 +267,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     );
   }, [customServices, pricingStateStorageKey, selectedServiceIds, serviceIdsInitialized]);
 
-  useEffect(() => {
-    if (orderId) {
-      setServiceIdsInitialized(true);
-    }
-  }, [orderId]);
+  // Removed: premature serviceIdsInitialized=true was preventing actual initialization
 
   const availableServices = useMemo(() => {
     return allServices || slabServiceData?.services || [];
@@ -363,8 +359,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   // ── Hydrate form from saved data ──
   useEffect(() => {
-    if (!serviceIdsInitialized && (slabServiceData || allServices !== undefined)) return;
-
+    if (!serviceIdsInitialized) return;
+    if (allServices === undefined && !slabServiceData) return;
     if (estimate) {
       const savedSqft = Number(estimate.measurements_sqft) || 0;
 
