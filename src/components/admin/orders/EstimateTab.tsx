@@ -155,7 +155,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.quote_id && !estimate && !customer && !customerEstimate,
   });
 
-  // Fetch slab + assigned services for auto-populating costs on new estimates
+  // Fetch slab + assigned services — always when order has a slab
   const { data: slabServiceData } = useQuery({
     queryKey: ["estimate-slab-services", order?.slab_id],
     queryFn: async () => {
@@ -171,7 +171,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         slabServices: slabServicesRes.data || [],
       };
     },
-    enabled: !!order?.slab_id && !estimate,
+    enabled: !!order?.slab_id,
   });
 
   // Helper: compute service costs from slab-assigned services
