@@ -221,9 +221,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   });
 
   useEffect(() => {
-    if (serviceIdsInitialized || (allServices === undefined && !slabServiceData)) {
-      return;
-    }
+    if (serviceIdsInitialized) return;
+    // Wait until at least one service source is available
+    if (allServices === undefined && !slabServiceData) return;
 
     let hasStoredState = false;
     let persistedServiceIds = new Set<string>();
