@@ -246,20 +246,24 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   // ── Compute costs from selected services ──
   const computeServiceCosts = (sqftOverride?: number, serviceIds?: Set<string>) => {
-    if (!slabServiceData) return null;
-    const { slab, services } = slabServiceData;
     const activeIds = serviceIds ?? selectedServiceIds;
     if (activeIds.size === 0) return null;
 
+    const hasSlab = !!slabServiceData;
+    const slab = slabServiceData?.slab;
+    const allSvcs = allServices || slabServiceData?.services || [];
+    if (allSvcs.length === 0) return null;
+
     const overrides = new Map<string, { cost: number | null; multiplier: number | null }>();
-    for (const ss of slabServiceData.slabServices) {
-      overrides.set(ss.service_id, {
-        cost: ss.override_cost != null ? Number(ss.override_cost) : null,
-        multiplier: ss.override_multiplier != null ? Number(ss.override_multiplier) : null,
-      });
+    if (hasSlab) {
+      for (const ss of slabServiceData!.slabServices) {
+        overrides.set(ss.service_id, {
+          cost: ss.override_cost != null ? Number(ss.override_cost) : null,
+          multiplier: ss.override_multiplier != null ? Number(ss.override_multiplier) : null,
+        });
+      }
     }
 
-    const allSvcs = allServices || services;
     const sqft = sqftOverride ?? (Number(quoteData?.calculated_sqft) || 0);
     const numCutouts = Number(quoteData?.num_cutouts) || 0;
     const lengthIn = Number(quoteData?.length_inches) || 0;
