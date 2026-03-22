@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Pencil, FileDown } from "lucide-react";
+import { Save, Pencil, FileDown, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
 import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox, DisclaimerBlock } from "./DocumentLayout";
@@ -36,6 +36,7 @@ type EstimateForm = {
   color: string;
   finish: string;
   edge_profile: string;
+  additional_notes: string;
   scope_of_work: string;
   measurements_sqft: number;
   labor_cost: number;
@@ -49,13 +50,14 @@ type EstimateForm = {
   terms_conditions: string;
 };
 
+type CustomService = { name: string; price: number };
+
 interface EstimateTabProps {
   orderId: string;
   order: any;
   customer: any;
 }
 
-// Rate data extracted from slab services for reactive recalculation
 type RateData = {
   laborRatePerSqft: number;
   laborFixed: number;
@@ -64,14 +66,19 @@ type RateData = {
   slabQuantity: number;
 };
 
+const roundMoney = (value: number) => Math.round(value * 100) / 100;
+
 export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [rateData, setRateData] = useState<RateData | null>(null);
-  // Track which service IDs the user has selected for pricing
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
   const [serviceIdsInitialized, setServiceIdsInitialized] = useState(false);
+  const [customServices, setCustomServices] = useState<CustomService[]>([]);
+  const [newCustomName, setNewCustomName] = useState("");
+  const [newCustomPrice, setNewCustomPrice] = useState("");
+
   const [form, setForm] = useState<EstimateForm>({
     estimate_number: "",
     date: format(new Date(), "yyyy-MM-dd"),
@@ -85,6 +92,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     color: "",
     finish: "",
     edge_profile: "",
+    additional_notes: "",
     scope_of_work: "",
     measurements_sqft: 0,
     labor_cost: 0,
@@ -98,17 +106,19 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     terms_conditions: "",
   });
 
-  const roundMoney = (value: number) => Math.round(value * 100) / 100;
-
+  // ── Single recalculation function ──
   const recalculateEstimate = (
     base: EstimateForm,
     updates: Partial<EstimateForm> = {},
     pricingOverride?: Partial<Pick<EstimateForm, "labor_cost" | "material_cost" | "addons_cost">>,
+    customSvcs?: CustomService[],
   ) => {
     const merged = { ...base, ...updates };
-    const labor_cost = Number(pricingOverride?.labor_cost ?? merged.labor_cost) || 0;
-    const material_cost = Number(pricingOverride?.material_cost ?? merged.material_cost) || 0;
-    const addons_cost = Number(pricingOverride?.addons_cost ?? merged.addons_cost) || 0;
+    const labor_cost = roundMoney(Number(pricingOverride?.labor_cost ?? merged.labor_cost) || 0);
+    const material_cost = roundMoney(Number(pricingOverride?.material_cost ?? merged.material_cost) || 0);
+    const serviceAddons = roundMoney(Number(pricingOverride?.addons_cost ?? merged.addons_cost) || 0);
+    const customTotal = (customSvcs ?? customServices).reduce((sum, cs) => sum + (Number(cs.price) || 0), 0);
+    const addons_cost = roundMoney(serviceAddons + customTotal);
     const subtotal = roundMoney(labor_cost + material_cost + addons_cost);
     const tax = Number(merged.tax) || 7;
     const taxAmount = roundMoney(subtotal * (tax / 100));
@@ -130,6 +140,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     };
   };
 
+  // ── Data queries ──
   const { data: estimate, isLoading } = useQuery({
     queryKey: ["estimate", orderId],
     queryFn: async () => {
@@ -144,7 +155,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     },
   });
 
-  // Fetch quote + material for auto-population
   const { data: quoteData } = useQuery({
     queryKey: ["estimate-quote", order?.quote_id],
     queryFn: async () => {
@@ -158,7 +168,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.quote_id,
   });
 
-  // Fetch customer's most recent estimate from any order as fallback
   const { data: customerEstimate } = useQuery({
     queryKey: ["customer-latest-estimate", customer?.id, orderId],
     queryFn: async () => {
@@ -177,7 +186,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!customer?.id && !estimate,
   });
 
-  // Fetch lead for fallback auto-population
   const { data: leadData } = useQuery({
     queryKey: ["estimate-lead", order?.quote_id],
     queryFn: async () => {
@@ -192,7 +200,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.quote_id && !estimate && !customer && !customerEstimate,
   });
 
-  // Fetch slab + assigned services — always when order has a slab
   const { data: slabServiceData } = useQuery({
     queryKey: ["estimate-slab-services", order?.slab_id],
     queryFn: async () => {
@@ -211,7 +218,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.slab_id,
   });
 
-  // Also fetch ALL active services so the user can add services not yet assigned to the slab
   const { data: allServices } = useQuery({
     queryKey: ["all-active-services"],
     queryFn: async () => {
@@ -225,7 +231,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     },
   });
 
-  // Initialize selected service IDs from slab assignments
+  // Init selected service IDs from slab assignments
   useEffect(() => {
     if (slabServiceData && !serviceIdsInitialized) {
       const ids = new Set(slabServiceData.slabServices.map((ss: any) => ss.service_id));
@@ -234,20 +240,17 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     }
   }, [slabServiceData, serviceIdsInitialized]);
 
-  // Build a list of available services for the picker
   const availableServices = useMemo(() => {
-    const services = allServices || slabServiceData?.services || [];
-    return services;
+    return allServices || slabServiceData?.services || [];
   }, [allServices, slabServiceData]);
 
-  // Compute costs from selected services
+  // ── Compute costs from selected services ──
   const computeServiceCosts = (sqftOverride?: number, serviceIds?: Set<string>) => {
     if (!slabServiceData) return null;
     const { slab, services } = slabServiceData;
     const activeIds = serviceIds ?? selectedServiceIds;
     if (activeIds.size === 0) return null;
 
-    // Build overrides map from slab_services
     const overrides = new Map<string, { cost: number | null; multiplier: number | null }>();
     for (const ss of slabServiceData.slabServices) {
       overrides.set(ss.service_id, {
@@ -256,9 +259,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       });
     }
 
-    // Use allServices if available for broader coverage
     const allSvcs = allServices || services;
-
     const sqft = sqftOverride ?? (Number(quoteData?.calculated_sqft) || 0);
     const numCutouts = Number(quoteData?.num_cutouts) || 0;
     const lengthIn = Number(quoteData?.length_inches) || 0;
@@ -323,7 +324,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     };
   };
 
-  // Recalculate when service selection changes
+  // ── Recalc when service selection changes ──
   const recalcFromServices = (newServiceIds: Set<string>) => {
     setSelectedServiceIds(newServiceIds);
     if (!slabServiceData) return;
@@ -348,17 +349,33 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     recalcFromServices(next);
   };
 
+  // ── Custom Services handlers ──
+  const addCustomService = () => {
+    const name = newCustomName.trim();
+    const price = Number(newCustomPrice) || 0;
+    if (!name) return;
+    const updated = [...customServices, { name, price }];
+    setCustomServices(updated);
+    setNewCustomName("");
+    setNewCustomPrice("");
+    // Recalculate with new custom services
+    setForm((prev) => recalculateEstimate(prev, {}, undefined, updated));
+  };
+
+  const removeCustomService = (index: number) => {
+    const updated = customServices.filter((_, i) => i !== index);
+    setCustomServices(updated);
+    setForm((prev) => recalculateEstimate(prev, {}, undefined, updated));
+  };
+
+  // ── Hydrate form from saved data ──
   useEffect(() => {
     if (estimate) {
-      let labor = Number(estimate.labor_cost) || 0;
-      let material = Number(estimate.material_cost) || 0;
-      let addons = Number(estimate.addons_cost) || 0;
-      const taxPct = Number(estimate.tax) || 7;
       const savedSqft = Number(estimate.measurements_sqft) || 0;
 
-      // If detail pricing is empty but we have slab service data, hydrate from config
-      const costsEmpty = labor === 0 && material === 0 && addons === 0;
-      if (costsEmpty && slabServiceData && slabServiceData.slabServices.length > 0) {
+      // Always compute from slab services when available
+      let labor = 0, material = 0, addons = 0;
+      if (slabServiceData && slabServiceData.slabServices.length > 0) {
         const svcCosts = computeServiceCosts(savedSqft || undefined);
         if (svcCosts) {
           labor = svcCosts.labor;
@@ -366,15 +383,11 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           addons = svcCosts.addon;
           if (svcCosts.rates) setRateData(svcCosts.rates);
         }
-      } else if (slabServiceData && slabServiceData.slabServices.length > 0) {
-        // Even if we have saved costs, refresh from services to stay in sync
-        const svcCosts = computeServiceCosts(savedSqft || undefined);
-        if (svcCosts) {
-          labor = svcCosts.labor;
-          material = svcCosts.materialCost;
-          addons = svcCosts.addon;
-          if (svcCosts.rates) setRateData(svcCosts.rates);
-        }
+      } else {
+        // Fall back to saved values
+        labor = Number(estimate.labor_cost) || 0;
+        material = Number(estimate.material_cost) || 0;
+        addons = Number(estimate.addons_cost) || 0;
       }
 
       const nextForm = recalculateEstimate({
@@ -390,13 +403,14 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         color: estimate.color || "",
         finish: estimate.finish || "",
         edge_profile: resolveEdgeProfile(estimate.edge_profile, quoteData?.edge_profile),
+        additional_notes: "",
         scope_of_work: estimate.scope_of_work || "",
         measurements_sqft: savedSqft,
         labor_cost: 0,
         material_cost: 0,
         addons_cost: 0,
         subtotal: 0,
-        tax: taxPct,
+        tax: Number(estimate.tax) || 7,
         total: 0,
         deposit_required: Number(estimate.deposit_required) || 0,
         notes: estimate.notes || "",
@@ -411,11 +425,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       setEditing(false);
     } else if (customerEstimate) {
       const ce = customerEstimate;
-      const taxPct = 7;
       const materialObj = quoteData?.materials as any;
       const currentSqft = Number(quoteData?.calculated_sqft) || Number(ce.measurements_sqft) || 0;
       const svcCosts = computeServiceCosts(currentSqft || undefined);
-
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       setForm((prev) => recalculateEstimate({
@@ -430,13 +442,14 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         color: svcCosts?.slabCategory || materialObj?.category || ce.color || "",
         finish: ce.finish || "",
         edge_profile: resolveEdgeProfile(quoteData?.edge_profile, ce.edge_profile),
+        additional_notes: "",
         scope_of_work: ce.scope_of_work || "",
         measurements_sqft: currentSqft,
         labor_cost: svcCosts?.labor ?? (Number(ce.labor_cost) || 0),
         material_cost: svcCosts?.materialCost ?? (Number(ce.material_cost) || 0),
         addons_cost: svcCosts?.addon ?? (Number(ce.addons_cost) || 0),
         subtotal: 0,
-        tax: taxPct,
+        tax: 7,
         total: 0,
         deposit_required: Number(ce.deposit_required) || 0,
         notes: ce.notes || "",
@@ -449,22 +462,11 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const phone = customer?.phone || leadData?.phone || "";
       const email = customer?.email || leadData?.email || "";
       const address = customer?.address || "";
-
       const materialObj = quoteData?.materials as any;
       const edge_profile = resolveEdgeProfile(quoteData?.edge_profile);
       const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
-
       const svcCosts = computeServiceCosts(measurements_sqft || undefined);
-
-      const labor_cost = svcCosts ? svcCosts.labor : 0;
-      const material_cost = svcCosts ? svcCosts.materialCost : 0;
-      const addons_cost = svcCosts ? svcCosts.addon : 0;
-      const materialName = svcCosts?.slabMaterial || materialObj?.name || "";
-      const colorName = svcCosts?.slabCategory || materialObj?.category || "";
-
       if (svcCosts?.rates) setRateData(svcCosts.rates);
-
-      const taxPct = 7;
 
       setForm((prev) => recalculateEstimate({
         ...prev,
@@ -474,15 +476,16 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         email,
         billing_address: address,
         project_address: address,
-        material: materialName,
-        color: colorName,
+        material: svcCosts?.slabMaterial || materialObj?.name || "",
+        color: svcCosts?.slabCategory || materialObj?.category || "",
         edge_profile,
+        additional_notes: "",
         measurements_sqft,
-        labor_cost,
-        material_cost,
-        addons_cost,
+        labor_cost: svcCosts?.labor ?? 0,
+        material_cost: svcCosts?.materialCost ?? 0,
+        addons_cost: svcCosts?.addon ?? 0,
         subtotal: 0,
-        tax: taxPct,
+        tax: 7,
         total: 0,
         deposit_required: 0,
         terms_conditions: DEFAULT_TERMS,
@@ -515,11 +518,29 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const taxAmount = calcTaxAmount(computedForm.subtotal, computedForm.tax);
       const payload = {
         order_id: orderId,
-        ...computedForm,
-        total: computedForm.subtotal + taxAmount,
+        estimate_number: computedForm.estimate_number,
         date: computedForm.date || null,
         expiration_date: computedForm.expiration_date || null,
+        customer_name: computedForm.customer_name,
+        phone: computedForm.phone,
+        email: computedForm.email,
+        billing_address: computedForm.billing_address,
+        project_address: computedForm.project_address,
+        material: computedForm.material,
+        color: computedForm.color,
+        finish: computedForm.finish,
+        edge_profile: computedForm.edge_profile,
+        scope_of_work: computedForm.scope_of_work,
         measurements_sqft: computedForm.measurements_sqft || null,
+        labor_cost: computedForm.labor_cost,
+        material_cost: computedForm.material_cost,
+        addons_cost: computedForm.addons_cost,
+        subtotal: computedForm.subtotal,
+        tax: computedForm.tax,
+        total: computedForm.subtotal + taxAmount,
+        deposit_required: computedForm.deposit_required,
+        notes: computedForm.notes,
+        terms_conditions: computedForm.terms_conditions,
         status: "active",
       };
       if (estimate) {
@@ -538,7 +559,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Group available services by category for the picker (must be before early return)
   const servicesByCategory = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     for (const svc of availableServices) {
@@ -552,8 +572,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   if (isLoading) return <p className="text-muted-foreground py-4">Loading...</p>;
 
   const taxAmount = calcTaxAmount(form.subtotal, form.tax);
-  const remainingBalance = Number((form.total - form.deposit_required).toFixed(2));
+  const remainingBalance = roundMoney(form.total - form.deposit_required);
   const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
+  const customServicesTotal = customServices.reduce((sum, cs) => sum + (Number(cs.price) || 0), 0);
 
   const categoryLabels: Record<string, string> = {
     labor: "Labor",
@@ -619,7 +640,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   return (
     <Card className="mt-4 overflow-hidden">
       <CardContent className="p-6 space-y-6">
-        {/* Document Header */}
         <DocumentHeader
           documentTitle="Estimate"
           documentNumber={form.estimate_number}
@@ -673,28 +693,47 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
               <Field label="Finish" value={form.finish} onChange={(v) => updateField("finish", v)} disabled={!editing} />
               <Field label="Edge Profile" value={form.edge_profile} onChange={(v) => updateField("edge_profile", v)} disabled={!editing} />
               <Field label="Measurements (Sq Ft)" type="number" value={String(form.measurements_sqft)} onChange={(v) => updateField("measurements_sqft", v)} disabled={!editing} />
+              <div className="sm:col-span-2 md:col-span-3">
+                <Label className="text-sm">Additional Notes</Label>
+                <Textarea
+                  value={form.additional_notes}
+                  onChange={(e) => updateField("additional_notes", e.target.value)}
+                  disabled={!editing}
+                  rows={2}
+                  className="mt-1"
+                  placeholder="Any additional notes about materials or scope..."
+                />
+              </div>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Material</TableHead>
-                  <TableHead>Color</TableHead>
-                  <TableHead>Finish</TableHead>
-                  <TableHead>Edge Profile</TableHead>
-                  <TableHead className="text-right">Sq Ft</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">{form.material || "—"}</TableCell>
-                  <TableCell>{form.color || "—"}</TableCell>
-                  <TableCell>{form.finish || "—"}</TableCell>
-                  <TableCell>{form.edge_profile || "—"}</TableCell>
-                  <TableCell className="text-right">{form.measurements_sqft || "—"}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Material</TableHead>
+                    <TableHead>Color</TableHead>
+                    <TableHead>Finish</TableHead>
+                    <TableHead>Edge Profile</TableHead>
+                    <TableHead className="text-right">Sq Ft</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">{form.material || "—"}</TableCell>
+                    <TableCell>{form.color || "—"}</TableCell>
+                    <TableCell>{form.finish || "—"}</TableCell>
+                    <TableCell>{form.edge_profile || "—"}</TableCell>
+                    <TableCell className="text-right">{form.measurements_sqft || "—"}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+              {form.additional_notes && (
+                <div className="mt-2">
+                  <Label className="text-sm">Additional Notes</Label>
+                  <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{form.additional_notes}</p>
+                </div>
+              )}
+            </>
           )}
           <div className="mt-2">
             <Label className="text-sm">Scope of Work</Label>
@@ -706,21 +745,19 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           </div>
         </DocumentSection>
 
-        {/* Pricing Table + Summary */}
+        {/* Pricing */}
         <DocumentSection title="Pricing">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-            {/* Itemized pricing + service selector */}
             <div className="md:col-span-3 space-y-4">
               {editing ? (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Labor Cost" type="number" value={String(form.labor_cost)} onChange={(v) => updateField("labor_cost", v)} disabled={!editing} />
                     <Field label="Material Cost" type="number" value={String(form.material_cost)} onChange={(v) => updateField("material_cost", v)} disabled={!editing} />
-                    <Field label="Add-ons" type="number" value={String(form.addons_cost)} onChange={(v) => updateField("addons_cost", v)} disabled={!editing} />
                     <Field label="Tax (%)" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
                   </div>
 
-                  {/* Service Selector */}
+                  {/* Select Services */}
                   {availableServices.length > 0 && (
                     <div className="border rounded-md p-3 space-y-3">
                       <Label className="text-sm font-semibold">Select Services</Label>
@@ -748,6 +785,54 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
                       ))}
                     </div>
                   )}
+
+                  {/* Custom Services */}
+                  <div className="border rounded-md p-3 space-y-3">
+                    <Label className="text-sm font-semibold">Custom Services</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Add additional services not in the system. These are added to Add-ons.
+                    </p>
+                    {customServices.length > 0 && (
+                      <div className="space-y-1">
+                        {customServices.map((cs, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm">
+                            <span className="flex-1">{cs.name}</span>
+                            <span className="text-muted-foreground">${Number(cs.price).toFixed(2)}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeCustomService(i)}>
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          </div>
+                        ))}
+                        <div className="text-xs text-muted-foreground pt-1 border-t">
+                          Custom Total: ${customServicesTotal.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <Label className="text-xs">Name</Label>
+                        <Input
+                          value={newCustomName}
+                          onChange={(e) => setNewCustomName(e.target.value)}
+                          placeholder="Service name"
+                          className="mt-1 h-8 text-sm"
+                        />
+                      </div>
+                      <div className="w-28">
+                        <Label className="text-xs">Price ($)</Label>
+                        <Input
+                          type="number"
+                          value={newCustomPrice}
+                          onChange={(e) => setNewCustomPrice(e.target.value)}
+                          placeholder="0.00"
+                          className="mt-1 h-8 text-sm"
+                        />
+                      </div>
+                      <Button variant="outline" size="sm" className="h-8" onClick={addCustomService} disabled={!newCustomName.trim()}>
+                        <Plus className="h-3 w-3 mr-1" /> Add
+                      </Button>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <Table>
@@ -773,15 +858,13 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
               )}
             </div>
 
-            {/* Summary box */}
+            {/* Summary */}
             <div className="md:col-span-2">
               <SummaryBox rows={[
                 { label: "Subtotal", value: `$${form.subtotal.toFixed(2)}` },
                 { label: `Tax (${form.tax}%)`, value: `$${taxAmount.toFixed(2)}` },
                 { label: "Total", value: `$${form.total.toFixed(2)}`, bold: true },
-                { label: "Deposit Required (50%)", value: editing
-                  ? ""
-                  : `$${form.deposit_required.toFixed(2)}` },
+                { label: "Deposit Required (50%)", value: editing ? "" : `$${form.deposit_required.toFixed(2)}` },
                 { label: "Remaining Balance", value: `$${remainingBalance.toFixed(2)}`, accent: true },
               ].filter(r => r.value !== "")} />
 
