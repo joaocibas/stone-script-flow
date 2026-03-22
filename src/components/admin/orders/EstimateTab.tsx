@@ -93,6 +93,37 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     terms_conditions: "",
   });
 
+  const roundMoney = (value: number) => Math.round(value * 100) / 100;
+
+  const recalculateEstimate = (
+    base: EstimateForm,
+    updates: Partial<EstimateForm> = {},
+    pricingOverride?: Partial<Pick<EstimateForm, "labor_cost" | "material_cost" | "addons_cost">>,
+  ) => {
+    const merged = { ...base, ...updates };
+    const labor_cost = Number(pricingOverride?.labor_cost ?? merged.labor_cost) || 0;
+    const material_cost = Number(pricingOverride?.material_cost ?? merged.material_cost) || 0;
+    const addons_cost = Number(pricingOverride?.addons_cost ?? merged.addons_cost) || 0;
+    const subtotal = roundMoney(labor_cost + material_cost + addons_cost);
+    const tax = Number(merged.tax) || 0;
+    const total = roundMoney(subtotal + roundMoney(subtotal * (tax / 100)));
+    const deposit_required =
+      updates.deposit_required !== undefined || Number(merged.deposit_required) > 0
+        ? roundMoney(Number(merged.deposit_required) || 0)
+        : roundMoney(total * 0.5);
+
+    return {
+      ...merged,
+      labor_cost,
+      material_cost,
+      addons_cost,
+      subtotal,
+      tax,
+      total,
+      deposit_required,
+    };
+  };
+
   const { data: estimate, isLoading } = useQuery({
     queryKey: ["estimate", orderId],
     queryFn: async () => {
@@ -118,7 +149,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         .maybeSingle();
       return data;
     },
-    enabled: !!order?.quote_id && !estimate,
+    enabled: !!order?.quote_id,
   });
 
   // Fetch customer's most recent estimate from any order as fallback
@@ -262,12 +293,25 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       let labor = Number(estimate.labor_cost) || 0;
       let material = Number(estimate.material_cost) || 0;
       let addons = Number(estimate.addons_cost) || 0;
-      let taxPct = Number(estimate.tax) || 7; // default 7% if not set
+      const taxPct = Number(estimate.tax) || 7;
       const savedSqft = Number(estimate.measurements_sqft) || 0;
 
-      // If costs are all zero but slab services exist, re-populate from slab config
+      // If detail pricing is empty/out of sync, hydrate from slab/service config
       const costsEmpty = labor === 0 && material === 0 && addons === 0;
+      const summaryHasValue =
+        (Number(estimate.subtotal) || 0) > 0 ||
+        (Number(estimate.total) || 0) > 0 ||
+        (Number(estimate.deposit_required) || 0) > 0;
+
       if (costsEmpty && slabServiceData && slabServiceData.slabServices.length > 0) {
+        const svcCosts = computeSlabServiceCosts(savedSqft || undefined);
+        if (svcCosts) {
+          labor = svcCosts.labor;
+          material = svcCosts.materialCost;
+          addons = svcCosts.addon;
+          if (svcCosts.rates) setRateData(svcCosts.rates);
+        }
+      } else if (summaryHasValue && slabServiceData && slabServiceData.slabServices.length > 0) {
         const svcCosts = computeSlabServiceCosts(savedSqft || undefined);
         if (svcCosts) {
           labor = svcCosts.labor;
@@ -277,12 +321,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         }
       }
 
-      const subtotal = labor + material + addons;
-      const taxAmt = Math.round(subtotal * (taxPct / 100) * 100) / 100;
-      const total = subtotal + taxAmt;
-      const deposit = Number(estimate.deposit_required) || Math.round(total * 0.5 * 100) / 100;
-
-      setForm({
+      const nextForm = recalculateEstimate({
         estimate_number: estimate.estimate_number || "",
         date: estimate.date || format(new Date(), "yyyy-MM-dd"),
         expiration_date: estimate.expiration_date || "",
@@ -297,29 +336,29 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         edge_profile: estimate.edge_profile || "",
         scope_of_work: estimate.scope_of_work || "",
         measurements_sqft: savedSqft,
+        labor_cost: 0,
+        material_cost: 0,
+        addons_cost: 0,
+        subtotal: 0,
+        tax: taxPct,
+        total: 0,
+        deposit_required: Number(estimate.deposit_required) || 0,
+        notes: estimate.notes || "",
+        terms_conditions: estimate.terms_conditions || DEFAULT_TERMS,
+      }, {}, {
         labor_cost: labor,
         material_cost: material,
         addons_cost: addons,
-        subtotal,
-        tax: taxPct,
-        total,
-        deposit_required: deposit,
-        notes: estimate.notes || "",
-        terms_conditions: estimate.terms_conditions || DEFAULT_TERMS,
       });
+
+      setForm(nextForm);
       setEditing(false);
     } else if (customerEstimate) {
       // Fallback: use customer's most recent estimate — recalculate for consistency
       const ce = customerEstimate;
-      const labor = Number(ce.labor_cost) || 0;
-      const material = Number(ce.material_cost) || 0;
-      const addons = Number(ce.addons_cost) || 0;
       const taxPct = Number(ce.tax) || 7;
-      const subtotal = labor + material + addons;
-      const taxAmt = Math.round(subtotal * (taxPct / 100) * 100) / 100;
-      const total = subtotal + taxAmt;
 
-      setForm((prev) => ({
+      setForm((prev) => recalculateEstimate({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
         customer_name: ce.customer_name || customer?.full_name || "",
@@ -333,13 +372,13 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         edge_profile: ce.edge_profile || "",
         scope_of_work: ce.scope_of_work || "",
         measurements_sqft: Number(ce.measurements_sqft) || 0,
-        labor_cost: labor,
-        material_cost: material,
-        addons_cost: addons,
-        subtotal,
+        labor_cost: Number(ce.labor_cost) || 0,
+        material_cost: Number(ce.material_cost) || 0,
+        addons_cost: Number(ce.addons_cost) || 0,
+        subtotal: 0,
         tax: taxPct,
-        total,
-        deposit_required: Number(ce.deposit_required) || Math.round(total * 0.5 * 100) / 100,
+        total: 0,
+        deposit_required: Number(ce.deposit_required) || 0,
         notes: ce.notes || "",
         terms_conditions: ce.terms_conditions || DEFAULT_TERMS,
       }));
@@ -368,12 +407,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       // Store rate data for reactive recalculation
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
-      const subtotal = labor_cost + material_cost + addons_cost;
       const taxPct = 7;
-      const taxAmount = Math.round(subtotal * (taxPct / 100) * 100) / 100;
-      const total = subtotal + taxAmount;
 
-      setForm((prev) => ({
+      setForm((prev) => recalculateEstimate({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
         customer_name: name,
@@ -388,10 +424,10 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         labor_cost,
         material_cost,
         addons_cost,
-        subtotal,
+        subtotal: 0,
         tax: taxPct,
-        total,
-        deposit_required: Math.round(total * 0.5 * 100) / 100,
+        total: 0,
+        deposit_required: 0,
         terms_conditions: DEFAULT_TERMS,
       }));
       setEditing(true);
@@ -400,31 +436,19 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   // Tax is stored as percentage; taxAmount is derived
   const calcTaxAmount = (subtotal: number, taxPct: number) =>
-    Math.round(subtotal * (taxPct / 100) * 100) / 100;
-
-  const recalculate = (updated: Partial<EstimateForm>) => {
-    const merged = { ...form, ...updated };
-    const subtotal = Number(merged.labor_cost) + Number(merged.material_cost) + Number(merged.addons_cost);
-    const taxPct = Number(merged.tax);
-    const taxAmount = calcTaxAmount(subtotal, taxPct);
-    const total = subtotal + taxAmount;
-    const deposit_required = ("labor_cost" in updated || "material_cost" in updated || "addons_cost" in updated || "tax" in updated || "measurements_sqft" in updated)
-      ? Math.round(total * 0.5 * 100) / 100
-      : merged.deposit_required;
-    return { ...merged, subtotal, total, deposit_required };
-  };
+    roundMoney(subtotal * (taxPct / 100));
 
   const updateField = (key: keyof EstimateForm, value: any) => {
     const costFields: (keyof EstimateForm)[] = ["labor_cost", "material_cost", "addons_cost", "tax"];
     if (key === "measurements_sqft" && rateData) {
       // Reactive: recalculate labor from rate × new sqft
       const newSqft = Number(value) || 0;
-      const newLabor = Math.round(((rateData.laborRatePerSqft * newSqft) + rateData.laborFixed) * 100) / 100;
-      setForm(recalculate({ measurements_sqft: newSqft, labor_cost: newLabor }));
+      const newLabor = roundMoney((rateData.laborRatePerSqft * newSqft) + rateData.laborFixed);
+      setForm((prev) => recalculateEstimate(prev, { measurements_sqft: newSqft, labor_cost: newLabor }));
     } else if (costFields.includes(key)) {
-      setForm(recalculate({ [key]: Number(value) || 0 }));
+      setForm((prev) => recalculateEstimate(prev, { [key]: Number(value) || 0 }));
     } else if (key === "deposit_required") {
-      setForm((prev) => ({ ...prev, deposit_required: Number(value) || 0 }));
+      setForm((prev) => recalculateEstimate(prev, { deposit_required: Number(value) || 0 }));
     } else {
       setForm((prev) => ({ ...prev, [key]: value }));
     }
@@ -432,15 +456,15 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const taxAmount = calcTaxAmount(form.subtotal, form.tax);
+      const computedForm = recalculateEstimate(form);
+      const taxAmount = calcTaxAmount(computedForm.subtotal, computedForm.tax);
       const payload = {
         order_id: orderId,
-        ...form,
-        // Store the computed total (subtotal + taxAmount) not subtotal + taxPct
-        total: form.subtotal + taxAmount,
-        date: form.date || null,
-        expiration_date: form.expiration_date || null,
-        measurements_sqft: form.measurements_sqft || null,
+        ...computedForm,
+        total: computedForm.subtotal + taxAmount,
+        date: computedForm.date || null,
+        expiration_date: computedForm.expiration_date || null,
+        measurements_sqft: computedForm.measurements_sqft || null,
         status: "active",
       };
       if (estimate) {
