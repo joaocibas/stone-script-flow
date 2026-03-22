@@ -966,10 +966,10 @@ const Quote = () => {
                       <span className="font-medium">{linkedEstimate.material}{linkedEstimate.color ? ` — ${linkedEstimate.color}` : ""}{linkedEstimate.finish ? ` (${linkedEstimate.finish})` : ""}</span>
                     </div>
                   )}
-                  {resolveEdgeProfile(linkedEstimate.edge_profile, result?.edge_profile) && (
+                  {resolveEdgeProfile(linkedEstimate.edge_profile, form.edge_profile) && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Edge Profile</span>
-                      <span className="font-medium">{resolveEdgeProfile(linkedEstimate.edge_profile, result?.edge_profile)}</span>
+                      <span className="font-medium">{resolveEdgeProfile(linkedEstimate.edge_profile, form.edge_profile)}</span>
                     </div>
                   )}
                   {linkedEstimate.measurements_sqft != null && (
