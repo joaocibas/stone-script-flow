@@ -324,19 +324,16 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     };
   };
 
-  // ── Recalc when service selection changes ──
-  const recalcFromServices = (newServiceIds: Set<string>) => {
-    setSelectedServiceIds(newServiceIds);
-    if (!slabServiceData) return;
-    const svcCosts = computeServiceCosts(form.measurements_sqft || undefined, newServiceIds);
-    if (svcCosts) {
-      if (svcCosts.rates) setRateData(svcCosts.rates);
-      setForm((prev) => recalculateEstimate(prev, {}, {
-        labor_cost: svcCosts.labor,
-        material_cost: svcCosts.materialCost,
-        addons_cost: svcCosts.addon,
-      }));
-    }
+  // ── Unified recalc from services + custom services ──
+  const fullRecalc = (serviceIds?: Set<string>, customSvcs?: CustomService[]) => {
+    const ids = serviceIds ?? selectedServiceIds;
+    const svcs = customSvcs ?? customServices;
+    const svcCosts = computeServiceCosts(form.measurements_sqft || undefined, ids);
+    const pricingOverride = svcCosts
+      ? { labor_cost: svcCosts.labor, material_cost: svcCosts.materialCost, addons_cost: svcCosts.addon }
+      : { labor_cost: 0, material_cost: 0, addons_cost: 0 };
+    if (svcCosts?.rates) setRateData(svcCosts.rates);
+    setForm((prev) => recalculateEstimate(prev, {}, pricingOverride, svcs));
   };
 
   const toggleService = (serviceId: string) => {
@@ -346,7 +343,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     } else {
       next.add(serviceId);
     }
-    recalcFromServices(next);
+    setSelectedServiceIds(next);
+    fullRecalc(next);
   };
 
   // ── Custom Services handlers ──
@@ -358,14 +356,13 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     setCustomServices(updated);
     setNewCustomName("");
     setNewCustomPrice("");
-    // Recalculate with new custom services
-    setForm((prev) => recalculateEstimate(prev, {}, undefined, updated));
+    fullRecalc(undefined, updated);
   };
 
   const removeCustomService = (index: number) => {
     const updated = customServices.filter((_, i) => i !== index);
     setCustomServices(updated);
-    setForm((prev) => recalculateEstimate(prev, {}, undefined, updated));
+    fullRecalc(undefined, updated);
   };
 
   // ── Hydrate form from saved data ──
