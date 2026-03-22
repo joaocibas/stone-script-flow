@@ -131,22 +131,113 @@ const AdminOrders = () => {
       return;
     }
 
+    const cust = quote.customers as any;
+    const mat = quote.materials as any;
+    const sqft = Number(quote.calculated_sqft) || 0;
+    const numCutouts = Number(quote.num_cutouts) || 0;
+    const lengthIn = Number(quote.length_inches) || 0;
+    const widthIn = Number(quote.width_inches) || 0;
+    const perimeterLinFt = (lengthIn && widthIn) ? (2 * (lengthIn + widthIn)) / 12 : 0;
+    const slabsNeeded = Number(quote.slabs_needed) || 1;
+    const edgeProfile = resolveEdgeProfile(quote.edge_profile);
+
+    // Try to compute pricing from slab services
+    let labor = 0, material = 0, addons = 0;
+    try {
+      const { data: slabs } = await supabase
+        .from("slabs")
+        .select("id, sales_value")
+        .eq("material_id", quote.material_id)
+        .eq("status", "available")
+        .limit(1);
+      const slab = slabs?.[0];
+      if (slab) {
+        const [servicesRes, slabServicesRes] = await Promise.all([
+          supabase.from("service_items").select("id, category, pricing_unit, cost_value, name").eq("is_active", true),
+          supabase.from("slab_services").select("service_id, override_cost, override_multiplier").eq("slab_id", slab.id).eq("is_active", true),
+        ]);
+        const services = servicesRes.data || [];
+        const slabServices = slabServicesRes.data || [];
+        const assignedIds = slabServices.map((ss: any) => ss.service_id);
+        const overrides = new Map<string, { cost: number | null; mult: number | null }>();
+        for (const ss of slabServices) {
+          overrides.set(ss.service_id, { cost: ss.override_cost != null ? Number(ss.override_cost) : null, mult: ss.override_multiplier != null ? Number(ss.override_multiplier) : null });
+        }
+
+        let laborTotal = 0;
+        for (const s of services.filter((s: any) => s.category === "labor" && assignedIds.includes(s.id))) {
+          const ov = overrides.get(s.id);
+          const cv = ov?.cost ?? s.cost_value;
+          const m = ov?.mult ?? 1;
+          laborTotal += s.pricing_unit === "per_sqft" ? cv * m * sqft : cv * m;
+        }
+        const sumCat = (cat: string) => services.filter((s: any) => s.category === cat && assignedIds.includes(s.id)).reduce((t: number, s: any) => {
+          const ov = overrides.get(s.id);
+          const cv = ov?.cost ?? s.cost_value;
+          const m = ov?.mult ?? 1;
+          let u: number;
+          switch (s.pricing_unit) { case "per_sqft": u = cv * sqft; break; case "per_linear_ft": u = cv * perimeterLinFt; break; case "per_cutout": u = cv * numCutouts; break; default: u = cv; }
+          return t + u * m;
+        }, 0);
+        laborTotal += sumCat("edge_profile") + sumCat("cutout") + sumCat("fabrication");
+        addons = sumCat("addon");
+        material = (Number(slab.sales_value) || 0) * slabsNeeded;
+        labor = laborTotal;
+      }
+    } catch { /* pricing will be 0, admin can edit */ }
+
+    const round = (v: number) => Math.round(v * 100) / 100;
+    labor = round(labor);
+    material = round(material);
+    addons = round(addons);
+    const subtotal = round(labor + material + addons);
+    const taxAmount = round(subtotal * 0.07);
+    const total = round(subtotal + taxAmount);
+    const depositRequired = round(total * 0.5);
+
     const { data: order, error } = await supabase.from("orders").insert({
       customer_id: quote.customer_id,
       quote_id: quote.id,
-      total_amount: quote.estimated_total || 0,
+      total_amount: total || (quote.estimated_total || 0),
       deposit_paid: 0,
       status: "pending",
     }).select().single();
 
     if (error) {
       toast.error("Failed to create order: " + error.message);
-    } else {
-      toast.success("Order created from quote");
-      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-customer-quotes"] });
-      navigate(`/admin/orders/${order.id}`);
+      setConvertingQuoteId(null);
+      return;
     }
+
+    // Create full estimate record
+    await supabase.from("estimates").insert({
+      order_id: order.id,
+      estimate_number: `EST-${order.id.slice(0, 6).toUpperCase()}`,
+      customer_name: cust?.full_name || "",
+      phone: cust?.phone || "",
+      email: cust?.email || "",
+      billing_address: cust?.address || "",
+      project_address: cust?.address || "",
+      material: mat?.name || "",
+      color: mat?.category || "",
+      edge_profile: edgeProfile,
+      measurements_sqft: sqft || null,
+      labor_cost: labor,
+      material_cost: material,
+      addons_cost: addons,
+      subtotal,
+      tax: 7,
+      total,
+      deposit_required: depositRequired,
+      scope_of_work: "",
+      notes: "",
+      status: "active",
+    });
+
+    toast.success("Order created from quote");
+    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-customer-quotes"] });
+    navigate(`/admin/orders/${order.id}`);
     setConvertingQuoteId(null);
   };
 
