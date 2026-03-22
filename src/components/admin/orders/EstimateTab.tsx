@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Pencil, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
 import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox, DisclaimerBlock } from "./DocumentLayout";
-import { derivePricingSummary, resolveEdgeProfile } from "./estimateDisplay";
+import { resolveEdgeProfile } from "./estimateDisplay";
 
 const DEFAULT_TERMS = `Altar Stone Countertops does not connect or disconnect any plumbing, electrical systems, or appliances. It is the client's responsibility to hire licensed professionals to ensure that all conditions required for countertop installation are properly prepared before our team arrives.
 
@@ -56,11 +57,11 @@ interface EstimateTabProps {
 
 // Rate data extracted from slab services for reactive recalculation
 type RateData = {
-  laborRatePerSqft: number;   // sum of per_sqft labor service costs
-  laborFixed: number;          // sum of fixed/non-sqft labor+edge+cutout+fabrication costs
-  addonTotal: number;          // sum of addon service costs
-  slabUnitPrice: number;       // single slab sales_value
-  slabQuantity: number;        // slabs needed
+  laborRatePerSqft: number;
+  laborFixed: number;
+  addonTotal: number;
+  slabUnitPrice: number;
+  slabQuantity: number;
 };
 
 export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
@@ -68,6 +69,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [rateData, setRateData] = useState<RateData | null>(null);
+  // Track which service IDs the user has selected for pricing
+  const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
+  const [serviceIdsInitialized, setServiceIdsInitialized] = useState(false);
   const [form, setForm] = useState<EstimateForm>({
     estimate_number: "",
     date: format(new Date(), "yyyy-MM-dd"),
@@ -107,7 +111,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const addons_cost = Number(pricingOverride?.addons_cost ?? merged.addons_cost) || 0;
     const subtotal = roundMoney(labor_cost + material_cost + addons_cost);
     const tax = Number(merged.tax) || 7;
-    const total = roundMoney(subtotal + roundMoney(subtotal * (tax / 100)));
+    const taxAmount = roundMoney(subtotal * (tax / 100));
+    const total = roundMoney(subtotal + taxAmount);
     const deposit_required =
       updates.deposit_required !== undefined || Number(merged.deposit_required) > 0
         ? roundMoney(Number(merged.deposit_required) || 0)
@@ -161,7 +166,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         .from("estimates")
         .select("*")
         .neq("order_id", orderId)
-        .in("order_id", 
+        .in("order_id",
           (await supabase.from("orders").select("id").eq("customer_id", customer.id)).data?.map((o: any) => o.id) || []
         )
         .order("created_at", { ascending: false })
@@ -206,19 +211,53 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.slab_id,
   });
 
-  // Helper: compute service costs from slab-assigned services
-  // Returns both totals and rate data for reactive recalculation
-  const computeSlabServiceCosts = (sqftOverride?: number) => {
-    if (!slabServiceData || slabServiceData.slabServices.length === 0) return null;
-    const { slab, services, slabServices } = slabServiceData;
-    const assignedIds = slabServices.map((ss: any) => ss.service_id);
+  // Also fetch ALL active services so the user can add services not yet assigned to the slab
+  const { data: allServices } = useQuery({
+    queryKey: ["all-active-services"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_items")
+        .select("id, category, pricing_unit, cost_value, name")
+        .eq("is_active", true)
+        .order("category")
+        .order("name");
+      return data || [];
+    },
+  });
+
+  // Initialize selected service IDs from slab assignments
+  useEffect(() => {
+    if (slabServiceData && !serviceIdsInitialized) {
+      const ids = new Set(slabServiceData.slabServices.map((ss: any) => ss.service_id));
+      setSelectedServiceIds(ids);
+      setServiceIdsInitialized(true);
+    }
+  }, [slabServiceData, serviceIdsInitialized]);
+
+  // Build a list of available services for the picker
+  const availableServices = useMemo(() => {
+    const services = allServices || slabServiceData?.services || [];
+    return services;
+  }, [allServices, slabServiceData]);
+
+  // Compute costs from selected services
+  const computeServiceCosts = (sqftOverride?: number, serviceIds?: Set<string>) => {
+    if (!slabServiceData) return null;
+    const { slab, services } = slabServiceData;
+    const activeIds = serviceIds ?? selectedServiceIds;
+    if (activeIds.size === 0) return null;
+
+    // Build overrides map from slab_services
     const overrides = new Map<string, { cost: number | null; multiplier: number | null }>();
-    for (const ss of slabServices) {
+    for (const ss of slabServiceData.slabServices) {
       overrides.set(ss.service_id, {
         cost: ss.override_cost != null ? Number(ss.override_cost) : null,
         multiplier: ss.override_multiplier != null ? Number(ss.override_multiplier) : null,
       });
     }
+
+    // Use allServices if available for broader coverage
+    const allSvcs = allServices || services;
 
     const sqft = sqftOverride ?? (Number(quoteData?.calculated_sqft) || 0);
     const numCutouts = Number(quoteData?.num_cutouts) || 0;
@@ -227,11 +266,10 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const perimeterLinFt = (lengthIn && widthIn) ? (2 * (lengthIn + widthIn)) / 12 : 0;
     const slabsNeeded = Number(quoteData?.slabs_needed) || 1;
 
-    // Separate per_sqft labor rate from fixed costs for reactive recalc
     let laborRatePerSqft = 0;
     let laborFixed = 0;
 
-    const laborItems = services.filter((s: any) => s.category === "labor" && assignedIds.includes(s.id));
+    const laborItems = allSvcs.filter((s: any) => s.category === "labor" && activeIds.has(s.id));
     for (const s of laborItems) {
       const ov = overrides.get(s.id);
       const costVal = ov?.cost != null ? ov.cost : s.cost_value;
@@ -243,9 +281,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       }
     }
 
-    // Sum non-labor service categories
     const sumCat = (cat: string) => {
-      const items = services.filter((s: any) => s.category === cat && assignedIds.includes(s.id));
+      const items = allSvcs.filter((s: any) => s.category === cat && activeIds.has(s.id));
       return items.reduce((total: number, s: any) => {
         const ov = overrides.get(s.id);
         const costVal = ov?.cost != null ? ov.cost : s.cost_value;
@@ -266,16 +303,14 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const fabricationCost = sumCat("fabrication");
     const addonTotal = sumCat("addon");
 
-    // Labor Total = laborRatePerSqft × sqft + laborFixed + edge + cutout + fabrication
     const laborTotal = (laborRatePerSqft * sqft) + laborFixed + edgeCost + cutoutCost + fabricationCost;
-    // Material Total = slab price × quantity
     const slabUnitPrice = Number(slab?.sales_value) || 0;
     const materialTotal = slabUnitPrice * slabsNeeded;
 
     return {
-      labor: laborTotal,
-      addon: addonTotal,
-      materialCost: materialTotal,
+      labor: roundMoney(laborTotal),
+      addon: roundMoney(addonTotal),
+      materialCost: roundMoney(materialTotal),
       slabMaterial: (slab?.materials as any)?.name || "",
       slabCategory: (slab?.materials as any)?.category || "",
       rates: {
@@ -288,32 +323,52 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     };
   };
 
+  // Recalculate when service selection changes
+  const recalcFromServices = (newServiceIds: Set<string>) => {
+    setSelectedServiceIds(newServiceIds);
+    if (!slabServiceData) return;
+    const svcCosts = computeServiceCosts(form.measurements_sqft || undefined, newServiceIds);
+    if (svcCosts) {
+      if (svcCosts.rates) setRateData(svcCosts.rates);
+      setForm((prev) => recalculateEstimate(prev, {}, {
+        labor_cost: svcCosts.labor,
+        material_cost: svcCosts.materialCost,
+        addons_cost: svcCosts.addon,
+      }));
+    }
+  };
+
+  const toggleService = (serviceId: string) => {
+    const next = new Set(selectedServiceIds);
+    if (next.has(serviceId)) {
+      next.delete(serviceId);
+    } else {
+      next.add(serviceId);
+    }
+    recalcFromServices(next);
+  };
+
   useEffect(() => {
     if (estimate) {
-      // Load saved estimate
       let labor = Number(estimate.labor_cost) || 0;
       let material = Number(estimate.material_cost) || 0;
       let addons = Number(estimate.addons_cost) || 0;
       const taxPct = Number(estimate.tax) || 7;
       const savedSqft = Number(estimate.measurements_sqft) || 0;
 
-      // If detail pricing is empty/out of sync, hydrate from slab/service config
+      // If detail pricing is empty but we have slab service data, hydrate from config
       const costsEmpty = labor === 0 && material === 0 && addons === 0;
-      const summaryHasValue =
-        (Number(estimate.subtotal) || 0) > 0 ||
-        (Number(estimate.total) || 0) > 0 ||
-        (Number(estimate.deposit_required) || 0) > 0;
-
       if (costsEmpty && slabServiceData && slabServiceData.slabServices.length > 0) {
-        const svcCosts = computeSlabServiceCosts(savedSqft || undefined);
+        const svcCosts = computeServiceCosts(savedSqft || undefined);
         if (svcCosts) {
           labor = svcCosts.labor;
           material = svcCosts.materialCost;
           addons = svcCosts.addon;
           if (svcCosts.rates) setRateData(svcCosts.rates);
         }
-      } else if (summaryHasValue && slabServiceData && slabServiceData.slabServices.length > 0) {
-        const svcCosts = computeSlabServiceCosts(savedSqft || undefined);
+      } else if (slabServiceData && slabServiceData.slabServices.length > 0) {
+        // Even if we have saved costs, refresh from services to stay in sync
+        const svcCosts = computeServiceCosts(savedSqft || undefined);
         if (svcCosts) {
           labor = svcCosts.labor;
           material = svcCosts.materialCost;
@@ -355,17 +410,11 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       setForm(nextForm);
       setEditing(false);
     } else if (customerEstimate) {
-      // Fallback: use customer's most recent estimate — recalculate for consistency
       const ce = customerEstimate;
       const taxPct = 7;
       const materialObj = quoteData?.materials as any;
       const currentSqft = Number(quoteData?.calculated_sqft) || Number(ce.measurements_sqft) || 0;
-      const svcCosts = computeSlabServiceCosts(currentSqft || undefined);
-      const fallbackSummary = derivePricingSummary({
-        total: quoteData?.estimated_total ?? ce.total,
-        depositRequired: ce.deposit_required,
-        taxRate: taxPct,
-      });
+      const svcCosts = computeServiceCosts(currentSqft || undefined);
 
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
@@ -389,33 +438,30 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         subtotal: 0,
         tax: taxPct,
         total: 0,
-        deposit_required: Number(ce.deposit_required) || fallbackSummary.depositRequired,
+        deposit_required: Number(ce.deposit_required) || 0,
         notes: ce.notes || "",
         terms_conditions: ce.terms_conditions || DEFAULT_TERMS,
       }));
       setEditing(true);
     } else {
-      // New estimate — cascade: customer → lead for contact info
+      // New estimate
       const name = customer?.full_name || leadData?.full_name || "";
       const phone = customer?.phone || leadData?.phone || "";
       const email = customer?.email || leadData?.email || "";
       const address = customer?.address || "";
 
-      // Quote/material data
       const materialObj = quoteData?.materials as any;
       const edge_profile = resolveEdgeProfile(quoteData?.edge_profile);
       const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
 
-      // Auto-populate from slab services if available
-      const svcCosts = computeSlabServiceCosts(measurements_sqft || undefined);
+      const svcCosts = computeServiceCosts(measurements_sqft || undefined);
 
       const labor_cost = svcCosts ? svcCosts.labor : 0;
       const material_cost = svcCosts ? svcCosts.materialCost : 0;
       const addons_cost = svcCosts ? svcCosts.addon : 0;
-      const material = svcCosts?.slabMaterial || materialObj?.name || "";
-      const color = svcCosts?.slabCategory || materialObj?.category || "";
+      const materialName = svcCosts?.slabMaterial || materialObj?.name || "";
+      const colorName = svcCosts?.slabCategory || materialObj?.category || "";
 
-      // Store rate data for reactive recalculation
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       const taxPct = 7;
@@ -428,8 +474,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         email,
         billing_address: address,
         project_address: address,
-        material,
-        color,
+        material: materialName,
+        color: colorName,
         edge_profile,
         measurements_sqft,
         labor_cost,
@@ -445,14 +491,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     }
   }, [estimate, customer, order, orderId, quoteData, leadData, customerEstimate, slabServiceData]);
 
-  // Tax is stored as percentage; taxAmount is derived
   const calcTaxAmount = (subtotal: number, taxPct: number) =>
     roundMoney(subtotal * (taxPct / 100));
 
   const updateField = (key: keyof EstimateForm, value: any) => {
     const costFields: (keyof EstimateForm)[] = ["labor_cost", "material_cost", "addons_cost", "tax"];
     if (key === "measurements_sqft" && rateData) {
-      // Reactive: recalculate labor from rate × new sqft
       const newSqft = Number(value) || 0;
       const newLabor = roundMoney((rateData.laborRatePerSqft * newSqft) + rateData.laborFixed);
       setForm((prev) => recalculateEstimate(prev, { measurements_sqft: newSqft, labor_cost: newLabor }));
@@ -499,6 +543,25 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   const taxAmount = calcTaxAmount(form.subtotal, form.tax);
   const remainingBalance = Number((form.total - form.deposit_required).toFixed(2));
   const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
+
+  // Group available services by category for the picker
+  const servicesByCategory = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    for (const svc of availableServices) {
+      const cat = svc.category || "other";
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(svc);
+    }
+    return grouped;
+  }, [availableServices]);
+
+  const categoryLabels: Record<string, string> = {
+    labor: "Labor",
+    edge_profile: "Edge Profile",
+    cutout: "Cutout",
+    fabrication: "Fabrication",
+    addon: "Add-on",
+  };
 
   const actionButtons = (
     <>
@@ -646,15 +709,46 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         {/* Pricing Table + Summary */}
         <DocumentSection title="Pricing">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-            {/* Itemized pricing table */}
-            <div className="md:col-span-3">
+            {/* Itemized pricing + service selector */}
+            <div className="md:col-span-3 space-y-4">
               {editing ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="Labor Cost" type="number" value={String(form.labor_cost)} onChange={(v) => updateField("labor_cost", v)} disabled={!editing} />
-                  <Field label="Material Cost" type="number" value={String(form.material_cost)} onChange={(v) => updateField("material_cost", v)} disabled={!editing} />
-                  <Field label="Add-ons" type="number" value={String(form.addons_cost)} onChange={(v) => updateField("addons_cost", v)} disabled={!editing} />
-                  <Field label="Tax (%)" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
-                </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label="Labor Cost" type="number" value={String(form.labor_cost)} onChange={(v) => updateField("labor_cost", v)} disabled={!editing} />
+                    <Field label="Material Cost" type="number" value={String(form.material_cost)} onChange={(v) => updateField("material_cost", v)} disabled={!editing} />
+                    <Field label="Add-ons" type="number" value={String(form.addons_cost)} onChange={(v) => updateField("addons_cost", v)} disabled={!editing} />
+                    <Field label="Tax (%)" type="number" value={String(form.tax)} onChange={(v) => updateField("tax", v)} disabled={!editing} />
+                  </div>
+
+                  {/* Service Selector */}
+                  {availableServices.length > 0 && (
+                    <div className="border rounded-md p-3 space-y-3">
+                      <Label className="text-sm font-semibold">Select Services</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Toggle services to include in the estimate. Costs are auto-calculated from configured rates.
+                      </p>
+                      {Object.entries(servicesByCategory).map(([cat, svcs]) => (
+                        <div key={cat} className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            {categoryLabels[cat] || cat}
+                          </p>
+                          {svcs.map((svc: any) => (
+                            <label key={svc.id} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+                              <Checkbox
+                                checked={selectedServiceIds.has(svc.id)}
+                                onCheckedChange={() => toggleService(svc.id)}
+                              />
+                              <span>{svc.name}</span>
+                              <span className="text-muted-foreground text-xs ml-auto">
+                                ${Number(svc.cost_value).toFixed(2)} / {svc.pricing_unit?.replace(/_/g, " ")}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               ) : (
                 <Table>
                   <TableHeader>
