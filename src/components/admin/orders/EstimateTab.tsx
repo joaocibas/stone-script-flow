@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
 import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox, DisclaimerBlock } from "./DocumentLayout";
 import { resolveEdgeProfile } from "./estimateDisplay";
+import { computeSelectedServicePricing, getEstimateRemainingBalance, recalculateEstimate as recalculateEstimateTotals, roundMoney } from "./estimateCalculations";
 
 const DEFAULT_TERMS = `Altar Stone Countertops does not connect or disconnect any plumbing, electrical systems, or appliances. It is the client's responsibility to hire licensed professionals to ensure that all conditions required for countertop installation are properly prepared before our team arrives.
 
@@ -66,8 +67,6 @@ type RateData = {
   slabQuantity: number;
 };
 
-const roundMoney = (value: number) => Math.round(value * 100) / 100;
-
 export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -78,6 +77,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   const [customServices, setCustomServices] = useState<CustomService[]>([]);
   const [newCustomName, setNewCustomName] = useState("");
   const [newCustomPrice, setNewCustomPrice] = useState("");
+  const pricingStateStorageKey = `estimate-pricing:${orderId}`;
 
   const [form, setForm] = useState<EstimateForm>({
     estimate_number: "",
@@ -112,33 +112,11 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     updates: Partial<EstimateForm> = {},
     pricingOverride?: Partial<Pick<EstimateForm, "labor_cost" | "material_cost" | "addons_cost">>,
     customSvcs?: CustomService[],
-  ) => {
-    const merged = { ...base, ...updates };
-    const labor_cost = roundMoney(Number(pricingOverride?.labor_cost ?? merged.labor_cost) || 0);
-    const material_cost = roundMoney(Number(pricingOverride?.material_cost ?? merged.material_cost) || 0);
-    const serviceAddons = roundMoney(Number(pricingOverride?.addons_cost ?? merged.addons_cost) || 0);
-    const customTotal = (customSvcs ?? customServices).reduce((sum, cs) => sum + (Number(cs.price) || 0), 0);
-    const addons_cost = roundMoney(serviceAddons + customTotal);
-    const subtotal = roundMoney(labor_cost + material_cost + addons_cost);
-    const tax = Number(merged.tax) || 7;
-    const taxAmount = roundMoney(subtotal * (tax / 100));
-    const total = roundMoney(subtotal + taxAmount);
-    const deposit_required =
-      updates.deposit_required !== undefined || Number(merged.deposit_required) > 0
-        ? roundMoney(Number(merged.deposit_required) || 0)
-        : roundMoney(total * 0.5);
-
-    return {
-      ...merged,
-      labor_cost,
-      material_cost,
-      addons_cost,
-      subtotal,
-      tax,
-      total,
-      deposit_required,
-    };
-  };
+  ) => recalculateEstimateTotals(base, {
+    updates,
+    pricingOverride,
+    customServices: customSvcs ?? customServices,
+  });
 
   // ── Data queries ──
   const { data: estimate, isLoading } = useQuery({
@@ -152,6 +130,17 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         .limit(1)
         .maybeSingle();
       return data;
+    },
+  });
+
+  const { data: payments } = useQuery({
+    queryKey: ["payments", orderId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("payments")
+        .select("amount")
+        .eq("order_id", orderId);
+      return data || [];
     },
   });
 
@@ -231,14 +220,58 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     },
   });
 
-  // Init selected service IDs from slab assignments
   useEffect(() => {
-    if (slabServiceData && !serviceIdsInitialized) {
-      const ids = new Set(slabServiceData.slabServices.map((ss: any) => ss.service_id));
-      setSelectedServiceIds(ids);
+    if (serviceIdsInitialized || (allServices === undefined && !slabServiceData)) {
+      return;
+    }
+
+    let hasStoredState = false;
+    let persistedServiceIds = new Set<string>();
+    let persistedCustomServices: CustomService[] = [];
+
+    try {
+      const raw = localStorage.getItem(pricingStateStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        hasStoredState = true;
+        persistedServiceIds = new Set(
+          Array.isArray(parsed?.selectedServiceIds)
+            ? parsed.selectedServiceIds.filter((id: unknown): id is string => typeof id === "string")
+            : [],
+        );
+        persistedCustomServices = Array.isArray(parsed?.customServices)
+          ? parsed.customServices
+              .filter((item: any) => item && typeof item.name === "string")
+              .map((item: any) => ({ name: item.name, price: Number(item.price) || 0 }))
+          : [];
+      }
+    } catch {
+      hasStoredState = false;
+    }
+
+    const defaultServiceIds = new Set((slabServiceData?.slabServices || []).map((ss: any) => ss.service_id));
+    setSelectedServiceIds(hasStoredState ? persistedServiceIds : defaultServiceIds);
+    setCustomServices(hasStoredState ? persistedCustomServices : []);
+    setServiceIdsInitialized(true);
+  }, [allServices, pricingStateStorageKey, serviceIdsInitialized, slabServiceData]);
+
+  useEffect(() => {
+    if (!serviceIdsInitialized) return;
+
+    localStorage.setItem(
+      pricingStateStorageKey,
+      JSON.stringify({
+        selectedServiceIds: [...selectedServiceIds],
+        customServices,
+      }),
+    );
+  }, [customServices, pricingStateStorageKey, selectedServiceIds, serviceIdsInitialized]);
+
+  useEffect(() => {
+    if (orderId) {
       setServiceIdsInitialized(true);
     }
-  }, [slabServiceData, serviceIdsInitialized]);
+  }, [orderId]);
 
   const availableServices = useMemo(() => {
     return allServices || slabServiceData?.services || [];
@@ -247,99 +280,55 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   // ── Compute costs from selected services ──
   const computeServiceCosts = (sqftOverride?: number, serviceIds?: Set<string>) => {
     const activeIds = serviceIds ?? selectedServiceIds;
-    if (activeIds.size === 0) return null;
-
-    const hasSlab = !!slabServiceData;
     const slab = slabServiceData?.slab;
-    const allSvcs = allServices || slabServiceData?.services || [];
-    if (allSvcs.length === 0) return null;
+    const calculated = computeSelectedServicePricing({
+      selectedServiceIds: activeIds,
+      services: allServices || slabServiceData?.services || [],
+      slabServices: slabServiceData?.slabServices || [],
+      sqft: sqftOverride ?? form.measurements_sqft ?? Number(quoteData?.calculated_sqft) || 0,
+      numCutouts: Number(quoteData?.num_cutouts) || 0,
+      lengthInches: Number(quoteData?.length_inches) || 0,
+      widthInches: Number(quoteData?.width_inches) || 0,
+      slabUnitPrice: slab?.sales_value != null ? Number(slab.sales_value) : null,
+      slabQuantity: Number(quoteData?.slabs_needed) || 1,
+    });
 
-    const overrides = new Map<string, { cost: number | null; multiplier: number | null }>();
-    if (hasSlab) {
-      for (const ss of slabServiceData!.slabServices) {
-        overrides.set(ss.service_id, {
-          cost: ss.override_cost != null ? Number(ss.override_cost) : null,
-          multiplier: ss.override_multiplier != null ? Number(ss.override_multiplier) : null,
-        });
-      }
-    }
-
-    const sqft = sqftOverride ?? (Number(quoteData?.calculated_sqft) || 0);
-    const numCutouts = Number(quoteData?.num_cutouts) || 0;
-    const lengthIn = Number(quoteData?.length_inches) || 0;
-    const widthIn = Number(quoteData?.width_inches) || 0;
-    const perimeterLinFt = (lengthIn && widthIn) ? (2 * (lengthIn + widthIn)) / 12 : 0;
-    const slabsNeeded = Number(quoteData?.slabs_needed) || 1;
-
-    let laborRatePerSqft = 0;
-    let laborFixed = 0;
-
-    const laborItems = allSvcs.filter((s: any) => s.category === "labor" && activeIds.has(s.id));
-    for (const s of laborItems) {
-      const ov = overrides.get(s.id);
-      const costVal = ov?.cost != null ? ov.cost : s.cost_value;
-      const mult = ov?.multiplier != null ? ov.multiplier : 1;
-      if (s.pricing_unit === "per_sqft") {
-        laborRatePerSqft += costVal * mult;
-      } else {
-        laborFixed += costVal * mult;
-      }
-    }
-
-    const sumCat = (cat: string) => {
-      const items = allSvcs.filter((s: any) => s.category === cat && activeIds.has(s.id));
-      return items.reduce((total: number, s: any) => {
-        const ov = overrides.get(s.id);
-        const costVal = ov?.cost != null ? ov.cost : s.cost_value;
-        const mult = ov?.multiplier != null ? ov.multiplier : 1;
-        let unitCost: number;
-        switch (s.pricing_unit) {
-          case "per_sqft": unitCost = costVal * sqft; break;
-          case "per_linear_ft": unitCost = costVal * perimeterLinFt; break;
-          case "per_cutout": unitCost = costVal * numCutouts; break;
-          default: unitCost = costVal; break;
-        }
-        return total + unitCost * mult;
-      }, 0);
-    };
-
-    const edgeCost = sumCat("edge_profile");
-    const cutoutCost = sumCat("cutout");
-    const fabricationCost = sumCat("fabrication");
-    const addonTotal = sumCat("addon");
-
-    const laborTotal = (laborRatePerSqft * sqft) + laborFixed + edgeCost + cutoutCost + fabricationCost;
-    const slabUnitPrice = Number(slab?.sales_value) || 0;
-    const materialTotal = slabUnitPrice * slabsNeeded;
+    if (!calculated) return null;
 
     return {
-      labor: roundMoney(laborTotal),
-      addon: roundMoney(addonTotal),
-      materialCost: roundMoney(materialTotal),
+      labor: calculated.labor,
+      addon: calculated.addon,
+      materialCost: calculated.materialCost ?? null,
       slabMaterial: (slab?.materials as any)?.name || "",
       slabCategory: (slab?.materials as any)?.category || "",
-      rates: {
-        laborRatePerSqft,
-        laborFixed: laborFixed + edgeCost + cutoutCost + fabricationCost,
-        addonTotal,
-        slabUnitPrice,
-        slabQuantity: slabsNeeded,
-      } as RateData,
+      rates: calculated.rates as RateData,
     };
   };
 
   // ── Unified recalc from services + custom services ──
-  const fullRecalc = (serviceIds?: Set<string>, customSvcs?: CustomService[]) => {
+  const fullRecalc = ({
+    serviceIds,
+    customSvcs,
+    updates,
+  }: {
+    serviceIds?: Set<string>;
+    customSvcs?: CustomService[];
+    updates?: Partial<EstimateForm>;
+  } = {}) => {
     const ids = serviceIds ?? selectedServiceIds;
     const svcs = customSvcs ?? customServices;
-    const svcCosts = computeServiceCosts(form.measurements_sqft || undefined, ids);
-    if (svcCosts?.rates) setRateData(svcCosts.rates);
     setForm((prev) => {
-      // Use computed service costs when available; zero out service-driven costs when no services selected
+      const merged = { ...prev, ...(updates || {}) };
+      const svcCosts = computeServiceCosts(merged.measurements_sqft || undefined, ids);
+      if (svcCosts?.rates) setRateData(svcCosts.rates);
       const pricingOverride = svcCosts
-        ? { labor_cost: svcCosts.labor, material_cost: svcCosts.materialCost, addons_cost: svcCosts.addon }
+        ? {
+            labor_cost: svcCosts.labor,
+            material_cost: svcCosts.materialCost ?? prev.material_cost,
+            addons_cost: svcCosts.addon,
+          }
         : { labor_cost: 0, material_cost: prev.material_cost, addons_cost: 0 };
-      return recalculateEstimate(prev, {}, pricingOverride, svcs);
+      return recalculateEstimate(merged, {}, pricingOverride, svcs);
     });
   };
 
@@ -351,7 +340,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       next.add(serviceId);
     }
     setSelectedServiceIds(next);
-    fullRecalc(next);
+    fullRecalc({ serviceIds: next });
   };
 
   // ── Custom Services handlers ──
@@ -363,35 +352,31 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     setCustomServices(updated);
     setNewCustomName("");
     setNewCustomPrice("");
-    fullRecalc(undefined, updated);
+    fullRecalc({ customSvcs: updated });
   };
 
   const removeCustomService = (index: number) => {
     const updated = customServices.filter((_, i) => i !== index);
     setCustomServices(updated);
-    fullRecalc(undefined, updated);
+    fullRecalc({ customSvcs: updated });
   };
 
   // ── Hydrate form from saved data ──
   useEffect(() => {
+    if (!serviceIdsInitialized && (slabServiceData || allServices !== undefined)) return;
+
     if (estimate) {
       const savedSqft = Number(estimate.measurements_sqft) || 0;
 
-      // Always compute from slab services when available
-      let labor = 0, material = 0, addons = 0;
-      if (slabServiceData && slabServiceData.slabServices.length > 0) {
-        const svcCosts = computeServiceCosts(savedSqft || undefined);
-        if (svcCosts) {
-          labor = svcCosts.labor;
-          material = svcCosts.materialCost;
-          addons = svcCosts.addon;
-          if (svcCosts.rates) setRateData(svcCosts.rates);
-        }
-      } else {
-        // Fall back to saved values
-        labor = Number(estimate.labor_cost) || 0;
-        material = Number(estimate.material_cost) || 0;
-        addons = Number(estimate.addons_cost) || 0;
+      let labor = Number(estimate.labor_cost) || 0;
+      let material = Number(estimate.material_cost) || 0;
+      let addons = Number(estimate.addons_cost) || 0;
+      const svcCosts = computeServiceCosts(savedSqft || undefined);
+      if (svcCosts) {
+        labor = svcCosts.labor;
+        material = svcCosts.materialCost ?? material;
+        addons = svcCosts.addon;
+        if (svcCosts.rates) setRateData(svcCosts.rates);
       }
 
       const nextForm = recalculateEstimate({
@@ -496,17 +481,16 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       }));
       setEditing(true);
     }
-  }, [estimate, customer, order, orderId, quoteData, leadData, customerEstimate, slabServiceData]);
+  }, [allServices, customer, customerEstimate, estimate, leadData, order, orderId, quoteData, serviceIdsInitialized, slabServiceData]);
 
   const calcTaxAmount = (subtotal: number, taxPct: number) =>
     roundMoney(subtotal * (taxPct / 100));
 
   const updateField = (key: keyof EstimateForm, value: any) => {
     const costFields: (keyof EstimateForm)[] = ["labor_cost", "material_cost", "addons_cost", "tax"];
-    if (key === "measurements_sqft" && rateData) {
+    if (key === "measurements_sqft") {
       const newSqft = Number(value) || 0;
-      const newLabor = roundMoney((rateData.laborRatePerSqft * newSqft) + rateData.laborFixed);
-      setForm((prev) => recalculateEstimate(prev, { measurements_sqft: newSqft, labor_cost: newLabor }));
+      fullRecalc({ updates: { measurements_sqft: newSqft } });
     } else if (costFields.includes(key)) {
       setForm((prev) => recalculateEstimate(prev, { [key]: Number(value) || 0 }));
     } else if (key === "deposit_required") {
@@ -541,18 +525,27 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         addons_cost: computedForm.addons_cost,
         subtotal: computedForm.subtotal,
         tax: computedForm.tax,
-        total: computedForm.subtotal + taxAmount,
+        total: computedForm.total,
         deposit_required: computedForm.deposit_required,
         notes: computedForm.notes,
         terms_conditions: computedForm.terms_conditions,
         status: "active",
       };
+      const nextOrderTotal = computedForm.total;
       if (estimate) {
-        const { error } = await supabase.from("estimates").update(payload).eq("id", estimate.id);
+        const [{ error }, { error: orderError }] = await Promise.all([
+          supabase.from("estimates").update(payload).eq("id", estimate.id),
+          supabase.from("orders").update({ total_amount: nextOrderTotal }).eq("id", orderId),
+        ]);
         if (error) throw error;
+        if (orderError) throw orderError;
       } else {
-        const { error } = await supabase.from("estimates").insert(payload);
+        const [{ error }, { error: orderError }] = await Promise.all([
+          supabase.from("estimates").insert(payload),
+          supabase.from("orders").update({ total_amount: nextOrderTotal }).eq("id", orderId),
+        ]);
         if (error) throw error;
+        if (orderError) throw orderError;
       }
     },
     onSuccess: () => {
@@ -576,7 +569,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   if (isLoading) return <p className="text-muted-foreground py-4">Loading...</p>;
 
   const taxAmount = calcTaxAmount(form.subtotal, form.tax);
-  const remainingBalance = roundMoney(form.total - form.deposit_required);
+  const totalPaid = (payments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+  const remainingBalance = getEstimateRemainingBalance(form.total, form.deposit_required, totalPaid);
   const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
   const customServicesTotal = customServices.reduce((sum, cs) => sum + (Number(cs.price) || 0), 0);
 

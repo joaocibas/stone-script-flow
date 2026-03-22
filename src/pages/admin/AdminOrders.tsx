@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CustomerQuotePreviewDialog } from "@/components/admin/orders/CustomerQuotePreviewDialog";
 import { resolveEdgeProfile } from "@/components/admin/orders/estimateDisplay";
+import { computeSelectedServicePricing, recalculateEstimate } from "@/components/admin/orders/estimateCalculations";
 
 type SortKey = "id" | "customer" | "deposit_paid" | "status" | "created_at";
 type SortDir = "asc" | "desc";
@@ -156,49 +157,40 @@ const AdminOrders = () => {
           supabase.from("service_items").select("id, category, pricing_unit, cost_value, name").eq("is_active", true),
           supabase.from("slab_services").select("service_id, override_cost, override_multiplier").eq("slab_id", slab.id).eq("is_active", true),
         ]);
-        const services = servicesRes.data || [];
-        const slabServices = slabServicesRes.data || [];
-        const assignedIds = slabServices.map((ss: any) => ss.service_id);
-        const overrides = new Map<string, { cost: number | null; mult: number | null }>();
-        for (const ss of slabServices) {
-          overrides.set(ss.service_id, { cost: ss.override_cost != null ? Number(ss.override_cost) : null, mult: ss.override_multiplier != null ? Number(ss.override_multiplier) : null });
-        }
+        const calculated = computeSelectedServicePricing({
+          selectedServiceIds: (slabServicesRes.data || []).map((service: any) => service.service_id),
+          services: servicesRes.data || [],
+          slabServices: slabServicesRes.data || [],
+          sqft,
+          numCutouts,
+          lengthInches: lengthIn,
+          widthInches: widthIn,
+          slabUnitPrice: Number(slab.sales_value) || 0,
+          slabQuantity: slabsNeeded,
+        });
 
-        let laborTotal = 0;
-        for (const s of services.filter((s: any) => s.category === "labor" && assignedIds.includes(s.id))) {
-          const ov = overrides.get(s.id);
-          const cv = ov?.cost ?? s.cost_value;
-          const m = ov?.mult ?? 1;
-          laborTotal += s.pricing_unit === "per_sqft" ? cv * m * sqft : cv * m;
+        if (calculated) {
+          labor = calculated.labor;
+          addons = calculated.addon;
+          material = calculated.materialCost ?? 0;
         }
-        const sumCat = (cat: string) => services.filter((s: any) => s.category === cat && assignedIds.includes(s.id)).reduce((t: number, s: any) => {
-          const ov = overrides.get(s.id);
-          const cv = ov?.cost ?? s.cost_value;
-          const m = ov?.mult ?? 1;
-          let u: number;
-          switch (s.pricing_unit) { case "per_sqft": u = cv * sqft; break; case "per_linear_ft": u = cv * perimeterLinFt; break; case "per_cutout": u = cv * numCutouts; break; default: u = cv; }
-          return t + u * m;
-        }, 0);
-        laborTotal += sumCat("edge_profile") + sumCat("cutout") + sumCat("fabrication");
-        addons = sumCat("addon");
-        material = (Number(slab.sales_value) || 0) * slabsNeeded;
-        labor = laborTotal;
       }
     } catch { /* pricing will be 0, admin can edit */ }
 
-    const round = (v: number) => Math.round(v * 100) / 100;
-    labor = round(labor);
-    material = round(material);
-    addons = round(addons);
-    const subtotal = round(labor + material + addons);
-    const taxAmount = round(subtotal * 0.07);
-    const total = round(subtotal + taxAmount);
-    const depositRequired = round(total * 0.5);
+    const pricing = recalculateEstimate({
+      labor_cost: labor,
+      material_cost: material,
+      addons_cost: addons,
+      subtotal: 0,
+      tax: 7,
+      total: 0,
+      deposit_required: 0,
+    });
 
     const { data: order, error } = await supabase.from("orders").insert({
       customer_id: quote.customer_id,
       quote_id: quote.id,
-      total_amount: total || (quote.estimated_total || 0),
+      total_amount: pricing.total || (quote.estimated_total || 0),
       deposit_paid: 0,
       status: "pending",
     }).select().single();
@@ -225,10 +217,10 @@ const AdminOrders = () => {
       labor_cost: labor,
       material_cost: material,
       addons_cost: addons,
-      subtotal,
+      subtotal: pricing.subtotal,
       tax: 7,
-      total,
-      deposit_required: depositRequired,
+      total: pricing.total,
+      deposit_required: pricing.deposit_required,
       scope_of_work: "",
       notes: "",
       status: "active",
