@@ -88,12 +88,12 @@ const Slabs = () => {
       ) : filtered.length === 0 ? (
         <p className="text-center text-muted-foreground py-12">No slabs match your criteria.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="w-full overflow-x-hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((slab) => (
           <SlabCard
               key={slab.id}
               id={slab.id}
-              name={slab.name || ""}
+              name={slab.name || slab.lot_number || "Unnamed Slab"}
               materialName={slab.materials?.name || "Unknown"}
               description={slab.description}
               lengthInches={slab.length_inches}

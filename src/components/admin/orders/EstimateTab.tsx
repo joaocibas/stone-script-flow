@@ -267,11 +267,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     );
   }, [customServices, pricingStateStorageKey, selectedServiceIds, serviceIdsInitialized]);
 
-  useEffect(() => {
-    if (orderId) {
-      setServiceIdsInitialized(true);
-    }
-  }, [orderId]);
+  // Removed: premature serviceIdsInitialized=true was preventing actual initialization
 
   const availableServices = useMemo(() => {
     return allServices || slabServiceData?.services || [];
