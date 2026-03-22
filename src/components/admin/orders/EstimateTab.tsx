@@ -285,7 +285,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       selectedServiceIds: activeIds,
       services: allServices || slabServiceData?.services || [],
       slabServices: slabServiceData?.slabServices || [],
-      sqft: sqftOverride ?? form.measurements_sqft ?? Number(quoteData?.calculated_sqft) || 0,
+      sqft: (sqftOverride ?? form.measurements_sqft ?? Number(quoteData?.calculated_sqft)) || 0,
       numCutouts: Number(quoteData?.num_cutouts) || 0,
       lengthInches: Number(quoteData?.length_inches) || 0,
       widthInches: Number(quoteData?.width_inches) || 0,
