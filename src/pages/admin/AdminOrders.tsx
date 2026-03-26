@@ -122,6 +122,8 @@ const AdminOrders = () => {
 
     // Try to compute pricing from slab services
     let labor = 0, material = 0, addons = 0;
+    let laborRatePerSqft = 0;
+    let laborFixed = 0;
     try {
       const { data: slabs } = await supabase
         .from("slabs")
@@ -151,18 +153,18 @@ const AdminOrders = () => {
           labor = calculated.labor;
           addons = calculated.addon;
           material = calculated.materialCost ?? 0;
+          laborRatePerSqft = calculated.rates.laborRatePerSqft;
+          laborFixed = calculated.rates.laborFixed;
         }
       }
     } catch { /* pricing will be 0, admin can edit */ }
 
     const pricing = calculateOrderTotal({
       slabs: [{ price: material, quantity: 1 }],
-      services: calculated
-        ? [
-            { price: calculated.rates.laborRatePerSqft, sqft },
-            { price: calculated.rates.laborFixed, sqft: 1 },
-          ]
-        : [{ price: labor, sqft: 1 }],
+      services: [
+        { price: laborRatePerSqft, sqft },
+        { price: laborFixed || (laborRatePerSqft ? 0 : labor), sqft: laborFixed ? 1 : laborRatePerSqft ? 0 : 1 },
+      ].filter((line) => line.price > 0 && line.sqft > 0),
       serviceAddons: [{ price: addons }],
       taxRate: 7,
     });
