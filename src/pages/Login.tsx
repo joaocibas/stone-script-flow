@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const Login = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const [redirecting, setRedirecting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
@@ -20,6 +21,7 @@ const Login = () => {
   // Auto-redirect if already authenticated
   useEffect(() => {
     if (authLoading || !user) return;
+    setRedirecting(true);
     supabase.from("user_roles").select("role").eq("user_id", user.id).then(({ data }) => {
       const roles = (data || []).map((r) => r.role);
       if (roles.includes("admin") || roles.includes("sales")) {
@@ -71,6 +73,16 @@ const Login = () => {
       alert("Check your email to verify your account before signing in.");
     }
   };
+
+  if (authLoading || redirecting) {
+    return (
+      <Section>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Section>
+    );
+  }
 
   return (
     <Section>

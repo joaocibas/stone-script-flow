@@ -43,7 +43,7 @@ export function useAdminGuard() {
 
       if (!admin && !sales) {
         setRoleLoading(false);
-        navigate("/", { replace: true });
+        navigate("/dashboard", { replace: true });
         return;
       }
 
