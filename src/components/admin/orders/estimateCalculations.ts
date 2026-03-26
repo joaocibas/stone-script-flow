@@ -1,4 +1,5 @@
 import { calculateOrderTotal, roundMoney } from "@/lib/calculations";
+export { roundMoney };
 
 export type CustomServiceInput = {
   name: string;
