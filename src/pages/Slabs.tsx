@@ -8,7 +8,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { Search } from "lucide-react";
 
 const Slabs = () => {
-  const [slabs, setSlabs] = useState<(Tables<"slabs"> & { materials: { name: string } | null })[]>([]);
+  const [slabs, setSlabs] = useState<(Tables<"slabs"> & { materials: { name: string; category: string } | null })[]>([]);
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
   const [loading, setLoading] = useState(true);
   const [materialFilter, setMaterialFilter] = useState("all");
@@ -22,7 +22,7 @@ const Slabs = () => {
   }, []);
 
   useEffect(() => {
-    let query = supabase.from("slabs").select("*, materials(name)") as any;
+    let query = supabase.from("slabs").select("*, materials(name, category)") as any;
     if (materialFilter !== "all") query = query.eq("material_id", materialFilter);
     if (statusFilter !== "all") query = query.eq("status", statusFilter as any);
 
@@ -95,6 +95,7 @@ const Slabs = () => {
               id={slab.id}
               name={slab.name || slab.lot_number || "Unnamed Slab"}
               materialName={slab.materials?.name || "Unknown"}
+              materialCategory={slab.materials?.category || null}
               description={slab.description}
               lengthInches={slab.length_inches}
               widthInches={slab.width_inches}

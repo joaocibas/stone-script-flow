@@ -15,7 +15,10 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CustomerQuotePreviewDialog } from "@/components/admin/orders/CustomerQuotePreviewDialog";
 import { resolveEdgeProfile } from "@/components/admin/orders/estimateDisplay";
-import { computeSelectedServicePricing, recalculateEstimate } from "@/components/admin/orders/estimateCalculations";
+import { computeSelectedServicePricing } from "@/components/admin/orders/estimateCalculations";
+import { calculateOrderTotal } from "@/lib/calculations";
+import { useOrders } from "@/hooks/useOrder";
+import { useQuotes } from "@/hooks/useQuote";
 
 type SortKey = "id" | "customer" | "deposit_paid" | "status" | "created_at";
 type SortDir = "asc" | "desc";
@@ -46,36 +49,9 @@ const AdminOrders = () => {
   const [convertingQuoteId, setConvertingQuoteId] = useState<string | null>(null);
   const [previewQuoteId, setPreviewQuoteId] = useState<string | null>(null);
 
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ["admin-orders", search, statusFilter],
-    queryFn: async () => {
-      let query = supabase
-        .from("orders")
-        .select("*, customers(full_name, email)")
-        .order("created_at", { ascending: false });
+  const { data: orders, isLoading } = useOrders({ includeCustomer: true });
 
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter as any);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  // Fetch customer quotes (same source as /dashboard → My Quotes)
-  const { data: quotes } = useQuery({
-    queryKey: ["admin-customer-quotes"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("quotes")
-        .select("*, customers(full_name, email, phone, address), materials(name, category)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-  });
+  const { data: quotes } = useQuotes({ includeRelations: true });
 
   // Filter quotes that are NOT yet linked to an order
   const unlinkedQuotes = (quotes || []).filter((q) => {
@@ -106,7 +82,8 @@ const AdminOrders = () => {
       toast.error("Failed to delete order");
     } else {
       toast.success("Order deleted");
-      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["quotes"] });
     }
     setDeleteId(null);
   };
@@ -118,7 +95,8 @@ const AdminOrders = () => {
       toast.error("Failed to delete quote");
     } else {
       toast.success("Quote deleted");
-      queryClient.invalidateQueries({ queryKey: ["admin-customer-quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
     }
     setDeleteQuoteId(null);
   };
@@ -144,6 +122,8 @@ const AdminOrders = () => {
 
     // Try to compute pricing from slab services
     let labor = 0, material = 0, addons = 0;
+    let laborRatePerSqft = 0;
+    let laborFixed = 0;
     try {
       const { data: slabs } = await supabase
         .from("slabs")
@@ -173,18 +153,20 @@ const AdminOrders = () => {
           labor = calculated.labor;
           addons = calculated.addon;
           material = calculated.materialCost ?? 0;
+          laborRatePerSqft = calculated.rates.laborRatePerSqft;
+          laborFixed = calculated.rates.laborFixed;
         }
       }
     } catch { /* pricing will be 0, admin can edit */ }
 
-    const pricing = recalculateEstimate({
-      labor_cost: labor,
-      material_cost: material,
-      addons_cost: addons,
-      subtotal: 0,
-      tax: 7,
-      total: 0,
-      deposit_required: 0,
+    const pricing = calculateOrderTotal({
+      slabs: [{ price: material, quantity: 1 }],
+      services: [
+        { price: laborRatePerSqft, sqft },
+        { price: laborFixed || (laborRatePerSqft ? 0 : labor), sqft: laborFixed ? 1 : laborRatePerSqft ? 0 : 1 },
+      ].filter((line) => line.price > 0 && line.sqft > 0),
+      serviceAddons: [{ price: addons }],
+      taxRate: 7,
     });
 
     const { data: order, error } = await supabase.from("orders").insert({
@@ -220,20 +202,21 @@ const AdminOrders = () => {
       subtotal: pricing.subtotal,
       tax: 7,
       total: pricing.total,
-      deposit_required: pricing.deposit_required,
+      deposit_required: pricing.depositRequired,
       scope_of_work: "",
       notes: "",
       status: "active",
     });
 
     toast.success("Order created from quote");
-    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-    queryClient.invalidateQueries({ queryKey: ["admin-customer-quotes"] });
+    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ["quotes"] });
     navigate(`/admin/orders/${order.id}`);
     setConvertingQuoteId(null);
   };
 
   const filtered = (orders || []).filter((o) => {
+    if (statusFilter !== "all" && o.status !== statusFilter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     const cust = o.customers as any;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Section } from "@/components/shared/Section";
@@ -12,19 +12,14 @@ import type { Tables } from "@/integrations/supabase/types";
 import { LogOut, FileText, Package, CalendarDays, User, Save, Receipt, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentViewerDialog } from "@/components/customer/DocumentViewerDialog";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOrders } from "@/hooks/useOrder";
+import { useQuotes } from "@/hooks/useQuote";
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [customer, setCustomer] = useState<Tables<"customers"> | null>(null);
-  const [quotes, setQuotes] = useState<Tables<"quotes">[]>([]);
-  const [orders, setOrders] = useState<Tables<"orders">[]>([]);
-  const [estimates, setEstimates] = useState<Tables<"estimates">[]>([]);
-  const [receipts, setReceipts] = useState<Tables<"receipts">[]>([]);
-  const [reservations, setReservations] = useState<Tables<"reservations">[]>([]);
-  const [appointments, setAppointments] = useState<Tables<"appointments">[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "", address: "" });
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -36,74 +31,104 @@ const CustomerDashboard = () => {
   const { user: authUser, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!authUser) {
-      navigate("/login");
-      return;
-    }
-    setUser(authUser);
-
-    const loadDashboard = async () => {
-      try {
-        const { data: cust, error: custError } = await supabase
-          .from("customers")
-          .select("*")
-          .eq("user_id", authUser.id)
-          .maybeSingle();
-
-        if (custError) {
-          console.error("Customer fetch error:", custError);
-          toast({ title: "Error loading profile", description: custError.message, variant: "destructive" });
-          setLoading(false);
-          return;
-        }
-        if (!cust) {
-          console.warn("No customer record found for user:", authUser.id);
-          setLoading(false);
-          return;
-        }
-
-        setCustomer(cust);
-        setProfileForm({ full_name: cust.full_name, phone: cust.phone || "", address: cust.address || "" });
-
-        const [q, o, r, a] = await Promise.all([
-          supabase.from("quotes").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-          supabase.from("orders").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-          supabase.from("reservations").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-          supabase.from("appointments").select("*").eq("customer_id", cust.id).order("created_at", { ascending: false }).limit(10),
-        ]);
-
-        if (q.error) console.error("Quotes fetch error:", q.error);
-        if (o.error) console.error("Orders fetch error:", o.error);
-
-        setQuotes(q.data || []);
-        const orderData = o.data || [];
-        setOrders(orderData);
-        setReservations(r.data || []);
-        setAppointments(a.data || []);
-
-        // Load estimates & receipts linked to customer's orders
-        const orderIds = orderData.map((ord) => ord.id);
-        if (orderIds.length > 0) {
-          const [est, rec] = await Promise.all([
-            supabase.from("estimates").select("*").in("order_id", orderIds).order("created_at", { ascending: false }),
-            supabase.from("receipts").select("*").in("order_id", orderIds).order("created_at", { ascending: false }),
-          ]);
-          if (est.error) console.error("Estimates fetch error:", est.error);
-          if (rec.error) console.error("Receipts fetch error:", rec.error);
-          setEstimates(est.data || []);
-          setReceipts(rec.data || []);
-        }
-      } catch (err) {
-        console.error("Dashboard load error:", err);
-        toast({ title: "Error", description: "Failed to load dashboard data", variant: "destructive" });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboard();
+    if (!authLoading && !authUser) navigate("/login", { replace: true });
   }, [authUser, authLoading, navigate, toast]);
+
+  const { data: customer, isLoading: customerLoading } = useQuery({
+    queryKey: ["customer-profile", authUser?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("user_id", authUser!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!authUser,
+  });
+
+  useEffect(() => {
+    if (!customer) return;
+    setProfileForm((prev) => ({
+      ...prev,
+      full_name: customer.full_name,
+      phone: customer.phone || "",
+      address: customer.address || "",
+    }));
+  }, [customer]);
+
+  const { data: quotes = [], isLoading: quotesLoading } = useQuotes({
+    customerId: customer?.id,
+    enabled: !!customer?.id,
+  });
+
+  const { data: orders = [], isLoading: ordersLoading } = useOrders({
+    customerId: customer?.id,
+    enabled: !!customer?.id,
+  });
+
+  const orderIds = useMemo(() => orders.map((order) => order.id), [orders]);
+
+  const { data: reservations = [], isLoading: reservationsLoading } = useQuery({
+    queryKey: ["reservations", customer?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("customer_id", customer!.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!customer?.id,
+  });
+
+  const { data: appointments = [], isLoading: appointmentsLoading } = useQuery({
+    queryKey: ["appointments", customer?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("*")
+        .eq("customer_id", customer!.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!customer?.id,
+  });
+
+  const { data: estimates = [], isLoading: estimatesLoading } = useQuery({
+    queryKey: ["estimates", ...orderIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("estimates")
+        .select("*")
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: orderIds.length > 0,
+  });
+
+  const { data: receipts = [], isLoading: receiptsLoading } = useQuery({
+    queryKey: ["receipts", ...orderIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("receipts")
+        .select("*")
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: orderIds.length > 0,
+  });
+
+  const loading = authLoading || customerLoading || quotesLoading || ordersLoading || reservationsLoading || appointmentsLoading || (orderIds.length > 0 && (estimatesLoading || receiptsLoading));
 
   const handleSaveProfile = async () => {
     if (!customer) return;
@@ -116,6 +141,7 @@ const CustomerDashboard = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      queryClient.invalidateQueries({ queryKey: ["customer-profile", authUser?.id] });
       toast({ title: "Profile updated" });
       setEditing(false);
     }
@@ -131,7 +157,7 @@ const CustomerDashboard = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-display text-3xl font-bold">My Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">{user?.email}</p>
+          <p className="text-muted-foreground text-sm mt-1">{authUser?.email}</p>
         </div>
         <Button variant="ghost" onClick={handleLogout} size="sm">
           <LogOut className="h-4 w-4 mr-1" /> Sign Out
@@ -142,6 +168,12 @@ const CustomerDashboard = () => {
         <div className="space-y-4">
           {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-muted rounded-lg animate-pulse" />)}
         </div>
+      ) : !customer ? (
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            No client profile was found for this account yet.
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-8">
           {/* Profile Section */}
@@ -166,15 +198,15 @@ const CustomerDashboard = () => {
                 <div className="space-y-3 max-w-md">
                   <div>
                     <Label>Full Name</Label>
-                    <Input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+                    <Input value={profileForm.full_name} onChange={(e) => setProfileForm((prev) => ({ ...prev, full_name: e.target.value }))} />
                   </div>
                   <div>
                     <Label>Phone</Label>
-                    <Input value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} />
+                    <Input value={profileForm.phone} onChange={(e) => setProfileForm((prev) => ({ ...prev, phone: e.target.value }))} />
                   </div>
                   <div>
                     <Label>Address</Label>
-                    <Input value={profileForm.address} onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })} />
+                    <Input value={profileForm.address} onChange={(e) => setProfileForm((prev) => ({ ...prev, address: e.target.value }))} />
                   </div>
                 </div>
               ) : (

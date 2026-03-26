@@ -100,6 +100,7 @@ export const SlabsManager = () => {
   const [serviceAssignments, setServiceAssignments] = useState<SlabServiceAssignment[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Slab | null>(null);
   const { isAdmin } = useUserRole();
+  const updateForm = (updates: Partial<typeof emptyForm>) => setForm((prev) => ({ ...prev, ...updates }));
 
   const load = useCallback(async () => {
     const [slabsRes, matsRes, presetsRes] = await Promise.all([
@@ -263,12 +264,12 @@ export const SlabsManager = () => {
     if (!deleteTarget) return;
     const { error } = await supabase
       .from("slabs")
-      .update({ status: "archived" as any })
+      .delete()
       .eq("id", deleteTarget.id);
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Slab archived successfully");
+      toast.success("Slab removed successfully");
       load();
     }
     setDeleteTarget(null);
@@ -320,7 +321,7 @@ export const SlabsManager = () => {
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="overflow-x-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -340,14 +341,17 @@ export const SlabsManager = () => {
             <TableBody>
               {filteredSlabs.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell>
-                    <span className="font-medium">{(s as any).name || s.lot_number || "—"}</span>
+                  <TableCell className="min-w-0">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{(s as any).name || s.lot_number || "—"}</p>
+                      {(s as any).description && <p className="text-xs text-muted-foreground truncate">{(s as any).description}</p>}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div>
-                      <span className="text-sm">{s.materials?.name ?? "—"}</span>
+                      <span className="text-sm capitalize">{s.materials?.category ?? "—"}</span>
                       <span className="text-xs text-muted-foreground ml-1.5 capitalize">
-                        {s.materials?.category}
+                        {s.materials?.name}
                       </span>
                     </div>
                   </TableCell>
@@ -370,26 +374,16 @@ export const SlabsManager = () => {
                     {s.image_urls?.length ?? 0}
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteTarget(s)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(s)}>
-                          <Pencil className="h-4 w-4 mr-2" /> Edit
-                        </DropdownMenuItem>
-                        {isAdmin && s.status !== "archived" && (
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => setDeleteTarget(s)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Archive / Remove
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -415,15 +409,15 @@ export const SlabsManager = () => {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Slab Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Calacatta Lazaro" />
+              <Input value={form.name} onChange={(e) => updateForm({ name: e.target.value })} placeholder="e.g. Calacatta Lazaro" />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. White quartz with soft gray veining" rows={2} />
+              <Textarea value={form.description} onChange={(e) => updateForm({ description: e.target.value })} placeholder="e.g. White quartz with soft gray veining" rows={2} />
             </div>
             <div className="space-y-2">
               <Label>Material Group</Label>
-              <Select value={form.material_id} onValueChange={(v) => setForm({ ...form, material_id: v })}>
+              <Select value={form.material_id} onValueChange={(v) => updateForm({ material_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select material" /></SelectTrigger>
                 <SelectContent>
                   {materials.map((m) => (
@@ -435,15 +429,15 @@ export const SlabsManager = () => {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label>Length (in)</Label>
-                <Input type="number" value={form.length_inches || ""} onChange={(e) => setForm({ ...form, length_inches: Number(e.target.value) })} />
+                <Input type="number" value={form.length_inches || ""} onChange={(e) => updateForm({ length_inches: Number(e.target.value) })} />
               </div>
               <div className="space-y-2">
                 <Label>Width (in)</Label>
-                <Input type="number" value={form.width_inches || ""} onChange={(e) => setForm({ ...form, width_inches: Number(e.target.value) })} />
+                <Input type="number" value={form.width_inches || ""} onChange={(e) => updateForm({ width_inches: Number(e.target.value) })} />
               </div>
               <div className="space-y-2">
                 <Label>Thickness</Label>
-                <Select value={form.thickness} onValueChange={(v) => setForm({ ...form, thickness: v })}>
+                <Select value={form.thickness} onValueChange={(v) => updateForm({ thickness: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="2cm">2cm</SelectItem>
@@ -455,11 +449,11 @@ export const SlabsManager = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Lot Number</Label>
-                <Input value={form.lot_number} onChange={(e) => setForm({ ...form, lot_number: e.target.value })} placeholder="Optional" />
+                <Input value={form.lot_number} onChange={(e) => updateForm({ lot_number: e.target.value })} placeholder="Optional" />
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as any })}>
+                <Select value={form.status} onValueChange={(v) => updateForm({ status: v as any })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {STATUSES.map((s) => (
@@ -472,16 +466,16 @@ export const SlabsManager = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Purchase Value ($)</Label>
-                <Input type="number" min="0" step="0.01" value={form.purchase_value || ""} onChange={(e) => setForm({ ...form, purchase_value: Number(e.target.value) })} placeholder="0.00" />
+                <Input type="number" min="0" step="0.01" value={form.purchase_value || ""} onChange={(e) => updateForm({ purchase_value: Number(e.target.value) })} placeholder="0.00" />
               </div>
               <div className="space-y-2">
                 <Label>Sales Value ($)</Label>
-                <Input type="number" min="0" step="0.01" value={form.sales_value || ""} onChange={(e) => setForm({ ...form, sales_value: Number(e.target.value) })} placeholder="0.00" />
+                <Input type="number" min="0" step="0.01" value={form.sales_value || ""} onChange={(e) => updateForm({ sales_value: Number(e.target.value) })} placeholder="0.00" />
               </div>
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
-              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Internal notes" rows={2} />
+              <Textarea value={form.notes} onChange={(e) => updateForm({ notes: e.target.value })} placeholder="Internal notes" rows={2} />
             </div>
 
             {/* Best Option for This Slab */}
@@ -489,7 +483,7 @@ export const SlabsManager = () => {
               <h4 className="text-sm font-semibold">Best Option for This Slab</h4>
               <div className="space-y-2">
                 <Label>Size Preset</Label>
-                <Select value={form.best_option_preset || "__none"} onValueChange={(v) => setForm({ ...form, best_option_preset: v === "__none" ? "" : v })}>
+                <Select value={form.best_option_preset || "__none"} onValueChange={(v) => updateForm({ best_option_preset: v === "__none" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="Use default logic" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none">Use default logic</SelectItem>
@@ -504,16 +498,16 @@ export const SlabsManager = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Usable Sqft Override</Label>
-                  <Input type="number" min="0" step="0.1" value={form.usable_sqft_override} onChange={(e) => setForm({ ...form, usable_sqft_override: e.target.value })} placeholder="Auto from dimensions" />
+                  <Input type="number" min="0" step="0.1" value={form.usable_sqft_override} onChange={(e) => updateForm({ usable_sqft_override: e.target.value })} placeholder="Auto from dimensions" />
                 </div>
                 <div className="space-y-2">
                   <Label>Overage % Override</Label>
-                  <Input type="number" min="0" step="1" value={form.overage_pct_override} onChange={(e) => setForm({ ...form, overage_pct_override: e.target.value })} placeholder="Use default" />
+                  <Input type="number" min="0" step="1" value={form.overage_pct_override} onChange={(e) => updateForm({ overage_pct_override: e.target.value })} placeholder="Use default" />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Best Option Notes</Label>
-                <Textarea value={form.best_option_notes} onChange={(e) => setForm({ ...form, best_option_notes: e.target.value })} placeholder="e.g. Defect near corner, use rotated layout" rows={2} />
+                <Textarea value={form.best_option_notes} onChange={(e) => updateForm({ best_option_notes: e.target.value })} placeholder="e.g. Defect near corner, use rotated layout" rows={2} />
               </div>
             </div>
 
@@ -576,19 +570,19 @@ export const SlabsManager = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Archive confirmation */}
+      {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive this slab?</AlertDialogTitle>
+            <AlertDialogTitle>Remove this slab?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{deleteTarget?.materials?.name} — {(deleteTarget as any)?.name || deleteTarget?.lot_number}" will be archived and hidden from active inventory. This can be reversed by changing the status back.
+              "{deleteTarget?.materials?.name} — {(deleteTarget as any)?.name || deleteTarget?.lot_number}" will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Archive
+              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -15,6 +15,7 @@ import { generatePdfDocument } from "@/lib/pdf-generator";
 import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox, DisclaimerBlock } from "./DocumentLayout";
 import { resolveEdgeProfile } from "./estimateDisplay";
 import { computeSelectedServicePricing, getEstimateRemainingBalance, recalculateEstimate as recalculateEstimateTotals, roundMoney } from "./estimateCalculations";
+import { useServices } from "@/hooks/useServices";
 
 const DEFAULT_TERMS = `Altar Stone Countertops does not connect or disconnect any plumbing, electrical systems, or appliances. It is the client's responsibility to hire licensed professionals to ensure that all conditions required for countertop installation are properly prepared before our team arrives.
 
@@ -207,18 +208,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     enabled: !!order?.slab_id,
   });
 
-  const { data: allServices } = useQuery({
-    queryKey: ["all-active-services"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("service_items")
-        .select("id, category, pricing_unit, cost_value, name")
-        .eq("is_active", true)
-        .order("category")
-        .order("name");
-      return data || [];
-    },
-  });
+  const { data: allServices } = useServices();
 
   useEffect(() => {
     if (serviceIdsInitialized) return;
@@ -335,14 +325,13 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   };
 
   const toggleService = (serviceId: string) => {
-    const next = new Set(selectedServiceIds);
-    if (next.has(serviceId)) {
-      next.delete(serviceId);
-    } else {
-      next.add(serviceId);
-    }
-    setSelectedServiceIds(next);
-    fullRecalc({ serviceIds: next });
+    setSelectedServiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(serviceId)) next.delete(serviceId);
+      else next.add(serviceId);
+      fullRecalc({ serviceIds: next });
+      return next;
+    });
   };
 
   // ── Custom Services handlers ──
@@ -350,17 +339,21 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const name = newCustomName.trim();
     const price = Number(newCustomPrice) || 0;
     if (!name) return;
-    const updated = [...customServices, { name, price }];
-    setCustomServices(updated);
+    setCustomServices((prev) => {
+      const updated = [...prev, { name, price }];
+      fullRecalc({ customSvcs: updated });
+      return updated;
+    });
     setNewCustomName("");
     setNewCustomPrice("");
-    fullRecalc({ customSvcs: updated });
   };
 
   const removeCustomService = (index: number) => {
-    const updated = customServices.filter((_, i) => i !== index);
-    setCustomServices(updated);
-    fullRecalc({ customSvcs: updated });
+    setCustomServices((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      fullRecalc({ customSvcs: updated });
+      return updated;
+    });
   };
 
   // ── Hydrate form from saved data ──
@@ -552,6 +545,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["estimate", orderId] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["quotes"] });
       toast({ title: estimate ? "Estimate updated" : "Estimate saved" });
       setEditing(false);
     },

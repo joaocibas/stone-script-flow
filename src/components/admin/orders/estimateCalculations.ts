@@ -1,3 +1,6 @@
+import { calculateOrderTotal, roundMoney } from "@/lib/calculations";
+export { roundMoney };
+
 export type CustomServiceInput = {
   name: string;
   price: number;
@@ -47,8 +50,6 @@ export type ServicePricingResult = {
   };
 };
 
-export const roundMoney = (value: number) => Math.round(value * 100) / 100;
-
 export function recalculateEstimate<T extends EstimatePricingShape>(
   base: T,
   {
@@ -63,29 +64,31 @@ export function recalculateEstimate<T extends EstimatePricingShape>(
   const labor_cost = roundMoney(Number(pricingOverride?.labor_cost ?? merged.labor_cost) || 0);
   const material_cost = roundMoney(Number(pricingOverride?.material_cost ?? merged.material_cost) || 0);
   const selectedServiceAddons = roundMoney(Number(pricingOverride?.addons_cost ?? merged.addons_cost) || 0);
-  const customAddons = roundMoney(
-    customServices.reduce((sum, service) => sum + (Number(service.price) || 0), 0),
-  );
-  const addons_cost = roundMoney(selectedServiceAddons + customAddons);
-  const subtotal = roundMoney(labor_cost + material_cost + addons_cost);
   const tax = Number(merged.tax) || defaultTaxRate;
-  const taxAmount = roundMoney(subtotal * (tax / 100));
-  const total = roundMoney(subtotal + taxAmount);
+  const totals = calculateOrderTotal({
+    slabs: [{ price: material_cost, quantity: 1 }],
+    services: [{ price: labor_cost, sqft: 1 }],
+    serviceAddons: [{ price: selectedServiceAddons }],
+    customServices,
+    taxRate: tax,
+    depositRatio: defaultDepositRatio,
+    depositOverride: Number(merged.deposit_required) || 0,
+  });
   const depositWasUpdated = updates
     ? Object.prototype.hasOwnProperty.call(updates, "deposit_required")
     : false;
   const deposit_required = depositWasUpdated || Number(merged.deposit_required) > 0
     ? roundMoney(Number(merged.deposit_required) || 0)
-    : roundMoney(total * defaultDepositRatio);
+    : totals.depositRequired;
 
   return {
     ...merged,
     labor_cost,
     material_cost,
-    addons_cost,
-    subtotal,
+    addons_cost: totals.addonsTotal,
+    subtotal: totals.subtotal,
     tax,
-    total,
+    total: totals.total,
     deposit_required,
   } as T;
 }

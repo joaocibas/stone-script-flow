@@ -14,12 +14,13 @@ export function useAdminGuard() {
   const [roles, setRoles] = useState<AppRole[]>([]);
 
   useEffect(() => {
-    const check = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const applySession = async (session: any) => {
       if (!session) {
-        navigate("/login");
+        setLoading(false);
+        navigate("/login", { replace: true });
         return;
       }
+
       const { data } = await supabase
         .from("user_roles")
         .select("role")
@@ -30,7 +31,8 @@ export function useAdminGuard() {
       const sales = userRoles.includes("sales");
 
       if (!admin && !sales) {
-        navigate("/");
+        setLoading(false);
+        navigate("/", { replace: true });
         return;
       }
 
@@ -40,7 +42,16 @@ export function useAdminGuard() {
       setIsStaff(true);
       setLoading(false);
     };
-    check();
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      applySession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   return { loading, isAdmin, isSales, isStaff, roles };

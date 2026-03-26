@@ -7,6 +7,7 @@ interface SlabCardProps {
   id: string;
   name: string;
   materialName: string;
+  materialCategory?: string | null;
   description?: string | null;
   lengthInches: number;
   widthInches: number;
@@ -23,15 +24,16 @@ const statusColors: Record<string, string> = {
   sold: "bg-muted text-muted-foreground",
 };
 
-export function SlabCard({ id, name, materialName, description, lengthInches, widthInches, thickness, status, lotNumber, imageUrl, className }: SlabCardProps) {
+export function SlabCard({ id, name, materialName, materialCategory, description, lengthInches, widthInches, thickness, status, lotNumber, imageUrl, className }: SlabCardProps) {
   const displayName = name || "Unnamed Slab";
+  const categoryLabel = materialCategory || materialName;
 
   return (
     <Link to={`/slabs/${id}`}>
-      <Card className={cn("group overflow-hidden border-0 shadow-sm hover:shadow-md transition-all", className)}>
+      <Card className={cn("group min-w-0 overflow-hidden border-0 shadow-sm hover:shadow-md transition-all", className)}>
         <div className="aspect-square bg-muted overflow-hidden relative">
           {imageUrl ? (
-            <img src={imageUrl} alt={displayName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <img src={imageUrl} alt={`${displayName} slab`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-secondary">
               <span className="text-muted-foreground text-sm">No photo</span>
@@ -43,7 +45,7 @@ export function SlabCard({ id, name, materialName, description, lengthInches, wi
           </Badge>
           {/* Material group badge */}
           <Badge variant="secondary" className="absolute top-2 left-2 text-[10px] uppercase tracking-wider backdrop-blur-sm bg-secondary/80">
-            {materialName}
+            {categoryLabel}
           </Badge>
           {/* Slab name overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-3 pt-8">
@@ -53,6 +55,9 @@ export function SlabCard({ id, name, materialName, description, lengthInches, wi
           </div>
         </div>
         <CardContent className="p-4">
+          {materialName && materialName !== categoryLabel && (
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1 truncate">{materialName}</p>
+          )}
           {description && (
             <p className="text-sm text-muted-foreground line-clamp-2 mb-1.5">{description}</p>
           )}

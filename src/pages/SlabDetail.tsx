@@ -42,7 +42,7 @@ const SlabDetail = () => {
         <div>
           <div className="aspect-square bg-secondary rounded-lg overflow-hidden mb-3">
             {images[selectedImage] ? (
-              <img src={images[selectedImage]} alt="Slab" className="w-full h-full object-cover" />
+              <img src={images[selectedImage]} alt={`${slab.name || slab.materials?.name || "Slab"} slab`} className="w-full h-full object-cover" loading="lazy" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">No photos available</div>
             )}
