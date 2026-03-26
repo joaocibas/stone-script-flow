@@ -325,13 +325,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   };
 
   const toggleService = (serviceId: string) => {
-    setSelectedServiceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(serviceId)) next.delete(serviceId);
-      else next.add(serviceId);
-      fullRecalc({ serviceIds: next });
-      return next;
-    });
+    const next = new Set(selectedServiceIds);
+    if (next.has(serviceId)) next.delete(serviceId);
+    else next.add(serviceId);
+    setSelectedServiceIds(next);
+    // Call fullRecalc OUTSIDE the setter to avoid nested state update issues
+    fullRecalc({ serviceIds: next });
   };
 
   // ── Custom Services handlers ──
