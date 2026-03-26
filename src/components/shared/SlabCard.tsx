@@ -48,7 +48,7 @@ export function SlabCard({ id, name, materialName, description, lengthInches, wi
           {/* Slab name overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-3 pt-8">
             <h3 className="font-display text-base font-semibold text-white drop-shadow-sm">
-              {displayName !== materialName ? displayName : displayName}
+              {displayName}
             </h3>
           </div>
         </div>

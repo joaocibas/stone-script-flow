@@ -274,14 +274,13 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   }, [allServices, slabServiceData]);
 
   // ── Compute costs from selected services ──
-  const computeServiceCosts = (sqftOverride?: number, serviceIds?: Set<string>) => {
-    const activeIds = serviceIds ?? selectedServiceIds;
+  const computeServiceCosts = (sqftValue: number, serviceIds: Set<string>) => {
     const slab = slabServiceData?.slab;
     const calculated = computeSelectedServicePricing({
-      selectedServiceIds: activeIds,
+      selectedServiceIds: serviceIds,
       services: allServices || slabServiceData?.services || [],
       slabServices: slabServiceData?.slabServices || [],
-      sqft: (sqftOverride ?? form.measurements_sqft ?? Number(quoteData?.calculated_sqft)) || 0,
+      sqft: sqftValue || Number(quoteData?.calculated_sqft) || 0,
       numCutouts: Number(quoteData?.num_cutouts) || 0,
       lengthInches: Number(quoteData?.length_inches) || 0,
       widthInches: Number(quoteData?.width_inches) || 0,
@@ -315,17 +314,24 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const svcs = customSvcs ?? customServices;
     setForm((prev) => {
       const merged = { ...prev, ...(updates || {}) };
-      const svcCosts = computeServiceCosts(merged.measurements_sqft || undefined, ids);
-      if (svcCosts?.rates) setRateData(svcCosts.rates);
+      const sqft = merged.measurements_sqft || 0;
+      const svcCosts = computeServiceCosts(sqft, ids);
       const pricingOverride = svcCosts
         ? {
             labor_cost: svcCosts.labor,
             material_cost: svcCosts.materialCost ?? prev.material_cost,
             addons_cost: svcCosts.addon,
           }
-        : { labor_cost: 0, material_cost: prev.material_cost, addons_cost: 0 };
-      return recalculateEstimate(merged, {}, pricingOverride, svcs);
+        : ids.size === 0
+          ? { labor_cost: 0, material_cost: prev.material_cost, addons_cost: 0 }
+          : undefined;
+      const result = recalculateEstimate(merged, {}, pricingOverride, svcs);
+      return result;
     });
+    // Update rate data outside setForm to avoid side effects in updater
+    const currentSqft = form.measurements_sqft || (updates?.measurements_sqft) || 0;
+    const svcCosts = computeServiceCosts(currentSqft, ids);
+    if (svcCosts?.rates) setRateData(svcCosts.rates);
   };
 
   const toggleService = (serviceId: string) => {
@@ -367,7 +373,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       let labor = Number(estimate.labor_cost) || 0;
       let material = Number(estimate.material_cost) || 0;
       let addons = Number(estimate.addons_cost) || 0;
-      const svcCosts = computeServiceCosts(savedSqft || undefined);
+      const svcCosts = computeServiceCosts(savedSqft, selectedServiceIds);
       if (svcCosts) {
         labor = svcCosts.labor;
         material = svcCosts.materialCost ?? material;
@@ -412,7 +418,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const ce = customerEstimate;
       const materialObj = quoteData?.materials as any;
       const currentSqft = Number(quoteData?.calculated_sqft) || Number(ce.measurements_sqft) || 0;
-      const svcCosts = computeServiceCosts(currentSqft || undefined);
+      const svcCosts = computeServiceCosts(currentSqft, selectedServiceIds);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       setForm((prev) => recalculateEstimate({
@@ -450,7 +456,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const materialObj = quoteData?.materials as any;
       const edge_profile = resolveEdgeProfile(quoteData?.edge_profile);
       const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
-      const svcCosts = computeServiceCosts(measurements_sqft || undefined);
+      const svcCosts = computeServiceCosts(measurements_sqft, selectedServiceIds);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       setForm((prev) => recalculateEstimate({
