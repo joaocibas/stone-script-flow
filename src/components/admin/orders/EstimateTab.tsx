@@ -707,8 +707,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
             <>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                 <TableRow>
+                   <TableRow>
                      <TableHead>Material</TableHead>
                      <TableHead>Material Name</TableHead>
                      <TableHead>Finish</TableHead>
