@@ -595,7 +595,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
             ]},
             { heading: "Materials & Scope", rows: [
               { label: "Material", value: form.material },
-              { label: "Color", value: form.color },
+              { label: "Material Name", value: form.color },
               { label: "Finish", value: form.finish },
               { label: "Edge Profile", value: form.edge_profile },
               { label: "Measurements (Sq Ft)", value: form.measurements_sqft ? String(form.measurements_sqft) : "" },
