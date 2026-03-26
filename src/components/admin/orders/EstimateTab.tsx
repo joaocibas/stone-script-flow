@@ -373,7 +373,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       let labor = Number(estimate.labor_cost) || 0;
       let material = Number(estimate.material_cost) || 0;
       let addons = Number(estimate.addons_cost) || 0;
-      const svcCosts = computeServiceCosts(savedSqft || undefined);
+      const svcCosts = computeServiceCosts(savedSqft, selectedServiceIds);
       if (svcCosts) {
         labor = svcCosts.labor;
         material = svcCosts.materialCost ?? material;
@@ -418,7 +418,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const ce = customerEstimate;
       const materialObj = quoteData?.materials as any;
       const currentSqft = Number(quoteData?.calculated_sqft) || Number(ce.measurements_sqft) || 0;
-      const svcCosts = computeServiceCosts(currentSqft || undefined);
+      const svcCosts = computeServiceCosts(currentSqft, selectedServiceIds);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       setForm((prev) => recalculateEstimate({
@@ -456,7 +456,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const materialObj = quoteData?.materials as any;
       const edge_profile = resolveEdgeProfile(quoteData?.edge_profile);
       const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
-      const svcCosts = computeServiceCosts(measurements_sqft || undefined);
+      const svcCosts = computeServiceCosts(measurements_sqft, selectedServiceIds);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       setForm((prev) => recalculateEstimate({
