@@ -1,6 +1,4 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft } from "lucide-react";
@@ -8,24 +6,13 @@ import { EstimateTab } from "@/components/admin/orders/EstimateTab";
 import { PaymentOrderTab } from "@/components/admin/orders/PaymentOrderTab";
 import { PartialReceiptTab } from "@/components/admin/orders/PartialReceiptTab";
 import { ReceiptTab } from "@/components/admin/orders/ReceiptTab";
+import { useOrder } from "@/hooks/useOrder";
 
 const AdminOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { data: order, isLoading } = useQuery({
-    queryKey: ["admin-order", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*, customers(*)")
-        .eq("id", id!)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
+  const { data: order, isLoading } = useOrder({ id, includeCustomer: true });
 
   if (isLoading) {
     return (

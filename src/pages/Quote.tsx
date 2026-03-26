@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
 import { resolveEdgeProfile } from "@/components/admin/orders/estimateDisplay";
 import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors,
   DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package,
@@ -84,6 +85,7 @@ interface LinkedEstimate {
 }
 
 const Quote = () => {
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
   const [slabsForMaterial, setSlabsForMaterial] = useState<any[]>([]);
@@ -465,6 +467,8 @@ const Quote = () => {
       if (!loggedInCustomer && leadId && quoteResult.quote_id) {
         await supabase.from("leads").update({ quote_id: quoteResult.quote_id, status: "quoted" }).eq("id", leadId);
       }
+      queryClient.invalidateQueries({ queryKey: ["quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
       trackEvent("sqft_calculated", {
         sqft: quoteResult.calculated_sqft, material: selectedMaterial?.name,
         range_min: quoteResult.range_min, range_max: quoteResult.range_max,
@@ -565,10 +569,10 @@ const Quote = () => {
                 setLayoutPreview(null);
                 setLayoutUrl(null);
                 setLeadId(null);
-                setLeadForm({ full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" });
-                setForm({ material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
+                setLeadForm((prev) => ({ ...prev, full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" }));
+                setForm((prev) => ({ ...prev, material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" }));
                 setSections([createSection()]);
-                setScheduleForm({ preferred_date: null, preferred_time: "", full_name: "", phone: "", email: "", address: "", city: "", consultation_type: "", notes: "" });
+                setScheduleForm((prev) => ({ ...prev, preferred_date: null, preferred_time: "", full_name: "", phone: "", email: "", address: "", city: "", consultation_type: "", notes: "" }));
               }}
               variant="outline"
             >
@@ -642,25 +646,25 @@ const Quote = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="lead_name" className="text-sm">Full Name *</Label>
-                  <Input id="lead_name" placeholder="Jane Smith" value={leadForm.full_name} onChange={(e) => setLeadForm({ ...leadForm, full_name: e.target.value })} />
+                  <Input id="lead_name" placeholder="Jane Smith" value={leadForm.full_name} onChange={(e) => setLeadForm((prev) => ({ ...prev, full_name: e.target.value }))} />
                 </div>
                 <div>
                   <Label htmlFor="lead_phone" className="text-sm">Phone Number *</Label>
-                  <Input id="lead_phone" type="tel" placeholder="(555) 123-4567" value={leadForm.phone} onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })} />
+                  <Input id="lead_phone" type="tel" placeholder="(555) 123-4567" value={leadForm.phone} onChange={(e) => setLeadForm((prev) => ({ ...prev, phone: e.target.value }))} />
                 </div>
               </div>
               <div>
                 <Label htmlFor="lead_email" className="text-sm">Email Address *</Label>
-                <Input id="lead_email" type="email" placeholder="jane@example.com" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} disabled={!!loggedInCustomer} className={loggedInCustomer ? "bg-muted" : ""} />
+                  <Input id="lead_email" type="email" placeholder="jane@example.com" value={leadForm.email} onChange={(e) => setLeadForm((prev) => ({ ...prev, email: e.target.value }))} disabled={!!loggedInCustomer} className={loggedInCustomer ? "bg-muted" : ""} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="lead_city" className="text-sm">City *</Label>
-                  <Input id="lead_city" placeholder="Austin" value={leadForm.city} onChange={(e) => setLeadForm({ ...leadForm, city: e.target.value })} />
+                  <Input id="lead_city" placeholder="Austin" value={leadForm.city} onChange={(e) => setLeadForm((prev) => ({ ...prev, city: e.target.value }))} />
                 </div>
                 <div>
                   <Label htmlFor="lead_project_type" className="text-sm">Project Type *</Label>
-                  <Select value={leadForm.project_type} onValueChange={(v) => setLeadForm({ ...leadForm, project_type: v })}>
+                    <Select value={leadForm.project_type} onValueChange={(v) => setLeadForm((prev) => ({ ...prev, project_type: v }))}>
                     <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                     <SelectContent>
                       {projectTypes.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
@@ -674,11 +678,11 @@ const Quote = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="lead_company" className="text-sm">Company Name</Label>
-                    <Input id="lead_company" placeholder="Optional" value={leadForm.company_name} onChange={(e) => setLeadForm({ ...leadForm, company_name: e.target.value })} />
+                    <Input id="lead_company" placeholder="Optional" value={leadForm.company_name} onChange={(e) => setLeadForm((prev) => ({ ...prev, company_name: e.target.value }))} />
                   </div>
                   <div>
                     <Label htmlFor="lead_timeline" className="text-sm">Timeline</Label>
-                    <Select value={leadForm.timeline} onValueChange={(v) => setLeadForm({ ...leadForm, timeline: v })}>
+                    <Select value={leadForm.timeline} onValueChange={(v) => setLeadForm((prev) => ({ ...prev, timeline: v }))}>
                       <SelectTrigger><SelectValue placeholder="When do you need this?" /></SelectTrigger>
                       <SelectContent>
                         {timelines.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
@@ -689,7 +693,7 @@ const Quote = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <div>
                     <Label htmlFor="lead_contact_method" className="text-sm">Preferred Contact Method</Label>
-                    <Select value={leadForm.preferred_contact_method} onValueChange={(v) => setLeadForm({ ...leadForm, preferred_contact_method: v })}>
+                    <Select value={leadForm.preferred_contact_method} onValueChange={(v) => setLeadForm((prev) => ({ ...prev, preferred_contact_method: v }))}>
                       <SelectTrigger><SelectValue placeholder="How should we reach you?" /></SelectTrigger>
                       <SelectContent>
                         {contactMethods.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
@@ -699,7 +703,7 @@ const Quote = () => {
                 </div>
                 <div className="mt-4">
                   <Label htmlFor="lead_notes" className="text-sm">Notes</Label>
-                  <Textarea id="lead_notes" placeholder="Anything else we should know?" rows={2} value={leadForm.notes} onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })} />
+                  <Textarea id="lead_notes" placeholder="Anything else we should know?" rows={2} value={leadForm.notes} onChange={(e) => setLeadForm((prev) => ({ ...prev, notes: e.target.value }))} />
                 </div>
               </div>
               )}
@@ -1092,8 +1096,8 @@ const Quote = () => {
                 <Button variant="outline" onClick={() => {
                   clearDraft();
                   setStep(0); setResult(null); setLinkedEstimate(null); setLayoutFile(null); setLayoutPreview(null); setLayoutUrl(null); setLeadId(null);
-                  setLeadForm({ full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" });
-                  setForm({ material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" });
+                  setLeadForm((prev) => ({ ...prev, full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" }));
+                  setForm((prev) => ({ ...prev, material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" }));
                   setSections([createSection()]);
                 }}>
                   Start New Estimate
