@@ -325,13 +325,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   };
 
   const toggleService = (serviceId: string) => {
-    setSelectedServiceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(serviceId)) next.delete(serviceId);
-      else next.add(serviceId);
-      fullRecalc({ serviceIds: next });
-      return next;
-    });
+    const next = new Set(selectedServiceIds);
+    if (next.has(serviceId)) next.delete(serviceId);
+    else next.add(serviceId);
+    setSelectedServiceIds(next);
+    // Call fullRecalc OUTSIDE the setter to avoid nested state update issues
+    fullRecalc({ serviceIds: next });
   };
 
   // ── Custom Services handlers ──
@@ -596,7 +595,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
             ]},
             { heading: "Materials & Scope", rows: [
               { label: "Material", value: form.material },
-              { label: "Color", value: form.color },
+              { label: "Material Name", value: form.color },
               { label: "Finish", value: form.finish },
               { label: "Edge Profile", value: form.edge_profile },
               { label: "Measurements (Sq Ft)", value: form.measurements_sqft ? String(form.measurements_sqft) : "" },
@@ -684,10 +683,14 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           {editing ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <Field label="Material" value={form.material} onChange={(v) => updateField("material", v)} disabled={!editing} />
-              <Field label="Color" value={form.color} onChange={(v) => updateField("color", v)} disabled={!editing} />
+              <div>
+                <Label className="text-sm">Material Name</Label>
+                <Input type="text" value={form.color} onChange={(e) => updateField("color", e.target.value)} disabled={!editing} className="mt-1" />
+                {form.material && <p className="text-xs text-muted-foreground mt-1">Category: {form.material}</p>}
+              </div>
               <Field label="Finish" value={form.finish} onChange={(v) => updateField("finish", v)} disabled={!editing} />
               <Field label="Edge Profile" value={form.edge_profile} onChange={(v) => updateField("edge_profile", v)} disabled={!editing} />
-              <Field label="Measurements (Sq Ft)" type="number" value={String(form.measurements_sqft)} onChange={(v) => updateField("measurements_sqft", v)} disabled={!editing} />
+              <Field label="Measurements (Sq Ft)" type="number" value={String(roundMoney(form.measurements_sqft))} onChange={(v) => updateField("measurements_sqft", v)} disabled={!editing} />
               <div className="sm:col-span-2 md:col-span-3">
                 <Label className="text-sm">Additional Notes</Label>
                 <Textarea
@@ -704,22 +707,22 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
             <>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Material</TableHead>
-                    <TableHead>Color</TableHead>
-                    <TableHead>Finish</TableHead>
-                    <TableHead>Edge Profile</TableHead>
-                    <TableHead className="text-right">Sq Ft</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">{form.material || "—"}</TableCell>
-                    <TableCell>{form.color || "—"}</TableCell>
-                    <TableCell>{form.finish || "—"}</TableCell>
-                    <TableCell>{form.edge_profile || "—"}</TableCell>
-                    <TableCell className="text-right">{form.measurements_sqft || "—"}</TableCell>
-                  </TableRow>
+                   <TableRow>
+                     <TableHead>Material</TableHead>
+                     <TableHead>Material Name</TableHead>
+                     <TableHead>Finish</TableHead>
+                     <TableHead>Edge Profile</TableHead>
+                     <TableHead className="text-right">Sq Ft</TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   <TableRow>
+                     <TableCell className="font-medium">{form.material || "—"}</TableCell>
+                     <TableCell>{form.color || "—"}</TableCell>
+                     <TableCell>{form.finish || "—"}</TableCell>
+                     <TableCell>{form.edge_profile || "—"}</TableCell>
+                     <TableCell className="text-right">{form.measurements_sqft ? roundMoney(form.measurements_sqft) : "—"}</TableCell>
+                   </TableRow>
                 </TableBody>
               </Table>
               {form.additional_notes && (
