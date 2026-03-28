@@ -321,9 +321,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           ? { labor_cost: 0, material_cost: prev.material_cost, addons_cost: 0 }
           : undefined;
       const result = recalculateEstimate(merged, {}, pricingOverride, svcs);
-      return result;
+      return syncDepositToPercentage(result);
     });
-    // Update rate data outside setForm to avoid side effects in updater
+
     const currentSqft = form.measurements_sqft || (updates?.measurements_sqft) || 0;
     const svcCosts = computeServiceCosts(currentSqft, ids);
     if (svcCosts?.rates) setRateData(svcCosts.rates);
@@ -334,7 +334,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     if (next.has(serviceId)) next.delete(serviceId);
     else next.add(serviceId);
     setSelectedServiceIds(next);
-    // Call fullRecalc OUTSIDE the setter to avoid nested state update issues
     fullRecalc({ serviceIds: next });
   };
 
