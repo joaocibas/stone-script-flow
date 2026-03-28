@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { sendEmail } from "@/lib/send-email";
+import { welcomeEmail } from "@/lib/email-templates";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,6 +90,12 @@ const Book = () => {
     setAuthLoading2(false);
     if (error) {
       setAuthError(error.message);
+    } else if (data.user) {
+      // Send welcome email
+      try {
+        const emailPayload = welcomeEmail({ customerName: signupForm.name || "Customer" });
+        sendEmail({ ...emailPayload, to: signupForm.email });
+      } catch {}
     }
     // Auto-confirmed — user is logged in, component will re-render showing the booking form
   };
