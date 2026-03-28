@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { CheckCircle2, Mail } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,7 +15,6 @@ const Login = () => {
   const [redirecting, setRedirecting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [signupSuccess, setSignupSuccess] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({ email: "", password: "", name: "" });
 
@@ -67,19 +65,18 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error: signupError } = await supabase.auth.signUp({
+    const { data, error: signupError } = await supabase.auth.signUp({
       email: signupForm.email,
       password: signupForm.password,
       options: {
         data: { full_name: signupForm.name },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     setLoading(false);
     if (signupError) {
       setError(signupError.message);
-    } else {
-      setSignupSuccess(true);
+    } else if (data.user) {
+      // Auto-confirmed — user is already logged in, redirect will happen via useEffect
     }
   };
 
@@ -125,42 +122,24 @@ const Login = () => {
             </TabsContent>
 
             <TabsContent value="signup">
-              {signupSuccess ? (
-                <div className="text-center py-6 space-y-4">
-                  <div className="flex justify-center">
-                    <div className="rounded-full bg-accent/10 p-3">
-                      <Mail className="h-8 w-8 text-accent" />
-                    </div>
-                  </div>
-                  <h3 className="font-display text-lg font-semibold">Check Your Email</h3>
-                  <p className="text-sm text-muted-foreground">
-                    We sent a verification link to <strong>{signupForm.email}</strong>.
-                    Please click the link to verify your account and continue.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Didn't receive it? Check your spam folder or try signing up again.
-                  </p>
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div>
+                  <Label htmlFor="signup-name">Full Name</Label>
+                  <Input id="signup-name" required value={signupForm.name} onChange={(e) => setSignupForm(prev => ({ ...prev, name: e.target.value }))} />
                 </div>
-              ) : (
-                <form onSubmit={handleSignup} className="space-y-4">
-                  <div>
-                    <Label htmlFor="signup-name">Full Name</Label>
-                    <Input id="signup-name" required value={signupForm.name} onChange={(e) => setSignupForm(prev => ({ ...prev, name: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input id="signup-email" type="email" required value={signupForm.email} onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input id="signup-password" type="password" required minLength={6} value={signupForm.password} onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))} />
-                  </div>
-                  {error && <p className="text-destructive text-sm">{error}</p>}
-                  <Button type="submit" disabled={loading} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                    {loading ? "Creating account..." : "Create Account"}
-                  </Button>
-                </form>
-              )}
+                <div>
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input id="signup-email" type="email" required value={signupForm.email} onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="signup-password">Password</Label>
+                  <Input id="signup-password" type="password" required minLength={6} value={signupForm.password} onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))} />
+                </div>
+                {error && <p className="text-destructive text-sm">{error}</p>}
+                <Button type="submit" disabled={loading} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                  {loading ? "Creating account..." : "Create Account"}
+                </Button>
+              </form>
             </TabsContent>
           </Tabs>
         </CardContent>
