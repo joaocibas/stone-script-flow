@@ -24,11 +24,10 @@ const Book = () => {
     customer_name: "",
     customer_email: "",
     customer_phone: "",
-    address: "",
-    zip_code: "",
     preferred_time: "",
     notes: "",
   });
+  const [bookAddress, setBookAddress] = useState<AddressValue>(emptyAddress);
 
   // Auth form state
   const [authError, setAuthError] = useState("");
