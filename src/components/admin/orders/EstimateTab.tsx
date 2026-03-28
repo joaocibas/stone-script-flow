@@ -107,6 +107,11 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     terms_conditions: "",
   });
 
+  const syncDepositToPercentage = (nextForm: EstimateForm) => ({
+    ...nextForm,
+    deposit_required: roundMoney(nextForm.total * 0.5),
+  });
+
   // ── Single recalculation function ──
   const recalculateEstimate = (
     base: EstimateForm,
