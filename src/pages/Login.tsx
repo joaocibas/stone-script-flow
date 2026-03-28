@@ -78,7 +78,12 @@ const Login = () => {
     if (signupError) {
       setError(signupError.message);
     } else if (data.user) {
-      // Auto-confirmed — user is already logged in, redirect will happen via useEffect
+      // Auto-confirmed — send welcome email
+      try {
+        const emailPayload = welcomeEmail({ customerName: signupForm.name || "Customer" });
+        sendEmail({ ...emailPayload, to: signupForm.email });
+      } catch {}
+      // Redirect will happen via useEffect
     }
   };
 
