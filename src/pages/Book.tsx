@@ -78,20 +78,18 @@ const Book = () => {
     e.preventDefault();
     setAuthLoading2(true);
     setAuthError("");
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: signupForm.email,
       password: signupForm.password,
       options: {
         data: { full_name: signupForm.name },
-        emailRedirectTo: `${window.location.origin}/book`,
       },
     });
     setAuthLoading2(false);
     if (error) {
       setAuthError(error.message);
-    } else {
-      setSignupSuccess(true);
     }
+    // Auto-confirmed — user is logged in, component will re-render showing the booking form
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,39 +167,24 @@ const Book = () => {
               </TabsContent>
 
               <TabsContent value="signup">
-                {signupSuccess ? (
-                  <div className="text-center py-6 space-y-4">
-                    <div className="flex justify-center">
-                      <div className="rounded-full bg-accent/10 p-3">
-                        <Mail className="h-8 w-8 text-accent" />
-                      </div>
-                    </div>
-                    <h3 className="font-display text-lg font-semibold">Check Your Email</h3>
-                    <p className="text-sm text-muted-foreground">
-                      We sent a verification link to <strong>{signupForm.email}</strong>.
-                      Please click the link to verify your account and continue.
-                    </p>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSignup} className="space-y-4">
-                    <div>
-                      <Label htmlFor="book-signup-name">Full Name</Label>
-                      <Input id="book-signup-name" required value={signupForm.name} onChange={(e) => setSignupForm(prev => ({ ...prev, name: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label htmlFor="book-signup-email">Email</Label>
-                      <Input id="book-signup-email" type="email" required value={signupForm.email} onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label htmlFor="book-signup-password">Password</Label>
-                      <Input id="book-signup-password" type="password" required minLength={6} value={signupForm.password} onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))} />
-                    </div>
-                    {authError && <p className="text-destructive text-sm">{authError}</p>}
-                    <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                      {authLoading2 ? "Creating account..." : "Create Account"}
-                    </Button>
-                  </form>
-                )}
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div>
+                  <Label htmlFor="book-signup-name">Full Name</Label>
+                  <Input id="book-signup-name" required value={signupForm.name} onChange={(e) => setSignupForm(prev => ({ ...prev, name: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="book-signup-email">Email</Label>
+                  <Input id="book-signup-email" type="email" required value={signupForm.email} onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="book-signup-password">Password</Label>
+                  <Input id="book-signup-password" type="password" required minLength={6} value={signupForm.password} onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))} />
+                </div>
+                {authError && <p className="text-destructive text-sm">{authError}</p>}
+                <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                  {authLoading2 ? "Creating account..." : "Create Account"}
+                </Button>
+              </form>
               </TabsContent>
             </Tabs>
           </CardContent>
