@@ -1,19 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, CalendarDays } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { CheckCircle2, CalendarDays, Mail } from "lucide-react";
 import { format } from "date-fns";
 
 const Book = () => {
+  const { user, loading: authLoading } = useAuth();
   const [date, setDate] = useState<Date | undefined>();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [customer, setCustomer] = useState<any>(null);
   const [form, setForm] = useState({
     customer_name: "",
     customer_email: "",
@@ -24,18 +28,94 @@ const Book = () => {
     notes: "",
   });
 
-  const update = (field: string, value: string) => setForm({ ...form, [field]: value });
+  // Auth form state
+  const [authError, setAuthError] = useState("");
+  const [authLoading2, setAuthLoading2] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [signupForm, setSignupForm] = useState({ email: "", password: "", name: "" });
+
+  // Load customer profile when logged in
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("customers")
+      .select("*")
+      .eq("user_id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setCustomer(data);
+          setForm(prev => ({
+            ...prev,
+            customer_name: data.full_name || "",
+            customer_email: data.email || "",
+            customer_phone: data.phone || "",
+            address: data.address || "",
+          }));
+        }
+      });
+  }, [user]);
+
+  const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading2(true);
+    setAuthError("");
+    const { error } = await supabase.auth.signInWithPassword(loginForm);
+    setAuthLoading2(false);
+    if (error) {
+      if (error.message?.toLowerCase().includes("email not confirmed")) {
+        setAuthError("Please verify your email first. Check your inbox for the verification link.");
+      } else {
+        setAuthError(error.message);
+      }
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading2(true);
+    setAuthError("");
+    const { error } = await supabase.auth.signUp({
+      email: signupForm.email,
+      password: signupForm.password,
+      options: {
+        data: { full_name: signupForm.name },
+        emailRedirectTo: `${window.location.origin}/book`,
+      },
+    });
+    setAuthLoading2(false);
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setSignupSuccess(true);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setLoading(true);
     await supabase.from("appointments").insert({
       ...form,
       preferred_date: date ? format(date, "yyyy-MM-dd") : null,
+      customer_id: customer?.id || null,
     });
     setLoading(false);
     setSubmitted(true);
   };
+
+  if (authLoading) {
+    return (
+      <Section>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Section>
+    );
+  }
 
   if (submitted) {
     return (
@@ -51,6 +131,86 @@ const Book = () => {
     );
   }
 
+  // Not logged in — show login/signup first
+  if (!user) {
+    return (
+      <Section>
+        <SectionHeader
+          title="Book a Free Consultation"
+          subtitle="Sign in or create an account to schedule your consultation"
+        />
+        <Card className="max-w-md mx-auto border-0 shadow-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="font-display text-xl">Sign In to Continue</CardTitle>
+            <p className="text-sm text-muted-foreground">Create an account or sign in to book your consultation</p>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="login">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="login">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Create Account</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="login">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div>
+                    <Label htmlFor="book-login-email">Email</Label>
+                    <Input id="book-login-email" type="email" required value={loginForm.email} onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="book-login-password">Password</Label>
+                    <Input id="book-login-password" type="password" required value={loginForm.password} onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))} />
+                  </div>
+                  {authError && <p className="text-destructive text-sm">{authError}</p>}
+                  <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                    {authLoading2 ? "Signing in..." : "Sign In"}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="signup">
+                {signupSuccess ? (
+                  <div className="text-center py-6 space-y-4">
+                    <div className="flex justify-center">
+                      <div className="rounded-full bg-accent/10 p-3">
+                        <Mail className="h-8 w-8 text-accent" />
+                      </div>
+                    </div>
+                    <h3 className="font-display text-lg font-semibold">Check Your Email</h3>
+                    <p className="text-sm text-muted-foreground">
+                      We sent a verification link to <strong>{signupForm.email}</strong>.
+                      Please click the link to verify your account and continue.
+                    </p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSignup} className="space-y-4">
+                    <div>
+                      <Label htmlFor="book-signup-name">Full Name</Label>
+                      <Input id="book-signup-name" required value={signupForm.name} onChange={(e) => setSignupForm(prev => ({ ...prev, name: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label htmlFor="book-signup-email">Email</Label>
+                      <Input id="book-signup-email" type="email" required value={signupForm.email} onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label htmlFor="book-signup-password">Password</Label>
+                      <Input id="book-signup-password" type="password" required minLength={6} value={signupForm.password} onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))} />
+                    </div>
+                    {authError && <p className="text-destructive text-sm">{authError}</p>}
+                    <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                      {authLoading2 ? "Creating account..." : "Create Account"}
+                    </Button>
+                  </form>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </Section>
+    );
+  }
+
+  // Logged in — show booking form
   return (
     <Section>
       <SectionHeader
