@@ -9,7 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { CheckCircle2, CalendarDays, Mail } from "lucide-react";
+import { CheckCircle2, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 
 const Book = () => {
@@ -31,7 +31,6 @@ const Book = () => {
   // Auth form state
   const [authError, setAuthError] = useState("");
   const [authLoading2, setAuthLoading2] = useState(false);
-  const [signupSuccess, setSignupSuccess] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({ email: "", password: "", name: "" });
 

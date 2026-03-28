@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { CheckCircle2, Mail } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,7 +15,6 @@ const Login = () => {
   const [redirecting, setRedirecting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [signupSuccess, setSignupSuccess] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({ email: "", password: "", name: "" });
 
