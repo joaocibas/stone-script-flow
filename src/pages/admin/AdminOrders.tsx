@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { sendEmail } from "@/lib/send-email";
+import { orderConfirmedEmail } from "@/lib/email-templates";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -209,6 +211,19 @@ const AdminOrders = () => {
     });
 
     toast.success("Order created from quote");
+
+    // Send order confirmation email to customer
+    if (cust?.email) {
+      try {
+        const emailPayload = orderConfirmedEmail({
+          customerName: cust.full_name || "Customer",
+          orderId: order.id,
+          total: pricing.total || (quote.estimated_total || 0),
+        });
+        sendEmail({ ...emailPayload, to: cust.email });
+      } catch {}
+    }
+
     queryClient.invalidateQueries({ queryKey: ["orders"] });
     queryClient.invalidateQueries({ queryKey: ["quotes"] });
     navigate(`/admin/orders/${order.id}`);

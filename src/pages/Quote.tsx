@@ -1,4 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { sendEmail } from "@/lib/send-email";
+import { newQuoteEmail } from "@/lib/email-templates";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -473,6 +475,22 @@ const Quote = () => {
         sqft: quoteResult.calculated_sqft, material: selectedMaterial?.name,
         range_min: quoteResult.range_min, range_max: quoteResult.range_max,
       });
+
+      // Send email notification for new quote
+      try {
+        const emailData = newQuoteEmail({
+          customerName: leadForm.full_name || "Customer",
+          email: leadForm.email || "",
+          phone: leadForm.phone || "",
+          material: selectedMaterial?.name || "N/A",
+          sqft: Number(quoteResult.calculated_sqft) || 0,
+          rangeMin: quoteResult.range_min || 0,
+          rangeMax: quoteResult.range_max || 0,
+          quoteId: quoteResult.quote_id || "",
+        });
+        sendEmail(emailData);
+      } catch {}
+
       setStep(6);
     } catch (err: any) {
       setError(err.message || "Failed to calculate estimate. Please try again.");
