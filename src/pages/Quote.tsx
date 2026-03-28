@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { sendEmail } from "@/lib/send-email";
-import { newQuoteEmail } from "@/lib/email-templates";
+import { newQuoteEmail, quoteReceivedCustomerEmail } from "@/lib/email-templates";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -478,9 +478,10 @@ const Quote = () => {
         range_min: quoteResult.range_min, range_max: quoteResult.range_max,
       });
 
-      // Send email notification for new quote
+      // Send email notifications for new quote
       try {
-        const emailData = newQuoteEmail({
+        // Admin notification
+        const adminEmail = newQuoteEmail({
           customerName: leadForm.full_name || "Customer",
           email: leadForm.email || "",
           phone: leadForm.phone || "",
@@ -490,7 +491,20 @@ const Quote = () => {
           rangeMax: quoteResult.range_max || 0,
           quoteId: quoteResult.quote_id || "",
         });
-        sendEmail(emailData);
+        sendEmail(adminEmail);
+
+        // Customer confirmation
+        if (leadForm.email) {
+          const customerEmail = quoteReceivedCustomerEmail({
+            customerName: leadForm.full_name || "Customer",
+            quoteId: quoteResult.quote_id || "",
+            material: selectedMaterial?.name || "N/A",
+            sqft: Number(quoteResult.calculated_sqft) || 0,
+            rangeMin: quoteResult.range_min || 0,
+            rangeMax: quoteResult.range_max || 0,
+          });
+          sendEmail({ ...customerEmail, to: leadForm.email });
+        }
       } catch {}
 
       setStep(6);
