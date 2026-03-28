@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { sendEmail } from "@/lib/send-email";
+import { quoteApprovedEmail } from "@/lib/email-templates";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -551,6 +553,20 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       qc.invalidateQueries({ queryKey: ["quotes"] });
       toast({ title: estimate ? "Estimate updated" : "Estimate saved" });
       setEditing(false);
+
+      // Send quote approved email to customer
+      if (form.email) {
+        try {
+          const emailPayload = quoteApprovedEmail({
+            customerName: form.customer_name || "Customer",
+            material: form.material || "",
+            sqft: form.measurements_sqft || 0,
+            total: form.total || 0,
+            depositRequired: form.deposit_required || 0,
+          });
+          sendEmail({ ...emailPayload, to: form.email });
+        } catch {}
+      }
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
