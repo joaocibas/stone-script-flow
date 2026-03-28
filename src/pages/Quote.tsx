@@ -125,11 +125,10 @@ const Quote = () => {
     full_name: "",
     phone: "",
     email: "",
-    address: "",
-    city: "",
     consultation_type: "",
     notes: "",
   });
+  const [scheduleAddress, setScheduleAddress] = useState<AddressValue>(emptyAddress);
 
   const createSection = (): CountertopSection => ({
     id: crypto.randomUUID(), name: "Kitchen Counter", customName: "",
