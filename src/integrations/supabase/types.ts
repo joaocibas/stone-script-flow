@@ -450,6 +450,42 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          recipient_email: string
+          sent_at: string
+          status: string
+          subject: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient_email: string
+          sent_at?: string
+          status?: string
+          subject: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient_email?: string
+          sent_at?: string
+          status?: string
+          subject?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           created_at: string

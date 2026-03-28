@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { sendEmail } from "@/lib/send-email";
+import { welcomeEmail } from "@/lib/email-templates";
 import { Section } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,7 +78,12 @@ const Login = () => {
     if (signupError) {
       setError(signupError.message);
     } else if (data.user) {
-      // Auto-confirmed — user is already logged in, redirect will happen via useEffect
+      // Auto-confirmed — send welcome email
+      try {
+        const emailPayload = welcomeEmail({ customerName: signupForm.name || "Customer" });
+        sendEmail({ ...emailPayload, to: signupForm.email });
+      } catch {}
+      // Redirect will happen via useEffect
     }
   };
 

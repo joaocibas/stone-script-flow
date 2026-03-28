@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { sendEmail } from "@/lib/send-email";
+import { appointmentScheduledEmail } from "@/lib/email-templates";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,23 @@ const AdminAppointments = () => {
 
   const updateStatus = async (id: string, status: string) => {
     await supabase.from("appointments").update({ status: status as any }).eq("id", id);
+    
+    // Send email when appointment is confirmed
+    if (status === "confirmed") {
+      const appt = appointments.find((a) => a.id === id);
+      if (appt?.customer_email) {
+        try {
+          const emailPayload = appointmentScheduledEmail({
+            customerName: appt.customer_name,
+            date: appt.preferred_date ? format(new Date(appt.preferred_date), "MMMM d, yyyy") : "TBD",
+            time: appt.preferred_time || "TBD",
+            address: appt.address,
+          });
+          sendEmail({ ...emailPayload, to: appt.customer_email });
+        } catch {}
+      }
+    }
+    
     fetchAppointments();
   };
 

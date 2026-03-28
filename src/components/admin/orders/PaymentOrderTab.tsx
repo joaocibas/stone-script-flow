@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { sendEmail } from "@/lib/send-email";
+import { paymentReceivedEmail } from "@/lib/email-templates";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -180,6 +182,25 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["payments", orderId] });
       toast({ title: "Payment recorded" });
+
+      // Send payment received email to customer
+      if (customer?.email) {
+        try {
+          const totalPaidNow = (payments || []).reduce((sum, p) => sum + Number(p.amount), 0) + manualPayment.amount;
+          const estimateTotal = Number(estimate?.total) || 0;
+          const remaining = Math.max(0, estimateTotal - totalPaidNow);
+          const emailPayload = paymentReceivedEmail({
+            customerName: customer?.full_name || "Customer",
+            amount: manualPayment.amount,
+            paymentType: manualPayment.method || "Payment",
+            remainingBalance: remaining,
+            orderId: orderId,
+            transactionRef: manualPayment.reference || undefined,
+          });
+          sendEmail({ ...emailPayload, to: customer.email });
+        } catch {}
+      }
+
       setManualPayment({ amount: 0, method: "", reference: "", notes: "" });
       setShowManual(false);
     },
