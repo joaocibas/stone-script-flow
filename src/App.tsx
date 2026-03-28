@@ -37,6 +37,7 @@ import AdminLegal from "./pages/admin/AdminLegal";
 import AdminLeads from "./pages/admin/AdminLeads";
 import AdminSeo from "./pages/admin/AdminSeo";
 import Schedule from "./pages/Schedule";
+import AuthCallback from "./pages/AuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
           <Route path="/book" element={<AppLayout><Book /></AppLayout>} />
           <Route path="/schedule/:reservationId" element={<AppLayout><Schedule /></AppLayout>} />
           <Route path="/login" element={<AppLayout><Login /></AppLayout>} />
+          <Route path="/auth/callback" element={<AppLayout><AuthCallback /></AppLayout>} />
           <Route path="/dashboard" element={<AppLayout><CustomerDashboard /></AppLayout>} />
           <Route path="/track/:id" element={<AppLayout><TrackOrder /></AppLayout>} />
           <Route path="/faq" element={<AppLayout><FAQ /></AppLayout>} />
