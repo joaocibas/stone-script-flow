@@ -508,34 +508,37 @@ const Quote = () => {
       full_name: prev.full_name || leadForm.full_name,
       phone: prev.phone || leadForm.phone,
       email: prev.email || leadForm.email,
-      city: prev.city || leadForm.city,
     }));
+    if (!scheduleAddress.city) {
+      setScheduleAddress((prev) => ({ ...prev, city: leadForm.city }));
+    }
     setStep(7);
   };
 
   const isScheduleValid = () =>
     scheduleForm.preferred_date && scheduleForm.preferred_time &&
     scheduleForm.full_name.trim() && scheduleForm.phone.trim() &&
-    scheduleForm.email.trim() && scheduleForm.address.trim() &&
-    scheduleForm.city.trim() && scheduleForm.consultation_type;
+    scheduleForm.email.trim() && scheduleAddress.street.trim() &&
+    scheduleAddress.city.trim() && scheduleForm.consultation_type;
 
   const handleConfirmAppointment = async () => {
     if (!isScheduleValid()) return;
     setSubmitting(true);
     setError("");
     try {
+      const fullAddress = addressToString(scheduleAddress);
       const { error: apptErr } = await supabase.from("appointments").insert({
         customer_name: scheduleForm.full_name.trim(),
         customer_email: scheduleForm.email.trim(),
         customer_phone: scheduleForm.phone.trim() || null,
-        address: scheduleForm.address.trim(),
-        zip_code: scheduleForm.city.trim(), // using city as zip_code since that's required
+        address: fullAddress,
+        zip_code: scheduleAddress.zip || scheduleAddress.city.trim(),
         preferred_date: scheduleForm.preferred_date ? format(scheduleForm.preferred_date, "yyyy-MM-dd") : null,
         preferred_time: scheduleForm.preferred_time || null,
         notes: [
           `Consultation Type: ${scheduleForm.consultation_type}`,
           `Project Type: ${leadForm.project_type}`,
-          `City: ${scheduleForm.city}`,
+          `City: ${scheduleAddress.city}`,
           scheduleForm.notes ? `Notes: ${scheduleForm.notes}` : "",
         ].filter(Boolean).join("\n"),
         status: "requested" as const,
