@@ -594,7 +594,8 @@ const Quote = () => {
                 setLeadForm((prev) => ({ ...prev, full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" }));
                 setForm((prev) => ({ ...prev, material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" }));
                 setSections([createSection()]);
-                setScheduleForm((prev) => ({ ...prev, preferred_date: null, preferred_time: "", full_name: "", phone: "", email: "", address: "", city: "", consultation_type: "", notes: "" }));
+                setScheduleForm((prev) => ({ ...prev, preferred_date: null, preferred_time: "", full_name: "", phone: "", email: "", consultation_type: "", notes: "" }));
+                setScheduleAddress(emptyAddress);
               }}
               variant="outline"
             >
