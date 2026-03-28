@@ -489,9 +489,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const newSqft = Number(value) || 0;
       fullRecalc({ updates: { measurements_sqft: newSqft } });
     } else if (costFields.includes(key)) {
-      setForm((prev) => recalculateEstimate(prev, { [key]: Number(value) || 0 }));
+      setForm((prev) => syncDepositToPercentage(recalculateEstimate(prev, { [key]: Number(value) || 0 })));
     } else if (key === "deposit_required") {
-      setForm((prev) => recalculateEstimate(prev, { deposit_required: Number(value) || 0 }));
+      setForm((prev) => ({ ...prev, deposit_required: Number(value) || 0 }));
     } else {
       setForm((prev) => ({ ...prev, [key]: value }));
     }
