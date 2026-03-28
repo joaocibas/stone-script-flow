@@ -377,7 +377,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         if (svcCosts.rates) setRateData(svcCosts.rates);
       }
 
-      const nextForm = recalculateEstimate({
+      const nextForm = syncDepositToPercentage(recalculateEstimate({
         estimate_number: estimate.estimate_number || "",
         date: estimate.date || format(new Date(), "yyyy-MM-dd"),
         expiration_date: estimate.expiration_date || "",
@@ -406,7 +406,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         labor_cost: labor,
         material_cost: material,
         addons_cost: addons,
-      });
+      }));
 
       setForm(nextForm);
       setEditing(false);
@@ -417,7 +417,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const svcCosts = computeServiceCosts(currentSqft, selectedServiceIds);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
-      setForm((prev) => recalculateEstimate({
+      setForm((prev) => syncDepositToPercentage(recalculateEstimate({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
         customer_name: ce.customer_name || customer?.full_name || "",
@@ -441,10 +441,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         deposit_required: Number(ce.deposit_required) || 0,
         notes: ce.notes || "",
         terms_conditions: ce.terms_conditions || DEFAULT_TERMS,
-      }));
+      })));
       setEditing(true);
     } else {
-      // New estimate
       const name = customer?.full_name || leadData?.full_name || "";
       const phone = customer?.phone || leadData?.phone || "";
       const email = customer?.email || leadData?.email || "";
@@ -455,7 +454,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const svcCosts = computeServiceCosts(measurements_sqft, selectedServiceIds);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
-      setForm((prev) => recalculateEstimate({
+      setForm((prev) => syncDepositToPercentage(recalculateEstimate({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
         customer_name: name,
@@ -476,7 +475,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         total: 0,
         deposit_required: 0,
         terms_conditions: DEFAULT_TERMS,
-      }));
+      })));
       setEditing(true);
     }
   }, [allServices, customer, customerEstimate, estimate, leadData, order, orderId, quoteData, serviceIdsInitialized, slabServiceData]);
