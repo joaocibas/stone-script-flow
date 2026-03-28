@@ -54,7 +54,7 @@ serve(async (req) => {
       );
     }
 
-    const username = "info@altarstonecountertops.com";
+    const username = "info@countertopsaltarstone.com";
     const fromName = "Altar Stone";
 
     // Connect via TLS to port 465
@@ -73,7 +73,7 @@ serve(async (req) => {
     console.log("SMTP greeting:", greeting);
 
     // EHLO
-    await sendSmtpCommand(writer, reader, decoder, encoder, "EHLO altarstonecountertops.com");
+    await sendSmtpCommand(writer, reader, decoder, encoder, "EHLO countertopsaltarstone.com");
     // Read extra EHLO lines
     await new Promise(r => setTimeout(r, 300));
 
