@@ -154,12 +154,12 @@ const Quote = () => {
     try {
       const draft = {
         step, leadForm, leadId, form, sections, additionalInfo,
-        result, layoutUrl,
+        result, layoutUrl, scheduleAddress,
         scheduleForm: { ...scheduleForm, preferred_date: scheduleForm.preferred_date?.toISOString() || null },
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch {}
-  }, [step, leadForm, leadId, form, sections, additionalInfo, result, layoutUrl, scheduleForm]);
+  }, [step, leadForm, leadId, form, sections, additionalInfo, result, layoutUrl, scheduleForm, scheduleAddress]);
 
   // Save draft after each step change
   useEffect(() => { saveDraft(); }, [step, saveDraft]);
@@ -185,6 +185,7 @@ const Quote = () => {
             preferred_date: d.scheduleForm.preferred_date ? new Date(d.scheduleForm.preferred_date) : null,
           });
         }
+        if (d.scheduleAddress) setScheduleAddress(d.scheduleAddress);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
