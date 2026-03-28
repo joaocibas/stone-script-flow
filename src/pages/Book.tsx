@@ -51,8 +51,8 @@ const Book = () => {
             customer_name: data.full_name || "",
             customer_email: data.email || "",
             customer_phone: data.phone || "",
-            address: data.address || "",
           }));
+          if (data.address) setBookAddress(parseAddress(data.address));
         }
       });
   }, [user]);
@@ -96,9 +96,16 @@ const Book = () => {
     e.preventDefault();
     if (!user) return;
     setLoading(true);
+    const fullAddress = addressToString(bookAddress);
     await supabase.from("appointments").insert({
-      ...form,
+      customer_name: form.customer_name,
+      customer_email: form.customer_email,
+      customer_phone: form.customer_phone || null,
+      address: fullAddress,
+      zip_code: bookAddress.zip || "00000",
       preferred_date: date ? format(date, "yyyy-MM-dd") : null,
+      preferred_time: form.preferred_time || null,
+      notes: form.notes || null,
       customer_id: customer?.id || null,
     });
     setLoading(false);
