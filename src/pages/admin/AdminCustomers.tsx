@@ -22,6 +22,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Search, Users, UserPlus, RefreshCw, Pencil, Trash2, RotateCcw, Plus } from "lucide-react";
+import { PhoneInput } from "@/components/PhoneInput";
+import { AddressInput, addressToString, parseAddress, type AddressValue, emptyAddress } from "@/components/AddressInput";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminRole } from "@/components/layouts/AdminLayout";
@@ -384,7 +386,7 @@ function CustomerFormFields({ form, setForm }: { form: CustomerForm; setForm: (f
       </div>
       <div>
         <Label htmlFor="cust-phone">Phone</Label>
-        <Input id="cust-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
       </div>
       <div>
         <Label htmlFor="cust-address">Address</Label>

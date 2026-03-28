@@ -3,6 +3,8 @@ import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/PhoneInput";
+import { AddressInput, addressToString, parseAddress, type AddressValue, emptyAddress } from "@/components/AddressInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
@@ -22,11 +24,10 @@ const Book = () => {
     customer_name: "",
     customer_email: "",
     customer_phone: "",
-    address: "",
-    zip_code: "",
     preferred_time: "",
     notes: "",
   });
+  const [bookAddress, setBookAddress] = useState<AddressValue>(emptyAddress);
 
   // Auth form state
   const [authError, setAuthError] = useState("");
@@ -50,8 +51,8 @@ const Book = () => {
             customer_name: data.full_name || "",
             customer_email: data.email || "",
             customer_phone: data.phone || "",
-            address: data.address || "",
           }));
+          if (data.address) setBookAddress(parseAddress(data.address));
         }
       });
   }, [user]);
@@ -95,9 +96,16 @@ const Book = () => {
     e.preventDefault();
     if (!user) return;
     setLoading(true);
+    const fullAddress = addressToString(bookAddress);
     await supabase.from("appointments").insert({
-      ...form,
+      customer_name: form.customer_name,
+      customer_email: form.customer_email,
+      customer_phone: form.customer_phone || null,
+      address: fullAddress,
+      zip_code: bookAddress.zip || "00000",
       preferred_date: date ? format(date, "yyyy-MM-dd") : null,
+      preferred_time: form.preferred_time || null,
+      notes: form.notes || null,
       customer_id: customer?.id || null,
     });
     setLoading(false);
@@ -214,17 +222,13 @@ const Book = () => {
               </div>
               <div>
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" type="tel" value={form.customer_phone} onChange={(e) => update("customer_phone", e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="zip">Zip Code *</Label>
-                <Input id="zip" required value={form.zip_code} onChange={(e) => update("zip_code", e.target.value)} />
+                <PhoneInput value={form.customer_phone} onChange={(v) => update("customer_phone", v)} />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="address">Address *</Label>
-              <Input id="address" required value={form.address} onChange={(e) => update("address", e.target.value)} />
+              <Label className="mb-2 block">Address *</Label>
+              <AddressInput value={bookAddress} onChange={setBookAddress} />
             </div>
 
             <div>

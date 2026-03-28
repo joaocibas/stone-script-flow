@@ -5,6 +5,8 @@ import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/PhoneInput";
+import { AddressInput, addressToString, parseAddress, type AddressValue, emptyAddress } from "@/components/AddressInput";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -123,11 +125,10 @@ const Quote = () => {
     full_name: "",
     phone: "",
     email: "",
-    address: "",
-    city: "",
     consultation_type: "",
     notes: "",
   });
+  const [scheduleAddress, setScheduleAddress] = useState<AddressValue>(emptyAddress);
 
   const createSection = (): CountertopSection => ({
     id: crypto.randomUUID(), name: "Kitchen Counter", customName: "",
@@ -153,12 +154,12 @@ const Quote = () => {
     try {
       const draft = {
         step, leadForm, leadId, form, sections, additionalInfo,
-        result, layoutUrl,
+        result, layoutUrl, scheduleAddress,
         scheduleForm: { ...scheduleForm, preferred_date: scheduleForm.preferred_date?.toISOString() || null },
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch {}
-  }, [step, leadForm, leadId, form, sections, additionalInfo, result, layoutUrl, scheduleForm]);
+  }, [step, leadForm, leadId, form, sections, additionalInfo, result, layoutUrl, scheduleForm, scheduleAddress]);
 
   // Save draft after each step change
   useEffect(() => { saveDraft(); }, [step, saveDraft]);
@@ -184,6 +185,7 @@ const Quote = () => {
             preferred_date: d.scheduleForm.preferred_date ? new Date(d.scheduleForm.preferred_date) : null,
           });
         }
+        if (d.scheduleAddress) setScheduleAddress(d.scheduleAddress);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -507,34 +509,37 @@ const Quote = () => {
       full_name: prev.full_name || leadForm.full_name,
       phone: prev.phone || leadForm.phone,
       email: prev.email || leadForm.email,
-      city: prev.city || leadForm.city,
     }));
+    if (!scheduleAddress.city) {
+      setScheduleAddress((prev) => ({ ...prev, city: leadForm.city }));
+    }
     setStep(7);
   };
 
   const isScheduleValid = () =>
     scheduleForm.preferred_date && scheduleForm.preferred_time &&
     scheduleForm.full_name.trim() && scheduleForm.phone.trim() &&
-    scheduleForm.email.trim() && scheduleForm.address.trim() &&
-    scheduleForm.city.trim() && scheduleForm.consultation_type;
+    scheduleForm.email.trim() && scheduleAddress.street.trim() &&
+    scheduleAddress.city.trim() && scheduleForm.consultation_type;
 
   const handleConfirmAppointment = async () => {
     if (!isScheduleValid()) return;
     setSubmitting(true);
     setError("");
     try {
+      const fullAddress = addressToString(scheduleAddress);
       const { error: apptErr } = await supabase.from("appointments").insert({
         customer_name: scheduleForm.full_name.trim(),
         customer_email: scheduleForm.email.trim(),
         customer_phone: scheduleForm.phone.trim() || null,
-        address: scheduleForm.address.trim(),
-        zip_code: scheduleForm.city.trim(), // using city as zip_code since that's required
+        address: fullAddress,
+        zip_code: scheduleAddress.zip || scheduleAddress.city.trim(),
         preferred_date: scheduleForm.preferred_date ? format(scheduleForm.preferred_date, "yyyy-MM-dd") : null,
         preferred_time: scheduleForm.preferred_time || null,
         notes: [
           `Consultation Type: ${scheduleForm.consultation_type}`,
           `Project Type: ${leadForm.project_type}`,
-          `City: ${scheduleForm.city}`,
+          `City: ${scheduleAddress.city}`,
           scheduleForm.notes ? `Notes: ${scheduleForm.notes}` : "",
         ].filter(Boolean).join("\n"),
         status: "requested" as const,
@@ -590,7 +595,8 @@ const Quote = () => {
                 setLeadForm((prev) => ({ ...prev, full_name: "", phone: "", email: "", city: "", project_type: "", company_name: "", timeline: "", preferred_contact_method: "", notes: "" }));
                 setForm((prev) => ({ ...prev, material_id: "", slab_id: "", length_inches: "", width_inches: "", edge_profile: "", num_cutouts: "0", reference_measurement_inches: "" }));
                 setSections([createSection()]);
-                setScheduleForm((prev) => ({ ...prev, preferred_date: null, preferred_time: "", full_name: "", phone: "", email: "", address: "", city: "", consultation_type: "", notes: "" }));
+                setScheduleForm((prev) => ({ ...prev, preferred_date: null, preferred_time: "", full_name: "", phone: "", email: "", consultation_type: "", notes: "" }));
+                setScheduleAddress(emptyAddress);
               }}
               variant="outline"
             >
@@ -666,10 +672,10 @@ const Quote = () => {
                   <Label htmlFor="lead_name" className="text-sm">Full Name *</Label>
                   <Input id="lead_name" placeholder="Jane Smith" value={leadForm.full_name} onChange={(e) => setLeadForm((prev) => ({ ...prev, full_name: e.target.value }))} />
                 </div>
-                <div>
-                  <Label htmlFor="lead_phone" className="text-sm">Phone Number *</Label>
-                  <Input id="lead_phone" type="tel" placeholder="(555) 123-4567" value={leadForm.phone} onChange={(e) => setLeadForm((prev) => ({ ...prev, phone: e.target.value }))} />
-                </div>
+                 <div>
+                   <Label htmlFor="lead_phone" className="text-sm">Phone Number *</Label>
+                   <PhoneInput value={leadForm.phone} onChange={(v) => setLeadForm((prev) => ({ ...prev, phone: v }))} />
+                 </div>
               </div>
               <div>
                 <Label htmlFor="lead_email" className="text-sm">Email Address *</Label>
@@ -1167,10 +1173,10 @@ const Quote = () => {
                   <Label className="text-sm">Full Name *</Label>
                   <Input value={scheduleForm.full_name} onChange={(e) => setScheduleForm({ ...scheduleForm, full_name: e.target.value })} className="h-11" />
                 </div>
-                <div>
-                  <Label className="text-sm">Phone *</Label>
-                  <Input type="tel" value={scheduleForm.phone} onChange={(e) => setScheduleForm({ ...scheduleForm, phone: e.target.value })} className="h-11" />
-                </div>
+                 <div>
+                   <Label className="text-sm">Phone *</Label>
+                   <PhoneInput value={scheduleForm.phone} onChange={(v) => setScheduleForm({ ...scheduleForm, phone: v })} />
+                 </div>
               </div>
 
               <div>
@@ -1178,15 +1184,12 @@ const Quote = () => {
                 <Input type="email" value={scheduleForm.email} onChange={(e) => setScheduleForm({ ...scheduleForm, email: e.target.value })} className="h-11" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm">Project Address *</Label>
-                  <Input placeholder="123 Main St" value={scheduleForm.address} onChange={(e) => setScheduleForm({ ...scheduleForm, address: e.target.value })} className="h-11" />
-                </div>
-                <div>
-                  <Label className="text-sm">City *</Label>
-                  <Input value={scheduleForm.city} onChange={(e) => setScheduleForm({ ...scheduleForm, city: e.target.value })} className="h-11" />
-                </div>
+              <div>
+                <Label className="text-sm font-medium">Project Address *</Label>
+                <AddressInput
+                  value={scheduleAddress}
+                  onChange={setScheduleAddress}
+                />
               </div>
 
               <div>
