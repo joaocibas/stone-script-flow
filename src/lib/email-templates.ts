@@ -23,7 +23,7 @@ const wrapper = (content: string) => `
     </div>
     <div style="background:${BRAND.bg};padding:20px 32px;text-align:center;font-size:12px;color:${BRAND.muted};">
       <p style="margin:0;">Altar Stone Countertops</p>
-      <p style="margin:4px 0 0;">info@altarstonecountertops.com</p>
+      <p style="margin:4px 0 0;">info@countertopsaltarstone.com</p>
     </div>
   </div>
 </body>
@@ -40,7 +40,7 @@ export function newQuoteEmail(data: {
   quoteId: string;
 }) {
   return {
-    to: "info@altarstonecountertops.com",
+    to: "info@countertopsaltarstone.com",
     subject: `New Quote Request — ${data.customerName}`,
     html: wrapper(`
       <h2 style="color:${BRAND.primary};margin-top:0;">New Quote Submitted</h2>
