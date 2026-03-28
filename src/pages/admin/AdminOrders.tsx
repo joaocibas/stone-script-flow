@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { sendEmail } from "@/lib/send-email";
-import { orderConfirmedEmail } from "@/lib/email-templates";
+import { orderConfirmedEmail, orderStatusUpdateEmail } from "@/lib/email-templates";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
