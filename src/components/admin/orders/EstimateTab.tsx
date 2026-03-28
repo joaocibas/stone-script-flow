@@ -107,6 +107,11 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     terms_conditions: "",
   });
 
+  const syncDepositToPercentage = (nextForm: EstimateForm) => ({
+    ...nextForm,
+    deposit_required: roundMoney(nextForm.total * 0.5),
+  });
+
   // ── Single recalculation function ──
   const recalculateEstimate = (
     base: EstimateForm,
@@ -316,9 +321,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           ? { labor_cost: 0, material_cost: prev.material_cost, addons_cost: 0 }
           : undefined;
       const result = recalculateEstimate(merged, {}, pricingOverride, svcs);
-      return result;
+      return syncDepositToPercentage(result);
     });
-    // Update rate data outside setForm to avoid side effects in updater
+
     const currentSqft = form.measurements_sqft || (updates?.measurements_sqft) || 0;
     const svcCosts = computeServiceCosts(currentSqft, ids);
     if (svcCosts?.rates) setRateData(svcCosts.rates);
@@ -329,7 +334,6 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     if (next.has(serviceId)) next.delete(serviceId);
     else next.add(serviceId);
     setSelectedServiceIds(next);
-    // Call fullRecalc OUTSIDE the setter to avoid nested state update issues
     fullRecalc({ serviceIds: next });
   };
 
@@ -373,7 +377,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         if (svcCosts.rates) setRateData(svcCosts.rates);
       }
 
-      const nextForm = recalculateEstimate({
+      const nextForm = syncDepositToPercentage(recalculateEstimate({
         estimate_number: estimate.estimate_number || "",
         date: estimate.date || format(new Date(), "yyyy-MM-dd"),
         expiration_date: estimate.expiration_date || "",
@@ -402,7 +406,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         labor_cost: labor,
         material_cost: material,
         addons_cost: addons,
-      });
+      }));
 
       setForm(nextForm);
       setEditing(false);
@@ -413,7 +417,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const svcCosts = computeServiceCosts(currentSqft, selectedServiceIds);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
-      setForm((prev) => recalculateEstimate({
+      setForm((prev) => syncDepositToPercentage(recalculateEstimate({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
         customer_name: ce.customer_name || customer?.full_name || "",
@@ -437,10 +441,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         deposit_required: Number(ce.deposit_required) || 0,
         notes: ce.notes || "",
         terms_conditions: ce.terms_conditions || DEFAULT_TERMS,
-      }));
+      })));
       setEditing(true);
     } else {
-      // New estimate
       const name = customer?.full_name || leadData?.full_name || "";
       const phone = customer?.phone || leadData?.phone || "";
       const email = customer?.email || leadData?.email || "";
@@ -451,7 +454,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const svcCosts = computeServiceCosts(measurements_sqft, selectedServiceIds);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
-      setForm((prev) => recalculateEstimate({
+      setForm((prev) => syncDepositToPercentage(recalculateEstimate({
         ...prev,
         estimate_number: `EST-${orderId.slice(0, 6).toUpperCase()}`,
         customer_name: name,
@@ -472,7 +475,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         total: 0,
         deposit_required: 0,
         terms_conditions: DEFAULT_TERMS,
-      }));
+      })));
       setEditing(true);
     }
   }, [allServices, customer, customerEstimate, estimate, leadData, order, orderId, quoteData, serviceIdsInitialized, slabServiceData]);
@@ -486,9 +489,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const newSqft = Number(value) || 0;
       fullRecalc({ updates: { measurements_sqft: newSqft } });
     } else if (costFields.includes(key)) {
-      setForm((prev) => recalculateEstimate(prev, { [key]: Number(value) || 0 }));
+      setForm((prev) => syncDepositToPercentage(recalculateEstimate(prev, { [key]: Number(value) || 0 })));
     } else if (key === "deposit_required") {
-      setForm((prev) => recalculateEstimate(prev, { deposit_required: Number(value) || 0 }));
+      setForm((prev) => ({ ...prev, deposit_required: Number(value) || 0 }));
     } else {
       setForm((prev) => ({ ...prev, [key]: value }));
     }
