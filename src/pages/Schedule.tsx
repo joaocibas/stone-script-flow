@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { sendEmail } from "@/lib/send-email";
+import { appointmentScheduledEmail } from "@/lib/email-templates";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -171,6 +173,18 @@ const Schedule = () => {
       reservation_id: reservationId,
       date: format(date, "yyyy-MM-dd"),
     });
+
+    // Send appointment confirmation email
+    try {
+      const emailPayload = appointmentScheduledEmail({
+        customerName: customer.full_name,
+        date: format(date, "EEEE, MMMM d, yyyy"),
+        time,
+        address: customer.address || "",
+      });
+      sendEmail({ ...emailPayload, to: customer.email });
+    } catch {}
+
     toast.success(rescheduleMode ? "Appointment rescheduled!" : "Appointment scheduled!");
   };
 
