@@ -5,6 +5,8 @@ import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/PhoneInput";
+import { AddressInput, addressToString, parseAddress, type AddressValue, emptyAddress } from "@/components/AddressInput";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -666,10 +668,10 @@ const Quote = () => {
                   <Label htmlFor="lead_name" className="text-sm">Full Name *</Label>
                   <Input id="lead_name" placeholder="Jane Smith" value={leadForm.full_name} onChange={(e) => setLeadForm((prev) => ({ ...prev, full_name: e.target.value }))} />
                 </div>
-                <div>
-                  <Label htmlFor="lead_phone" className="text-sm">Phone Number *</Label>
-                  <Input id="lead_phone" type="tel" placeholder="(555) 123-4567" value={leadForm.phone} onChange={(e) => setLeadForm((prev) => ({ ...prev, phone: e.target.value }))} />
-                </div>
+                 <div>
+                   <Label htmlFor="lead_phone" className="text-sm">Phone Number *</Label>
+                   <PhoneInput value={leadForm.phone} onChange={(v) => setLeadForm((prev) => ({ ...prev, phone: v }))} />
+                 </div>
               </div>
               <div>
                 <Label htmlFor="lead_email" className="text-sm">Email Address *</Label>
@@ -1167,10 +1169,10 @@ const Quote = () => {
                   <Label className="text-sm">Full Name *</Label>
                   <Input value={scheduleForm.full_name} onChange={(e) => setScheduleForm({ ...scheduleForm, full_name: e.target.value })} className="h-11" />
                 </div>
-                <div>
-                  <Label className="text-sm">Phone *</Label>
-                  <Input type="tel" value={scheduleForm.phone} onChange={(e) => setScheduleForm({ ...scheduleForm, phone: e.target.value })} className="h-11" />
-                </div>
+                 <div>
+                   <Label className="text-sm">Phone *</Label>
+                   <PhoneInput value={scheduleForm.phone} onChange={(v) => setScheduleForm({ ...scheduleForm, phone: v })} />
+                 </div>
               </div>
 
               <div>
@@ -1178,15 +1180,12 @@ const Quote = () => {
                 <Input type="email" value={scheduleForm.email} onChange={(e) => setScheduleForm({ ...scheduleForm, email: e.target.value })} className="h-11" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm">Project Address *</Label>
-                  <Input placeholder="123 Main St" value={scheduleForm.address} onChange={(e) => setScheduleForm({ ...scheduleForm, address: e.target.value })} className="h-11" />
-                </div>
-                <div>
-                  <Label className="text-sm">City *</Label>
-                  <Input value={scheduleForm.city} onChange={(e) => setScheduleForm({ ...scheduleForm, city: e.target.value })} className="h-11" />
-                </div>
+              <div>
+                <Label className="text-sm font-medium">Project Address *</Label>
+                <AddressInput
+                  value={scheduleAddress}
+                  onChange={setScheduleAddress}
+                />
               </div>
 
               <div>
