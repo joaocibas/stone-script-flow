@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign, Clock, RotateCcw, TrendingUp, TrendingDown, Plus, Trash2, FileDown, Send, Minus } from "lucide-react";
+import { DollarSign, Clock, RotateCcw, TrendingUp, TrendingDown, Plus, Trash2, FileDown, Send, Minus, Eye, CheckCircle, Copy, XCircle, Download } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth, differenceInDays, parseISO } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { sendEmail } from "@/lib/send-email";
@@ -25,6 +26,8 @@ const AdminFinancials = () => {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ category: "Other", amount: "", date: format(new Date(), "yyyy-MM-dd"), description: "", receiptFile: null as File | null });
   const [reportMonth, setReportMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [invoicePayment, setInvoicePayment] = useState<any>(null);
+  const [markPaidPayment, setMarkPaidPayment] = useState<any>(null);
 
   // ── Queries ──
   const { data: financials, isLoading } = useQuery({
@@ -85,21 +88,18 @@ const AdminFinancials = () => {
       const ms = startOfMonth(d);
       const me = endOfMonth(d);
       const label = format(d, "MMM yy");
-
       const rev = allPayments
         .filter((p: any) => {
           const pd = parseISO(p.payment_date || p.created_at);
           return pd >= ms && pd <= me && (p.status === "completed" || p.status === "paid");
         })
         .reduce((s: number, p: any) => s + Number(p.amount), 0);
-
       const exp = expenses
         .filter((e: any) => {
           const ed = parseISO(e.date);
           return ed >= ms && ed <= me;
         })
         .reduce((s: number, e: any) => s + Number(e.amount), 0);
-
       months.push({ month: label, revenue: Math.round(rev * 100) / 100, expenses: Math.round(exp * 100) / 100 });
     }
     return months;
@@ -161,19 +161,78 @@ const AdminFinancials = () => {
     },
   });
 
+  const markPaidMutation = useMutation({
+    mutationFn: async (payment: any) => {
+      // Update stripe_payments
+      await supabase.from("stripe_payments").update({ status: "paid", updated_at: new Date().toISOString() }).eq("id", payment.id);
+
+      // Update order status based on payment type
+      if (payment.order_id) {
+        const newStatus = payment.payment_type === "full" ? "completed" : "confirmed";
+        await supabase.from("orders").update({ status: newStatus, deposit_paid: Number(payment.amount), updated_at: new Date().toISOString() }).eq("id", payment.order_id);
+
+        // Record in payments table
+        await supabase.from("payments").insert({
+          order_id: payment.order_id,
+          amount: Number(payment.amount),
+          status: "paid",
+          paid_at: new Date().toISOString(),
+          payment_method: "manual",
+          confirmed_by: "admin",
+          notes: `Manually confirmed from Financial Summary`,
+        });
+      }
+
+      // Send confirmation email
+      const { data: order } = await supabase.from("orders").select("*, customers(email, full_name)").eq("id", payment.order_id).single();
+      const email = order?.customers?.email || payment.customer_email;
+      const name = order?.customers?.full_name || "Customer";
+      if (email) {
+        await sendEmail({
+          to: email,
+          subject: "Payment Received – Altar Stone",
+          html: `<p>Hi ${name},</p><p>We've received your payment of <strong>$${Number(payment.amount).toFixed(2)}</strong> for Order #${payment.order_id?.slice(0, 8).toUpperCase()}.</p><p>Thank you!</p><p>Best regards,<br/>Altar Stone Countertops</p>`,
+        });
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stripe-payments-list"] });
+      qc.invalidateQueries({ queryKey: ["stripe-financials"] });
+      qc.invalidateQueries({ queryKey: ["all-payments-for-chart"] });
+      setMarkPaidPayment(null);
+      setInvoicePayment(null);
+      toast({ title: "Payment marked as paid" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const sendReminderMutation = useMutation({
     mutationFn: async (payment: any) => {
       const { data: order } = await supabase.from("orders").select("*, customers(email, full_name)").eq("id", payment.order_id).single();
       const customerEmail = order?.customers?.email || payment.customer_email;
       const customerName = order?.customers?.full_name || "Customer";
       if (!customerEmail) throw new Error("No customer email found");
+      const stripeLink = payment.stripe_url ? `<p><a href="${payment.stripe_url}" style="display:inline-block;background:#C4932A;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;">Pay Now</a></p>` : "";
       await sendEmail({
         to: customerEmail,
-        subject: "Payment Reminder – Altar Stone",
-        html: `<p>Hi ${customerName},</p><p>This is a friendly reminder that your payment of <strong>$${Number(payment.amount).toFixed(2)}</strong> for Order #${payment.order_id?.slice(0, 8).toUpperCase()} is still pending.</p><p>Please complete your payment at your earliest convenience.</p><p>Best regards,<br/>Altar Stone Countertops</p>`,
+        subject: `Payment Reminder — Order ${payment.order_id?.slice(0, 8).toUpperCase()} — Altar Stone`,
+        html: `<p>Hi ${customerName},</p><p>This is a friendly reminder that your payment of <strong>$${Number(payment.amount).toFixed(2)}</strong> for Order #${payment.order_id?.slice(0, 8).toUpperCase()} is still pending.</p>${stripeLink}<p>Please complete your payment at your earliest convenience.</p><p>Best regards,<br/>Altar Stone Countertops</p>`,
       });
     },
     onSuccess: () => toast({ title: "Reminder sent" }),
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const cancelPaymentMutation = useMutation({
+    mutationFn: async (payment: any) => {
+      await supabase.from("stripe_payments").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", payment.id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stripe-payments-list"] });
+      qc.invalidateQueries({ queryKey: ["stripe-financials"] });
+      setInvoicePayment(null);
+      toast({ title: "Payment cancelled" });
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -182,23 +241,19 @@ const AdminFinancials = () => {
     const [year, month] = reportMonth.split("-").map(Number);
     const ms = new Date(year, month - 1, 1);
     const me = endOfMonth(ms);
-
     const rows: string[] = ["Type,Date,Category,Description,Amount,Status"];
-
     allPayments.filter((p: any) => {
       const d = parseISO(p.payment_date || p.created_at);
       return d >= ms && d <= me;
     }).forEach((p: any) => {
       rows.push(`Payment,${p.payment_date || p.created_at},${p.payment_method || "stripe"},${(p.notes || "").replace(/,/g, ";")},${p.amount},${p.status}`);
     });
-
     expenses.filter((e: any) => {
       const d = parseISO(e.date);
       return d >= ms && d <= me;
     }).forEach((e: any) => {
       rows.push(`Expense,${e.date},${e.category},${(e.description || "").replace(/,/g, ";")},${e.amount},—`);
     });
-
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -213,7 +268,6 @@ const AdminFinancials = () => {
     const ms = new Date(year, month - 1, 1);
     const me = endOfMonth(ms);
     const label = format(ms, "MMMM yyyy");
-
     const monthPayments = allPayments.filter((p: any) => {
       const d = parseISO(p.payment_date || p.created_at);
       return d >= ms && d <= me;
@@ -225,7 +279,6 @@ const AdminFinancials = () => {
     const rev = monthPayments.filter((p: any) => p.status === "completed" || p.status === "paid").reduce((s: number, p: any) => s + Number(p.amount), 0);
     const exp = monthExpenses.reduce((s: number, e: any) => s + Number(e.amount), 0);
     const net = rev - exp;
-
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>Financial Report — ${label}</title>
@@ -253,8 +306,35 @@ const AdminFinancials = () => {
     w.print();
   };
 
+  const exportInvoicePDF = (p: any) => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>Invoice INV-${p.order_id?.slice(0, 8).toUpperCase()}</title>
+    <style>body{font-family:Arial,sans-serif;padding:40px;color:#333;}h1{color:#1a1a2e;border-bottom:2px solid #C4932A;padding-bottom:10px;}
+    table{width:100%;border-collapse:collapse;margin:20px 0;}th,td{padding:10px 14px;border:1px solid #ddd;text-align:left;font-size:13px;}
+    th{background:#f5f5f5;font-weight:600;}.total{font-size:20px;font-weight:bold;color:#C4932A;}</style></head><body>
+    <h1>INVOICE</h1>
+    <p><strong>Invoice #:</strong> INV-${p.order_id?.slice(0, 8).toUpperCase()}</p>
+    <p><strong>Date:</strong> ${format(new Date(p.created_at), "MMM d, yyyy")}</p>
+    <p><strong>Order ID:</strong> ${p.order_id?.slice(0, 8).toUpperCase()}</p>
+    <p><strong>Payment Type:</strong> ${(p.payment_type || "custom").replace(/_/g, " ")}</p>
+    <p><strong>Status:</strong> ${p.status}</p>
+    <table><tr><th>Description</th><th>Amount</th></tr>
+    <tr><td>${(p.payment_type || "Payment").replace(/_/g, " ")} — Order #${p.order_id?.slice(0, 8).toUpperCase()}</td><td class="total">$${Number(p.amount).toFixed(2)}</td></tr>
+    </table>
+    <p style="margin-top:30px;text-align:center;color:#777;font-size:12px;">Altar Stone Countertops · info@altarstonecountertops.com</p>
+    </body></html>`);
+    w.document.close();
+    w.print();
+  };
+
+  const copyLink = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast({ title: "Link copied to clipboard" });
+  };
+
   const badgeConfig: Record<string, { label: string; className: string }> = {
-    auto_confirmed: { label: "Auto-Confirmed", className: "bg-green-100 text-green-800" },
+    auto_confirmed: { label: "✓ Auto-Confirmed", className: "bg-green-100 text-green-800" },
     manually_confirmed: { label: "Manually Confirmed", className: "bg-green-100 text-green-800" },
     paid: { label: "Paid", className: "bg-green-100 text-green-800" },
     awaiting: { label: "Awaiting Payment", className: "bg-yellow-100 text-yellow-800" },
@@ -265,6 +345,8 @@ const AdminFinancials = () => {
     refunded: { label: "Refunded", className: "bg-purple-100 text-purple-800" },
     partially_refunded: { label: "Partially Refunded", className: "bg-orange-100 text-orange-800" },
   };
+
+  const isPaidStatus = (s: string) => ["paid", "auto_confirmed", "manually_confirmed"].includes(s);
 
   return (
     <div className="space-y-6">
@@ -280,36 +362,11 @@ const AdminFinancials = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><TrendingUp className="h-3.5 w-3.5" /> Collected This Month</div>
-            <p className="text-2xl font-bold text-green-600">{isLoading ? "..." : `$${collectedThisMonth.toFixed(2)}`}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Clock className="h-3.5 w-3.5" /> Total Pending</div>
-            <p className="text-2xl font-bold text-yellow-600">{isLoading ? "..." : `$${(financials?.totalPending || 0).toFixed(2)}`}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><RotateCcw className="h-3.5 w-3.5" /> Total Refunded</div>
-            <p className="text-2xl font-bold text-purple-600">{isLoading ? "..." : `$${(financials?.totalRefunded || 0).toFixed(2)}`}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Minus className="h-3.5 w-3.5" /> Expenses This Month</div>
-            <p className="text-2xl font-bold text-red-600">${totalExpensesThisMonth.toFixed(2)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><DollarSign className="h-3.5 w-3.5" /> Net Profit</div>
-            <p className={`text-2xl font-bold ${netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>${netProfit.toFixed(2)}</p>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><TrendingUp className="h-3.5 w-3.5" /> Collected This Month</div><p className="text-2xl font-bold text-green-600">{isLoading ? "..." : `$${collectedThisMonth.toFixed(2)}`}</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Clock className="h-3.5 w-3.5" /> Total Pending</div><p className="text-2xl font-bold text-yellow-600">{isLoading ? "..." : `$${(financials?.totalPending || 0).toFixed(2)}`}</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><RotateCcw className="h-3.5 w-3.5" /> Total Refunded</div><p className="text-2xl font-bold text-purple-600">{isLoading ? "..." : `$${(financials?.totalRefunded || 0).toFixed(2)}`}</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Minus className="h-3.5 w-3.5" /> Expenses This Month</div><p className="text-2xl font-bold text-red-600">${totalExpensesThisMonth.toFixed(2)}</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><DollarSign className="h-3.5 w-3.5" /> Net Profit</div><p className={`text-2xl font-bold ${netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>${netProfit.toFixed(2)}</p></CardContent></Card>
       </div>
 
       {/* Revenue vs Expenses Chart */}
@@ -358,6 +415,7 @@ const AdminFinancials = () => {
                 <TableBody>
                   {recentPayments.map((p: any) => {
                     const badge = badgeConfig[p.badgeType] || badgeConfig[p.status] || { label: p.status, className: "" };
+                    const canMarkPaid = !isPaidStatus(p.badgeType) && p.status !== "cancelled";
                     return (
                       <TableRow key={p.id}>
                         <TableCell className="text-sm">{format(new Date(p.created_at), "MMM d, yyyy")}</TableCell>
@@ -368,11 +426,21 @@ const AdminFinancials = () => {
                           <Badge variant="outline" className={badge.className}>{badge.label}</Badge>
                         </TableCell>
                         <TableCell>
-                          {p.isOverdue && (
-                            <Button size="sm" variant="destructive" onClick={() => sendReminderMutation.mutate(p)} disabled={sendReminderMutation.isPending}>
-                              <Send className="h-3 w-3 mr-1" /> Remind
+                          <div className="flex items-center gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="View Invoice" onClick={() => setInvoicePayment(p)}>
+                              <Eye className="h-3.5 w-3.5" />
                             </Button>
-                          )}
+                            {canMarkPaid && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50" title="Mark as Paid" onClick={() => setMarkPaidPayment(p)}>
+                                <CheckCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {canMarkPaid && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" title="Send Reminder" onClick={() => sendReminderMutation.mutate(p)} disabled={sendReminderMutation.isPending}>
+                                <Send className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -383,6 +451,105 @@ const AdminFinancials = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Mark as Paid Confirmation Dialog */}
+      <AlertDialog open={!!markPaidPayment} onOpenChange={(open) => !open && setMarkPaidPayment(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mark <strong>${Number(markPaidPayment?.amount || 0).toFixed(2)}</strong> as paid for Order <strong>#{markPaidPayment?.order_id?.slice(0, 8).toUpperCase()}</strong>?
+              This will update the order status and send a confirmation email to the customer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => markPaidMutation.mutate(markPaidPayment)} disabled={markPaidMutation.isPending}>
+              {markPaidMutation.isPending ? "Processing..." : "Mark as Paid"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Invoice Detail Modal */}
+      <Dialog open={!!invoicePayment} onOpenChange={(open) => !open && setInvoicePayment(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Invoice INV-{invoicePayment?.order_id?.slice(0, 8).toUpperCase()}</DialogTitle>
+            <DialogDescription>Payment details and actions</DialogDescription>
+          </DialogHeader>
+          {invoicePayment && (() => {
+            const badge = badgeConfig[invoicePayment.badgeType] || badgeConfig[invoicePayment.status] || { label: invoicePayment.status, className: "" };
+            const canMarkPaid = !isPaidStatus(invoicePayment.badgeType) && invoicePayment.status !== "cancelled";
+            return (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Badge variant="outline" className={badge.className}>{badge.label}</Badge>
+                  <span className="text-2xl font-bold text-accent">${Number(invoicePayment.amount).toFixed(2)}</span>
+                </div>
+                <Separator />
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-muted-foreground">Invoice #</span><p className="font-medium">INV-{invoicePayment.order_id?.slice(0, 8).toUpperCase()}</p></div>
+                  <div><span className="text-muted-foreground">Date</span><p className="font-medium">{format(new Date(invoicePayment.created_at), "MMM d, yyyy")}</p></div>
+                  <div><span className="text-muted-foreground">Order ID</span><p className="font-mono text-xs font-medium">{invoicePayment.order_id?.slice(0, 8).toUpperCase()}</p></div>
+                  <div><span className="text-muted-foreground">Payment Type</span><p className="font-medium capitalize">{invoicePayment.payment_type?.replace(/_/g, " ") || "Custom"}</p></div>
+                </div>
+                {invoicePayment.stripe_url && (
+                  <>
+                    <Separator />
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Stripe Payment Link</span>
+                      <p className="font-medium text-xs break-all">
+                        <a href={invoicePayment.stripe_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{invoicePayment.stripe_url}</a>
+                      </p>
+                    </div>
+                  </>
+                )}
+                <Separator />
+                <div className="flex flex-wrap gap-2">
+                  {canMarkPaid && (
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => { setMarkPaidPayment(invoicePayment); }} disabled={markPaidMutation.isPending}>
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" /> Mark as Paid
+                    </Button>
+                  )}
+                  {canMarkPaid && (
+                    <Button size="sm" variant="outline" onClick={() => sendReminderMutation.mutate(invoicePayment)} disabled={sendReminderMutation.isPending}>
+                      <Send className="h-3.5 w-3.5 mr-1" /> Resend Invoice
+                    </Button>
+                  )}
+                  {invoicePayment.stripe_url && (
+                    <Button size="sm" variant="outline" onClick={() => copyLink(invoicePayment.stripe_url)}>
+                      <Copy className="h-3.5 w-3.5 mr-1" /> Copy Link
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => exportInvoicePDF(invoicePayment)}>
+                    <Download className="h-3.5 w-3.5 mr-1" /> Download PDF
+                  </Button>
+                  {canMarkPaid && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                          <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancel this invoice?</AlertDialogTitle>
+                          <AlertDialogDescription>This will mark the payment as cancelled. This action cannot be undone.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Keep</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => cancelPaymentMutation.mutate(invoicePayment)}>Cancel Invoice</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Expenses Section */}
       <Card>
@@ -450,9 +617,7 @@ const AdminFinancials = () => {
                   {expenses.map((e: any) => (
                     <TableRow key={e.id}>
                       <TableCell className="text-sm">{format(parseISO(e.date), "MMM d, yyyy")}</TableCell>
-                      <TableCell className="text-sm">
-                        <Badge variant="outline">{e.category}</Badge>
-                      </TableCell>
+                      <TableCell className="text-sm"><Badge variant="outline">{e.category}</Badge></TableCell>
                       <TableCell className="text-sm">{e.description || "—"}</TableCell>
                       <TableCell className="text-sm font-medium text-red-600">${Number(e.amount).toFixed(2)}</TableCell>
                       <TableCell>
