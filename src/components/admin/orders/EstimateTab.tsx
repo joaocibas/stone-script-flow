@@ -81,6 +81,8 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   const [newCustomName, setNewCustomName] = useState("");
   const [newCustomPrice, setNewCustomPrice] = useState("");
   const pricingStateStorageKey = `estimate-pricing:${orderId}`;
+  const [cutoutQuantities, setCutoutQuantities] = useState<Record<string, number>>({});
+  const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 
   const [form, setForm] = useState<EstimateForm>({
     estimate_number: "",
@@ -202,7 +204,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     queryFn: async () => {
       const slabId = order.slab_id;
       const [slabRes, servicesRes, slabServicesRes] = await Promise.all([
-        supabase.from("slabs").select("sales_value, length_inches, width_inches, usable_sqft_override, material_id, materials(name, category)").eq("id", slabId).single(),
+        supabase.from("slabs").select("name, sales_value, length_inches, width_inches, usable_sqft_override, material_id, materials(name, category)").eq("id", slabId).single(),
         supabase.from("service_items").select("id, category, pricing_unit, cost_value, name").eq("is_active", true),
         supabase.from("slab_services").select("service_id, override_cost, override_multiplier, is_active").eq("slab_id", slabId).eq("is_active", true),
       ]);
@@ -225,6 +227,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     let hasStoredState = false;
     let persistedServiceIds = new Set<string>();
     let persistedCustomServices: CustomService[] = [];
+    let persistedCutoutQuantities: Record<string, number> = {};
 
     try {
       const raw = localStorage.getItem(pricingStateStorageKey);
@@ -241,6 +244,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
               .filter((item: any) => item && typeof item.name === "string")
               .map((item: any) => ({ name: item.name, price: Number(item.price) || 0 }))
           : [];
+        if (parsed?.cutoutQuantities && typeof parsed.cutoutQuantities === "object") {
+          persistedCutoutQuantities = parsed.cutoutQuantities;
+        }
       }
     } catch {
       hasStoredState = false;
@@ -249,6 +255,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     const defaultServiceIds = new Set((slabServiceData?.slabServices || []).map((ss: any) => ss.service_id));
     setSelectedServiceIds(hasStoredState ? persistedServiceIds : defaultServiceIds);
     setCustomServices(hasStoredState ? persistedCustomServices : []);
+    setCutoutQuantities(hasStoredState ? persistedCutoutQuantities : {});
     setServiceIdsInitialized(true);
   }, [allServices, pricingStateStorageKey, serviceIdsInitialized, slabServiceData]);
 
@@ -260,9 +267,10 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       JSON.stringify({
         selectedServiceIds: [...selectedServiceIds],
         customServices,
+        cutoutQuantities,
       }),
     );
-  }, [customServices, pricingStateStorageKey, selectedServiceIds, serviceIdsInitialized]);
+  }, [customServices, cutoutQuantities, pricingStateStorageKey, selectedServiceIds, serviceIdsInitialized]);
 
   // Removed: premature serviceIdsInitialized=true was preventing actual initialization
 
@@ -271,29 +279,48 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   }, [allServices, slabServiceData]);
 
   // ── Compute costs from selected services ──
-  const computeServiceCosts = (sqftValue: number, serviceIds: Set<string>) => {
+  const computeServiceCosts = (sqftValue: number, serviceIds: Set<string>, cutoutQtys: Record<string, number> = {}) => {
     const slab = slabServiceData?.slab;
+    const serviceList = allServices || slabServiceData?.services || [];
+
+    // Separate cutout services — they use quantity steppers
+    const nonCutoutIds = new Set<string>();
+    serviceIds.forEach(id => {
+      const svc = serviceList.find((s: any) => s.id === id);
+      if (svc && svc.category !== "cutout") nonCutoutIds.add(id);
+    });
+
     const calculated = computeSelectedServicePricing({
-      selectedServiceIds: serviceIds,
-      services: allServices || slabServiceData?.services || [],
+      selectedServiceIds: nonCutoutIds,
+      services: serviceList,
       slabServices: slabServiceData?.slabServices || [],
       sqft: sqftValue || Number(quoteData?.calculated_sqft) || 0,
-      numCutouts: Number(quoteData?.num_cutouts) || 0,
+      numCutouts: 0,
       lengthInches: Number(quoteData?.length_inches) || 0,
       widthInches: Number(quoteData?.width_inches) || 0,
       slabUnitPrice: slab?.sales_value != null ? Number(slab.sales_value) : null,
       slabQuantity: Number(quoteData?.slabs_needed) || 1,
     });
 
-    if (!calculated) return null;
+    // Calculate cutout costs from per-service quantities
+    let cutoutCost = 0;
+    for (const svc of serviceList) {
+      if (svc.category !== "cutout") continue;
+      const qty = cutoutQtys[svc.id] || 0;
+      if (qty > 0) cutoutCost += (Number(svc.cost_value) || 0) * qty;
+    }
 
+    if (!calculated && cutoutCost === 0) return null;
+
+    const baseAddon = calculated?.addon || 0;
     return {
-      labor: calculated.labor,
-      addon: calculated.addon,
-      materialCost: calculated.materialCost ?? null,
+      labor: calculated?.labor || 0,
+      addon: roundMoney(baseAddon + cutoutCost),
+      materialCost: calculated?.materialCost ?? null,
+      slabName: (slab as any)?.name || "",
       slabMaterial: (slab?.materials as any)?.name || "",
       slabCategory: (slab?.materials as any)?.category || "",
-      rates: calculated.rates as RateData,
+      rates: (calculated?.rates || { laborRatePerSqft: 0, laborFixed: 0, addonTotal: roundMoney(baseAddon + cutoutCost), slabUnitPrice: 0, slabQuantity: 1 }) as RateData,
     };
   };
 
@@ -302,17 +329,20 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     serviceIds,
     customSvcs,
     updates,
+    cutoutQtys,
   }: {
     serviceIds?: Set<string>;
     customSvcs?: CustomService[];
     updates?: Partial<EstimateForm>;
+    cutoutQtys?: Record<string, number>;
   } = {}) => {
     const ids = serviceIds ?? selectedServiceIds;
     const svcs = customSvcs ?? customServices;
+    const qtys = cutoutQtys ?? cutoutQuantities;
     setForm((prev) => {
       const merged = { ...prev, ...(updates || {}) };
       const sqft = merged.measurements_sqft || 0;
-      const svcCosts = computeServiceCosts(sqft, ids);
+      const svcCosts = computeServiceCosts(sqft, ids, qtys);
       const pricingOverride = svcCosts
         ? {
             labor_cost: svcCosts.labor,
@@ -327,7 +357,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     });
 
     const currentSqft = form.measurements_sqft || (updates?.measurements_sqft) || 0;
-    const svcCosts = computeServiceCosts(currentSqft, ids);
+    const svcCosts = computeServiceCosts(currentSqft, ids, qtys);
     if (svcCosts?.rates) setRateData(svcCosts.rates);
   };
 
@@ -337,6 +367,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     else next.add(serviceId);
     setSelectedServiceIds(next);
     fullRecalc({ serviceIds: next });
+  };
+
+  const updateCutoutQty = (serviceId: string, qty: number) => {
+    const next = { ...cutoutQuantities, [serviceId]: qty };
+    setCutoutQuantities(next);
+    fullRecalc({ cutoutQtys: next });
   };
 
   // ── Custom Services handlers ──
@@ -371,7 +407,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       let labor = Number(estimate.labor_cost) || 0;
       let material = Number(estimate.material_cost) || 0;
       let addons = Number(estimate.addons_cost) || 0;
-      const svcCosts = computeServiceCosts(savedSqft, selectedServiceIds);
+      const svcCosts = computeServiceCosts(savedSqft, selectedServiceIds, cutoutQuantities);
       if (svcCosts) {
         labor = svcCosts.labor;
         material = svcCosts.materialCost ?? material;
@@ -390,7 +426,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         project_address: estimate.project_address || "",
         material: estimate.material || "",
         color: estimate.color || "",
-        finish: estimate.finish || "",
+        finish: estimate.finish || "Polished",
         edge_profile: resolveEdgeProfile(estimate.edge_profile, quoteData?.edge_profile),
         additional_notes: "",
         scope_of_work: estimate.scope_of_work || "",
@@ -416,7 +452,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const ce = customerEstimate;
       const materialObj = quoteData?.materials as any;
       const currentSqft = Number(quoteData?.calculated_sqft) || Number(ce.measurements_sqft) || 0;
-      const svcCosts = computeServiceCosts(currentSqft, selectedServiceIds);
+      const svcCosts = computeServiceCosts(currentSqft, selectedServiceIds, cutoutQuantities);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       setForm((prev) => syncDepositToPercentage(recalculateEstimate({
@@ -427,9 +463,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         email: ce.email || customer?.email || "",
         billing_address: ce.billing_address || customer?.address || "",
         project_address: ce.project_address || customer?.address || "",
-        material: svcCosts?.slabMaterial || materialObj?.name || ce.material || "",
-        color: svcCosts?.slabCategory || materialObj?.category || ce.color || "",
-        finish: ce.finish || "",
+        material: capitalize(svcCosts?.slabCategory || materialObj?.category || ce.material || ""),
+        color: svcCosts?.slabName || svcCosts?.slabMaterial || materialObj?.name || ce.color || "",
+        finish: ce.finish || "Polished",
         edge_profile: resolveEdgeProfile(quoteData?.edge_profile, ce.edge_profile),
         additional_notes: "",
         scope_of_work: ce.scope_of_work || "",
@@ -453,7 +489,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
       const materialObj = quoteData?.materials as any;
       const edge_profile = resolveEdgeProfile(quoteData?.edge_profile);
       const measurements_sqft = Number(quoteData?.calculated_sqft) || 0;
-      const svcCosts = computeServiceCosts(measurements_sqft, selectedServiceIds);
+      const svcCosts = computeServiceCosts(measurements_sqft, selectedServiceIds, cutoutQuantities);
       if (svcCosts?.rates) setRateData(svcCosts.rates);
 
       setForm((prev) => syncDepositToPercentage(recalculateEstimate({
@@ -464,8 +500,9 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         email,
         billing_address: address,
         project_address: address,
-        material: svcCosts?.slabMaterial || materialObj?.name || "",
-        color: svcCosts?.slabCategory || materialObj?.category || "",
+        material: capitalize(svcCosts?.slabCategory || materialObj?.category || ""),
+        color: svcCosts?.slabName || svcCosts?.slabMaterial || materialObj?.name || "",
+        finish: "Polished",
         edge_profile,
         additional_notes: "",
         measurements_sqft,
@@ -588,6 +625,12 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
   const remainingBalance = getEstimateRemainingBalance(form.total, form.deposit_required, totalPaid);
   const dateDisplay = form.date ? format(new Date(form.date + "T12:00:00"), "MMMM d, yyyy") : "";
   const customServicesTotal = customServices.reduce((sum, cs) => sum + (Number(cs.price) || 0), 0);
+  const slabDims = slabServiceData?.slab;
+  const slabSqft = slabDims ? (Number(slabDims.length_inches) * Number(slabDims.width_inches)) / 144 : 0;
+  const effectiveSqft = form.measurements_sqft * 1.15;
+  const slabsNeeded = slabSqft > 0 ? Math.max(1, Math.ceil(effectiveSqft / slabSqft)) : 1;
+  const activeCutouts = (availableServices || []).filter((s: any) => s.category === "cutout" && (cutoutQuantities[s.id] || 0) > 0);
+  const cutoutTotalDisplay = roundMoney(activeCutouts.reduce((sum: number, s: any) => sum + (Number(s.cost_value) || 0) * (cutoutQuantities[s.id] || 0), 0));
 
   const categoryLabels: Record<string, string> = {
     labor: "Labor",
@@ -710,6 +753,10 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
               <Field label="Finish" value={form.finish} onChange={(v) => updateField("finish", v)} disabled={!editing} />
               <Field label="Edge Profile" value={form.edge_profile} onChange={(v) => updateField("edge_profile", v)} disabled={!editing} />
               <Field label="Measurements (Sq Ft)" type="number" value={String(roundMoney(form.measurements_sqft))} onChange={(v) => updateField("measurements_sqft", v)} disabled={!editing} />
+              <div>
+                <Label className="text-sm">Slabs Needed</Label>
+                <Input type="number" value={String(slabsNeeded)} disabled className="mt-1 bg-muted" />
+              </div>
               <div className="sm:col-span-2 md:col-span-3">
                 <Label className="text-sm">Additional Notes</Label>
                 <Textarea
@@ -725,22 +772,24 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
           ) : (
             <>
               <Table>
-                <TableHeader>
+               <TableHeader>
                    <TableRow>
                      <TableHead>Material</TableHead>
                      <TableHead>Material Name</TableHead>
                      <TableHead>Finish</TableHead>
                      <TableHead>Edge Profile</TableHead>
                      <TableHead className="text-right">Sq Ft</TableHead>
+                     <TableHead className="text-right">Slabs Needed</TableHead>
                    </TableRow>
                  </TableHeader>
                  <TableBody>
                    <TableRow>
                      <TableCell className="font-medium">{form.material || "—"}</TableCell>
                      <TableCell>{form.color || "—"}</TableCell>
-                     <TableCell>{form.finish || "—"}</TableCell>
+                     <TableCell>{form.finish || "Polished"}</TableCell>
                      <TableCell>{form.edge_profile || "—"}</TableCell>
                      <TableCell className="text-right">{form.measurements_sqft ? roundMoney(form.measurements_sqft) : "—"}</TableCell>
+                     <TableCell className="text-right">{slabsNeeded}</TableCell>
                    </TableRow>
                 </TableBody>
               </Table>
@@ -786,18 +835,45 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                             {categoryLabels[cat] || cat}
                           </p>
-                          {svcs.map((svc: any) => (
-                            <label key={svc.id} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
-                              <Checkbox
-                                checked={selectedServiceIds.has(svc.id)}
-                                onCheckedChange={() => toggleService(svc.id)}
-                              />
-                              <span>{svc.name}</span>
-                              <span className="text-muted-foreground text-xs ml-auto">
-                                ${Number(svc.cost_value).toFixed(2)} / {svc.pricing_unit?.replace(/_/g, " ")}
-                              </span>
-                            </label>
-                          ))}
+                          {svcs.map((svc: any) =>
+                            cat === "cutout" ? (
+                              <div key={svc.id} className="flex items-center gap-2 text-sm py-0.5">
+                                <span className="flex-1">{svc.name}</span>
+                                <span className="text-muted-foreground text-xs">
+                                  ${Number(svc.cost_value).toFixed(2)}/each
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <Button variant="outline" size="icon" className="h-6 w-6"
+                                    onClick={() => updateCutoutQty(svc.id, Math.max(0, (cutoutQuantities[svc.id] || 0) - 1))}
+                                    disabled={(cutoutQuantities[svc.id] || 0) <= 0}>
+                                    <span className="text-xs">−</span>
+                                  </Button>
+                                  <span className="w-6 text-center text-sm font-medium">{cutoutQuantities[svc.id] || 0}</span>
+                                  <Button variant="outline" size="icon" className="h-6 w-6"
+                                    onClick={() => updateCutoutQty(svc.id, Math.min(10, (cutoutQuantities[svc.id] || 0) + 1))}
+                                    disabled={(cutoutQuantities[svc.id] || 0) >= 10}>
+                                    <span className="text-xs">+</span>
+                                  </Button>
+                                </div>
+                                {(cutoutQuantities[svc.id] || 0) > 0 && (
+                                  <span className="text-xs font-medium text-foreground">
+                                    = ${roundMoney(Number(svc.cost_value) * (cutoutQuantities[svc.id] || 0)).toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <label key={svc.id} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+                                <Checkbox
+                                  checked={selectedServiceIds.has(svc.id)}
+                                  onCheckedChange={() => toggleService(svc.id)}
+                                />
+                                <span>{svc.name}</span>
+                                <span className="text-muted-foreground text-xs ml-auto">
+                                  ${Number(svc.cost_value).toFixed(2)} / {svc.pricing_unit?.replace(/_/g, " ")}
+                                </span>
+                              </label>
+                            )
+                          )}
                         </div>
                       ))}
                     </div>
@@ -863,13 +939,24 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
                     {[
                       { label: "Labor", value: form.labor_cost },
                       { label: "Material", value: form.material_cost },
-                      { label: "Add-ons", value: form.addons_cost },
                     ].filter(r => r.value > 0).map((r) => (
                       <TableRow key={r.label}>
                         <TableCell>{r.label}</TableCell>
                         <TableCell className="text-right">${r.value.toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
+                    {activeCutouts.map((svc: any) => (
+                      <TableRow key={svc.id}>
+                        <TableCell>{svc.name} × {cutoutQuantities[svc.id]}</TableCell>
+                        <TableCell className="text-right">${roundMoney(Number(svc.cost_value) * cutoutQuantities[svc.id]).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(form.addons_cost - cutoutTotalDisplay) > 0 && (
+                      <TableRow>
+                        <TableCell>Other Add-ons</TableCell>
+                        <TableCell className="text-right">${roundMoney(form.addons_cost - cutoutTotalDisplay).toFixed(2)}</TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               )}
