@@ -91,8 +91,50 @@ interface LinkedEstimate {
 }
 
 const Quote = () => {
+  const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
+
+  // Auth form state
+  const [authError, setAuthError] = useState("");
+  const [authLoading2, setAuthLoading2] = useState(false);
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [signupForm, setSignupForm] = useState({ email: "", password: "", name: "" });
+
+  const handleAuthLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading2(true);
+    setAuthError("");
+    const { error } = await supabase.auth.signInWithPassword(loginForm);
+    setAuthLoading2(false);
+    if (error) {
+      if (error.message?.toLowerCase().includes("email not confirmed")) {
+        setAuthError("Please verify your email first. Check your inbox for the verification link.");
+      } else {
+        setAuthError(error.message);
+      }
+    }
+  };
+
+  const handleAuthSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading2(true);
+    setAuthError("");
+    const { data, error } = await supabase.auth.signUp({
+      email: signupForm.email,
+      password: signupForm.password,
+      options: { data: { full_name: signupForm.name } },
+    });
+    setAuthLoading2(false);
+    if (error) {
+      setAuthError(error.message);
+    } else if (data.user) {
+      try {
+        const emailPayload = welcomeEmail({ customerName: signupForm.name || "Customer" });
+        sendEmail({ ...emailPayload, to: signupForm.email });
+      } catch {}
+    }
+  };
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
   const [slabsForMaterial, setSlabsForMaterial] = useState<any[]>([]);
   const [slabsLoading, setSlabsLoading] = useState(false);
