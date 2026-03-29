@@ -285,6 +285,7 @@ const Quote = () => {
           });
         }
         if (d.scheduleAddress) setScheduleAddress(d.scheduleAddress);
+        if (d.cutoutSelections?.length) setCutoutSelections(d.cutoutSelections);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
