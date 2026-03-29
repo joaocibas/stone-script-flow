@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useServices } from "@/hooks/useServices";
 import type { Tables } from "@/integrations/supabase/types";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,7 +25,7 @@ import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors,
-  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package, LogIn,
+  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package, LogIn, Minus,
 } from "lucide-react";
 
 const DRAFT_KEY = "estimator_draft_v1";
@@ -62,6 +63,13 @@ interface CountertopSection {
   quantity: string;
 }
 
+interface CutoutSelection {
+  service_id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 interface QuoteResult {
   quote_id: string;
   calculated_sqft: string;
@@ -94,7 +102,11 @@ interface LinkedEstimate {
 const Quote = () => {
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+  const { data: allServices } = useServices();
   const [step, setStep] = useState(0);
+
+  // Cutout selections state
+  const [cutoutSelections, setCutoutSelections] = useState<CutoutSelection[]>([]);
 
   // Inline auth step state (step 6)
   const [inlineAuthPassword, setInlineAuthPassword] = useState("");
@@ -241,12 +253,12 @@ const Quote = () => {
     try {
       const draft = {
         step: step === 6 ? 5 : step, leadForm, leadId, form, sections, additionalInfo,
-        result, layoutUrl, scheduleAddress,
+        result, layoutUrl, scheduleAddress, cutoutSelections,
         scheduleForm: { ...scheduleForm, preferred_date: scheduleForm.preferred_date?.toISOString() || null },
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch {}
-  }, [step, leadForm, leadId, form, sections, additionalInfo, result, layoutUrl, scheduleForm, scheduleAddress]);
+  }, [step, leadForm, leadId, form, sections, additionalInfo, result, layoutUrl, scheduleForm, scheduleAddress, cutoutSelections]);
 
   // Save draft after each step change
   useEffect(() => { saveDraft(); }, [step, saveDraft]);
@@ -273,6 +285,7 @@ const Quote = () => {
           });
         }
         if (d.scheduleAddress) setScheduleAddress(d.scheduleAddress);
+        if (d.cutoutSelections?.length) setCutoutSelections(d.cutoutSelections);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -315,6 +328,25 @@ const Quote = () => {
     supabase.from("materials").select("*").eq("is_active", true).order("name")
       .then(({ data }) => setMaterials(data || []));
   }, []);
+
+  // Initialize cutout selections from services
+  const cutoutServices = useMemo(() => 
+    (allServices || []).filter((s) => s.category === "cutout"), 
+    [allServices]
+  );
+
+  useEffect(() => {
+    if (cutoutServices.length > 0 && cutoutSelections.length === 0) {
+      setCutoutSelections(
+        cutoutServices.map((s) => ({
+          service_id: s.id,
+          name: s.name,
+          price: Number(s.cost_value) || 0,
+          quantity: 0,
+        }))
+      );
+    }
+  }, [cutoutServices, cutoutSelections.length]);
 
   // Detect logged-in customer and pre-fill form
   useEffect(() => {
@@ -532,6 +564,10 @@ const Quote = () => {
 
       const effectiveCustomerId = overrideCustomerId || loggedInCustomer?.id;
 
+      // Build cutout details for the edge function
+      const activeCutouts = cutoutSelections.filter((c) => c.quantity > 0);
+      const totalCutouts = activeCutouts.reduce((sum, c) => sum + c.quantity, 0);
+
       const { data, error: fnError } = await supabase.functions.invoke("calculate-quote", {
         body: {
           material_id: form.material_id,
@@ -539,7 +575,8 @@ const Quote = () => {
           length_inches: totalLength || 1,
           width_inches: Math.round(avgDepth) || 1,
           edge_profile: form.edge_profile || undefined,
-          num_cutouts: Number(form.num_cutouts),
+          num_cutouts: totalCutouts,
+          cutout_details: activeCutouts.map((c) => ({ service_id: c.service_id, quantity: c.quantity })),
           layout_url: uploadedUrl,
           reference_measurement_inches: Number(form.reference_measurement_inches) || undefined,
           calculated_sqft: totalSqft > 0 ? totalSqft : undefined,
@@ -1055,7 +1092,7 @@ const Quote = () => {
 
           {/* Step 5: Options */}
           {step === 5 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <Label className="text-base font-display">Customize Your Project</Label>
               <div>
                 <Label htmlFor="edge" className="text-sm">Edge Profile</Label>
@@ -1066,9 +1103,70 @@ const Quote = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="cutouts" className="text-sm">Number of Cutouts (sink, cooktop, etc.)</Label>
-                <Input id="cutouts" type="number" min="0" value={form.num_cutouts} onChange={(e) => setForm({ ...form, num_cutouts: e.target.value })} />
+
+              <div className="space-y-3">
+                <Label className="text-sm">Cutouts (optional)</Label>
+                <p className="text-xs text-muted-foreground">Select how many of each cutout type you need. Leave at 0 if not needed.</p>
+                {cutoutSelections.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No cutout services configured.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {cutoutSelections.map((cutout) => (
+                      <div key={cutout.service_id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">{cutout.name}</p>
+                          <p className="text-xs text-muted-foreground">${cutout.price.toFixed(0)}/each</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={cutout.quantity <= 0}
+                            onClick={() => setCutoutSelections((prev) =>
+                              prev.map((c) => c.service_id === cutout.service_id
+                                ? { ...c, quantity: Math.max(0, c.quantity - 1) }
+                                : c
+                              )
+                            )}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-8 text-center text-sm font-medium tabular-nums">{cutout.quantity}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={cutout.quantity >= 10}
+                            onClick={() => setCutoutSelections((prev) =>
+                              prev.map((c) => c.service_id === cutout.service_id
+                                ? { ...c, quantity: Math.min(10, c.quantity + 1) }
+                                : c
+                              )
+                            )}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        {cutout.quantity > 0 && (
+                          <p className="text-sm font-medium text-accent w-16 text-right">
+                            ${(cutout.price * cutout.quantity).toFixed(0)}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    {cutoutSelections.some((c) => c.quantity > 0) && (
+                      <div className="flex justify-between items-center pt-2 border-t border-border">
+                        <span className="text-sm text-muted-foreground">Cutout Total</span>
+                        <span className="text-sm font-semibold text-accent">
+                          ${cutoutSelections.reduce((sum, c) => sum + c.price * c.quantity, 0).toFixed(0)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1309,6 +1407,22 @@ const Quote = () => {
                     <p className="text-sm font-medium">{result.slabs_needed}</p>
                   </div>
                 </div>
+                {/* Cutout breakdown */}
+                {cutoutSelections.some((c) => c.quantity > 0) ? (
+                  <div className="border-t border-border pt-3 space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Cutouts Selected</p>
+                    {cutoutSelections.filter((c) => c.quantity > 0).map((c) => (
+                      <div key={c.service_id} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{c.name} × {c.quantity}</span>
+                        <span className="font-medium">${(c.price * c.quantity).toFixed(0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border-t border-border pt-3">
+                    <p className="text-xs text-muted-foreground">Cutouts: Not included</p>
+                  </div>
+                )}
               </div>
               <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
                 <p className="text-sm text-muted-foreground leading-relaxed">
