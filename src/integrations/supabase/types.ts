@@ -747,6 +747,98 @@ export type Database = {
           },
         ]
       }
+      project_images: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          created_at: string
+          display_order: number | null
+          id: string
+          image_title: string | null
+          image_url: string
+          is_before: boolean | null
+          project_id: string
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          image_title?: string | null
+          image_url: string
+          is_before?: boolean | null
+          project_id: string
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          image_title?: string | null
+          image_url?: string
+          is_before?: boolean | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_images_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          category: string
+          city: string
+          color_style: string | null
+          created_at: string
+          description: string | null
+          id: string
+          material: string
+          schema_data: Json | null
+          social_posted_fb: boolean | null
+          social_posted_ig: boolean | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          city?: string
+          color_style?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          material?: string
+          schema_data?: Json | null
+          social_posted_fb?: boolean | null
+          social_posted_ig?: boolean | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          city?: string
+          color_style?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          material?: string
+          schema_data?: Json | null
+          social_posted_fb?: boolean | null
+          social_posted_ig?: boolean | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           calculated_sqft: number | null
