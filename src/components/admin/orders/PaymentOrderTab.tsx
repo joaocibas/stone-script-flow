@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Pencil, CreditCard, FileDown } from "lucide-react";
+import { Save, Pencil, CreditCard, FileDown, Link2, Copy, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
 import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox } from "./DocumentLayout";
@@ -38,6 +38,7 @@ type PaymentOrderForm = {
 export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [generatingLink, setGeneratingLink] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PaymentOrderForm>({
     payment_order_number: "",
