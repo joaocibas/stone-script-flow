@@ -39,9 +39,14 @@ const wrapper = (content: string) => `
 </body>
 </html>`;
 
+const URLS = {
+  dashboard: "https://countertopsaltarstone.com/dashboard",
+  login: "https://countertopsaltarstone.com/login",
+};
+
 const btn = (text: string, url?: string) => `
   <div style="text-align:center;margin:28px 0;">
-    <a href="${url || '#'}" style="display:inline-block;background:${BRAND.accent};color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;letter-spacing:0.5px;">${text}</a>
+    <a href="${url || URLS.dashboard}" style="display:inline-block;background:${BRAND.accent};color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;letter-spacing:0.5px;">${text}</a>
   </div>`;
 
 const row = (label: string, value: string) =>
