@@ -8,6 +8,7 @@ import { Shield, MapPin, Star, ArrowRight, Ruler, Calendar, Eye, Image } from "l
 import { motion } from "framer-motion";
 import { useCompany } from "@/contexts/BusinessSettingsContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Link as RouterLink } from "react-router-dom";
 
 interface HomeMaterial {
   id: string;
@@ -35,6 +36,7 @@ const Index = () => {
   const navigate = useNavigate();
   const co = useCompany();
   const [homeMaterials, setHomeMaterials] = useState<HomeMaterial[]>(fallbackMaterials);
+  const [featuredProjects, setFeaturedProjects] = useState<any[]>([]);
 
   useEffect(() => {
     supabase
@@ -46,6 +48,26 @@ const Index = () => {
         const homeVisible = (data || []).filter((m: any) => m.show_on_home);
         if (homeVisible.length > 0) setHomeMaterials(homeVisible);
         else if (data && data.length > 0) setHomeMaterials(data.slice(0, 4));
+      });
+
+    // Fetch featured projects
+    supabase
+      .from("projects")
+      .select("*")
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(6)
+      .then(async ({ data: pData }) => {
+        if (pData && pData.length > 0) {
+          const { data: iData } = await supabase
+            .from("project_images")
+            .select("*")
+            .in("project_id", (pData as any[]).map((p: any) => p.id))
+            .order("display_order");
+          const imgMap: Record<string, any> = {};
+          (iData as any[] || []).forEach((img: any) => { if (!imgMap[img.project_id]) imgMap[img.project_id] = img; });
+          setFeaturedProjects((pData as any[]).map((p: any) => ({ ...p, thumb: imgMap[p.id] })));
+        }
       });
   }, []);
 
