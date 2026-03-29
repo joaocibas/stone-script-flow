@@ -354,17 +354,27 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
                   <Select value={form.payment_method} onValueChange={(v) => updateField("payment_method", v)} disabled={!editing}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Select method" /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="stripe_payment_link">Stripe Payment Link</SelectItem>
                       <SelectItem value="credit_card">Credit Card</SelectItem>
                       <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                       <SelectItem value="check">Check</SelectItem>
                       <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="payment_link">Payment Link</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label className="text-sm">Payment Link</Label>
-                  <Input value={form.payment_link} onChange={(e) => updateField("payment_link", e.target.value)} disabled={!editing} placeholder="https://..." className="mt-1" />
+                  <div className="flex gap-2 mt-1">
+                    <Input value={form.payment_link} onChange={(e) => updateField("payment_link", e.target.value)} disabled={!editing} placeholder="https://..." className="flex-1" />
+                    <Button type="button" size="sm" variant="outline" onClick={generateStripeLink} disabled={generatingLink || form.estimate_total <= 0}>
+                      {generatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Link2 className="mr-1 h-4 w-4" /> Generate</>}
+                    </Button>
+                    {form.payment_link && (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => copyLink(form.payment_link)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -417,6 +427,7 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
                   <Select value={manualPayment.method} onValueChange={(v) => setManualPayment((p) => ({ ...p, method: v }))}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="stripe">Stripe Payment Link</SelectItem>
                       <SelectItem value="credit_card">Credit Card</SelectItem>
                       <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                       <SelectItem value="check">Check</SelectItem>
