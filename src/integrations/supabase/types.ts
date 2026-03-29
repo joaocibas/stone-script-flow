@@ -304,6 +304,36 @@ export type Database = {
           },
         ]
       }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          receipt_url: string | null
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          receipt_url?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          receipt_url?: string | null
+        }
+        Relationships: []
+      }
       lead_ai_analyses: {
         Row: {
           analysis_type: string
@@ -652,10 +682,12 @@ export type Database = {
       payments: {
         Row: {
           amount: number
+          confirmed_by: string | null
           created_at: string
           id: string
           notes: string | null
           order_id: string
+          paid_at: string | null
           payment_date: string
           payment_method: string | null
           payment_order_id: string | null
@@ -664,10 +696,12 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          confirmed_by?: string | null
           created_at?: string
           id?: string
           notes?: string | null
           order_id: string
+          paid_at?: string | null
           payment_date?: string
           payment_method?: string | null
           payment_order_id?: string | null
@@ -676,10 +710,12 @@ export type Database = {
         }
         Update: {
           amount?: number
+          confirmed_by?: string | null
           created_at?: string
           id?: string
           notes?: string | null
           order_id?: string
+          paid_at?: string | null
           payment_date?: string
           payment_method?: string | null
           payment_order_id?: string | null
