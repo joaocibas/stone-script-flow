@@ -165,7 +165,7 @@ export function orderConfirmedEmail(data: {
       <p>Your order has been confirmed! We're excited to get started on your project.</p>
       ${infoBox(
         row("Order ID", data.orderId.slice(0, 8).toUpperCase()) +
-        \`<tr style="border-top:1px solid #ddd;"><td style="padding:12px 0 6px;font-weight:700;">Total</td><td style="padding:12px 0 6px;font-weight:700;font-size:18px;color:${BRAND.accent};">\${fmt(data.total)}</td></tr>\` +
+        '<tr style="border-top:1px solid #ddd;"><td style="padding:12px 0 6px;font-weight:700;">Total</td><td style="padding:12px 0 6px;font-weight:700;font-size:18px;color:' + BRAND.accent + ';">' + fmt(data.total) + '</td></tr>' +
         row("Deposit Paid", depositDisplay) +
         row("Remaining Balance", fmt(remaining))
       )}
