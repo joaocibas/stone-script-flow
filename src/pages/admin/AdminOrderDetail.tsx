@@ -6,6 +6,7 @@ import { EstimateTab } from "@/components/admin/orders/EstimateTab";
 import { PaymentOrderTab } from "@/components/admin/orders/PaymentOrderTab";
 import { PartialReceiptTab } from "@/components/admin/orders/PartialReceiptTab";
 import { ReceiptTab } from "@/components/admin/orders/ReceiptTab";
+import { StripePaymentSection } from "@/components/admin/orders/StripePaymentSection";
 import { useOrder } from "@/hooks/useOrder";
 
 const AdminOrderDetail = () => {
@@ -50,6 +51,9 @@ const AdminOrderDetail = () => {
           </p>
         </div>
       </div>
+
+      {/* Stripe Payment Section */}
+      <StripePaymentSection orderId={order.id} order={order} customer={customer} />
 
       <Tabs defaultValue="estimate" className="w-full">
         <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4">

@@ -38,6 +38,8 @@ import AdminLeads from "./pages/admin/AdminLeads";
 import AdminSeo from "./pages/admin/AdminSeo";
 import Schedule from "./pages/Schedule";
 import AuthCallback from "./pages/AuthCallback";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import AdminFinancials from "./pages/admin/AdminFinancials";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +68,7 @@ const App = () => (
           <Route path="/track/:id" element={<AppLayout><TrackOrder /></AppLayout>} />
           <Route path="/faq" element={<AppLayout><FAQ /></AppLayout>} />
           <Route path="/legal/:type" element={<AppLayout><Legal /></AppLayout>} />
+          <Route path="/payment/success" element={<AppLayout><PaymentSuccess /></AppLayout>} />
 
           {/* Admin routes */}
           <Route path="/admin" element={<AdminLayout><AdminOverview /></AdminLayout>} />
@@ -82,6 +85,7 @@ const App = () => (
           <Route path="/admin/ai" element={<AdminLayout><AdminAiInsights /></AdminLayout>} />
           <Route path="/admin/seo" element={<AdminLayout><AdminSeo /></AdminLayout>} />
           <Route path="/admin/legal" element={<AdminLayout><AdminLegal /></AdminLayout>} />
+          <Route path="/admin/financials" element={<AdminLayout><AdminFinancials /></AdminLayout>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
