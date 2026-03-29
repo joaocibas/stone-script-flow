@@ -219,7 +219,11 @@ const Index = () => {
       <Section className="bg-primary text-primary-foreground">
         <SectionHeader title="What Our Clients Say" className="[&_h2]:text-primary-foreground [&_p]:text-primary-foreground/60" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {["Amazing quality and service. Our kitchen looks incredible!", "Professional from start to finish. Highly recommend.", "The slab selection process was so easy. Love our new countertops!"].map((review, i) => (
+          {[
+            { text: "Amazing quality and service. Our kitchen looks incredible!", name: "Sarah M.", location: "Sarasota FL" },
+            { text: "Professional from start to finish. Highly recommend Altar Stone!", name: "James R.", location: "Bradenton FL" },
+            { text: "The slab selection process was so easy. Love our new countertops!", name: "Maria C.", location: "Venice FL" },
+          ].map((review, i) => (
             <Card key={i} className="bg-primary-foreground/5 border-primary-foreground/10">
               <CardContent className="p-6">
                 <div className="flex gap-1 mb-3">
@@ -227,8 +231,8 @@ const Index = () => {
                     <Star key={s} className="h-4 w-4 fill-accent text-accent" />
                   ))}
                 </div>
-                <p className="text-primary-foreground/80 text-sm italic">"{review}"</p>
-                <p className="text-primary-foreground/50 text-xs mt-3">— Satisfied Homeowner</p>
+                <p className="text-primary-foreground/80 text-sm italic">"{review.text}"</p>
+                <p className="text-primary-foreground/50 text-xs mt-3">— {review.name}, {review.location}</p>
               </CardContent>
             </Card>
           ))}

@@ -35,8 +35,9 @@ export function SlabCard({ id, name, materialName, materialCategory, description
           {imageUrl ? (
             <img src={imageUrl} alt={`${displayName} slab`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-secondary">
-              <span className="text-muted-foreground text-sm">No photo</span>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-stone-200 to-stone-400 dark:from-stone-700 dark:to-stone-900">
+              <span className="font-display text-lg font-bold text-stone-600 dark:text-stone-300 text-center px-4">{displayName}</span>
+              <span className="text-xs text-stone-500 dark:text-stone-400 mt-1 uppercase tracking-wider">{categoryLabel}</span>
             </div>
           )}
           {/* Status badge */}

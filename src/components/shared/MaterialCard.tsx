@@ -24,8 +24,9 @@ export function MaterialCard({ id, name, category, description, imageUrl, classN
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-muted">
-              <span className="text-muted-foreground text-sm">No image available</span>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-stone-200 to-stone-400 dark:from-stone-700 dark:to-stone-900">
+              <span className="font-display text-xl font-bold text-stone-600 dark:text-stone-300 text-center px-4">{name}</span>
+              <span className="text-xs text-stone-500 dark:text-stone-400 mt-1 uppercase tracking-wider">{category}</span>
             </div>
           )}
           {/* Category badge overlay */}

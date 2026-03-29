@@ -20,11 +20,11 @@ interface BusinessSettingsContextType {
 }
 
 const DEFAULTS: Record<string, string> = {
-  company_name: "Altar Stones",
-  company_email: "info@altarstones.com",
-  company_phone: "(941) 555-0123",
+  company_name: "Altar Stone",
+  company_email: "info@altarstonecountertops.com",
+  company_phone: "(941) 279-0739",
   company_address: "Sarasota, FL",
-  service_area_description: "Sarasota, Bradenton, Venice, and surrounding communities",
+  service_area_description: "Southwest Florida from Tampa to Fort Myers",
   licensed_insured_enabled: "true",
   licensed_insured_text: "Licensed & Insured",
 };
