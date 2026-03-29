@@ -1406,6 +1406,22 @@ const Quote = () => {
                     <p className="text-sm font-medium">{result.slabs_needed}</p>
                   </div>
                 </div>
+                {/* Cutout breakdown */}
+                {cutoutSelections.some((c) => c.quantity > 0) ? (
+                  <div className="border-t border-border pt-3 space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Cutouts Selected</p>
+                    {cutoutSelections.filter((c) => c.quantity > 0).map((c) => (
+                      <div key={c.service_id} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{c.name} × {c.quantity}</span>
+                        <span className="font-medium">${(c.price * c.quantity).toFixed(0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border-t border-border pt-3">
+                    <p className="text-xs text-muted-foreground">Cutouts: Not included</p>
+                  </div>
+                )}
               </div>
               <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
                 <p className="text-sm text-muted-foreground leading-relaxed">

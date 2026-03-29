@@ -6,6 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface CutoutDetail {
+  service_id: string;
+  quantity: number;
+}
+
 interface QuoteRequest {
   material_id: string;
   slab_id?: string;
@@ -13,6 +18,7 @@ interface QuoteRequest {
   width_inches: number;
   edge_profile?: string;
   num_cutouts: number;
+  cutout_details?: CutoutDetail[];
   layout_url?: string;
   reference_measurement_inches?: number;
   calculated_sqft?: number;
