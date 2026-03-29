@@ -102,12 +102,14 @@ const Materials = () => {
                   id={slab.id}
                   name={slab.name}
                   materialName={slab.materials?.name || ""}
-                  category={slab.materials?.category || ""}
+                  materialCategory={slab.materials?.category || ""}
                   description={slab.description}
                   imageUrl={slab.image_urls?.[0] || null}
-                  dimensions={`${slab.length_inches}" × ${slab.width_inches}"`}
+                  lengthInches={slab.length_inches}
+                  widthInches={slab.width_inches}
                   thickness={slab.thickness}
                   status={slab.status}
+                  lotNumber={slab.lot_number}
                   className="h-full"
                 />
               </motion.div>
