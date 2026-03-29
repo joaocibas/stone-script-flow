@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -344,11 +344,27 @@ export const SlabsManager = () => {
                   <TableCell>
                     <div>
                       <p className="font-medium break-words">{(s as any).name || s.lot_number || "—"}</p>
-                      {(s as any).description && (
-                        <p className="text-xs text-muted-foreground mt-0.5" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>
-                          {(s as any).description}
-                        </p>
-                      )}
+                      {(s as any).description && (() => {
+                        const desc = (s as any).description as string;
+                        const truncated = desc.length > 50;
+                        return (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {truncated ? desc.slice(0, 50) : desc}
+                            {truncated && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="inline-flex items-center ml-1 text-accent hover:underline cursor-pointer">
+                                    <MoreHorizontal className="h-3 w-3 inline" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="max-w-xs">
+                                  <div className="p-2 text-xs whitespace-pre-wrap break-words">{desc}</div>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell>
