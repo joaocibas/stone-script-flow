@@ -39,9 +39,14 @@ const wrapper = (content: string) => `
 </body>
 </html>`;
 
+const URLS = {
+  dashboard: "https://countertopsaltarstone.com/dashboard",
+  login: "https://countertopsaltarstone.com/login",
+};
+
 const btn = (text: string, url?: string) => `
   <div style="text-align:center;margin:28px 0;">
-    <a href="${url || '#'}" style="display:inline-block;background:${BRAND.accent};color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;letter-spacing:0.5px;">${text}</a>
+    <a href="${url || URLS.dashboard}" style="display:inline-block;background:${BRAND.accent};color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;letter-spacing:0.5px;">${text}</a>
   </div>`;
 
 const row = (label: string, value: string) =>
@@ -135,7 +140,7 @@ export function quoteApprovedEmail(data: {
         row("Deposit Required (50%)", fmt(data.depositRequired))
       )}
       <p><strong>To confirm your order:</strong> Log in to your dashboard to review the full estimate and proceed with your deposit.</p>
-      ${btn("View Your Estimate")}
+      ${btn("View Your Estimate", URLS.dashboard)}
       <p style="color:${BRAND.muted};font-size:13px;">This estimate is valid for 30 days.</p>
     `),
   };
@@ -148,9 +153,11 @@ export function orderConfirmedEmail(data: {
   total: number;
   depositPaid?: number;
   remainingBalance?: number;
+  paymentUrl?: string;
 }) {
   const deposit = data.depositPaid || 0;
   const remaining = data.remainingBalance ?? (data.total - deposit);
+  const depositDisplay = deposit > 0 ? fmt(deposit) : "Pending";
   return {
     subject: "Your Order Has Been Confirmed – Altar Stone",
     html: wrapper(`
@@ -158,12 +165,12 @@ export function orderConfirmedEmail(data: {
       <p>Your order has been confirmed! We're excited to get started on your project.</p>
       ${infoBox(
         row("Order ID", data.orderId.slice(0, 8).toUpperCase()) +
-        `<tr style="border-top:1px solid #ddd;"><td style="padding:12px 0 6px;font-weight:700;">Total</td><td style="padding:12px 0 6px;font-weight:700;font-size:18px;color:${BRAND.accent};">${fmt(data.total)}</td></tr>` +
-        row("Deposit Paid", fmt(deposit)) +
+        '<tr style="border-top:1px solid #ddd;"><td style="padding:12px 0 6px;font-weight:700;">Total</td><td style="padding:12px 0 6px;font-weight:700;font-size:18px;color:' + BRAND.accent + ';">' + fmt(data.total) + '</td></tr>' +
+        row("Deposit Paid", depositDisplay) +
         row("Remaining Balance", fmt(remaining))
       )}
       <p>Our team will be in touch shortly to coordinate next steps. You can also track your order in your dashboard.</p>
-      ${btn("Track Your Order")}
+      ${data.paymentUrl ? btn("Pay Now", data.paymentUrl) : btn("Track Your Order", URLS.dashboard)}
     `),
   };
 }
@@ -192,7 +199,7 @@ export function orderStatusUpdateEmail(data: {
         row("New Status", `<span style="color:${BRAND.accent};font-weight:700;text-transform:capitalize;">${data.newStatus.replace("_", " ")}</span>`)
       )}
       <p>Log in to your dashboard for full details.</p>
-      ${btn("View Order Details")}
+      ${btn("View Order Details", URLS.dashboard)}
     `),
   };
 }
@@ -216,7 +223,7 @@ export function appointmentScheduledEmail(data: {
         row("Time", data.time || "TBD") +
         (data.address ? row("Address", data.address) : "")
       )}
-      <p style="color:${BRAND.muted};font-size:13px;">Need to reschedule? Log in to your dashboard or contact us directly.</p>
+      ${btn("View Appointment", URLS.dashboard)}
     `),
   };
 }
@@ -239,6 +246,7 @@ export function appointmentReminderEmail(data: {
         (data.address ? row("Address", data.address) : "")
       )}
       <p>If you need to reschedule, please contact us as soon as possible.</p>
+      ${btn("View Appointment", URLS.dashboard)}
       <p style="color:${BRAND.muted};font-size:13px;">📞 Contact: info@countertopsaltarstone.com</p>
     `),
   };
@@ -284,7 +292,7 @@ export function welcomeEmail(data: { customerName: string }) {
         <li>📅 Schedule measurement consultations</li>
         <li>📄 View estimates, invoices, and receipts</li>
       </ul>
-      ${btn("Go to Your Dashboard")}
+      ${btn("Go to Your Dashboard", URLS.dashboard)}
       <p style="color:${BRAND.muted};font-size:13px;">If you have any questions, we're here to help!</p>
     `),
   };
