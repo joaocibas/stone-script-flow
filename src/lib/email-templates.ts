@@ -42,6 +42,9 @@ const wrapper = (content: string) => `
 const URLS = {
   dashboard: "https://countertopsaltarstone.com/dashboard",
   login: "https://countertopsaltarstone.com/login",
+  quote: "https://countertopsaltarstone.com/quote",
+  book: "https://countertopsaltarstone.com/book",
+  home: "https://countertopsaltarstone.com",
 };
 
 const btn = (text: string, url?: string) => `
@@ -85,6 +88,7 @@ export function quoteReceivedCustomerEmail(data: {
         <li>We'll contact you to schedule a measurement consultation</li>
         <li>You can track your quote in your customer dashboard</li>
       </ul>
+      ${btn("View Your Quote", URLS.dashboard)}
       <p style="color:${BRAND.muted};font-size:13px;margin-top:24px;">If you have any questions, don't hesitate to reach out.</p>
     `),
   };
@@ -273,6 +277,7 @@ export function paymentReceivedEmail(data: {
         (data.transactionRef ? row("Reference", data.transactionRef) : "") +
         `<tr style="border-top:1px solid #ddd;"><td style="padding:12px 0 6px;font-weight:700;">Remaining Balance</td><td style="padding:12px 0 6px;font-weight:700;font-size:16px;color:${BRAND.accent};">${fmt(data.remainingBalance)}</td></tr>`
       )}
+      ${btn("View Receipt", URLS.dashboard)}
       <p style="color:${BRAND.muted};font-size:13px;">This serves as your payment confirmation. A formal receipt is available in your dashboard.</p>
     `),
   };
@@ -293,6 +298,7 @@ export function welcomeEmail(data: { customerName: string }) {
         <li>📄 View estimates, invoices, and receipts</li>
       </ul>
       ${btn("Go to Your Dashboard", URLS.dashboard)}
+      ${btn("Get Your Estimate", URLS.quote)}
       <p style="color:${BRAND.muted};font-size:13px;">If you have any questions, we're here to help!</p>
     `),
   };
