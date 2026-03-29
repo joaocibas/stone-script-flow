@@ -322,29 +322,33 @@ export const SlabsManager = () => {
         </div>
       </CardHeader>
       <CardContent className="overflow-x-hidden">
-        <div className="overflow-x-auto">
-          <Table>
+        <div>
+          <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Group</TableHead>
-                <TableHead>Dimensions</TableHead>
-                <TableHead>Thickness</TableHead>
-                <TableHead>Lot #</TableHead>
-                <TableHead>Purchase</TableHead>
-                <TableHead>Sales</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Photos</TableHead>
-                <TableHead className="w-[80px]">Actions</TableHead>
+                <TableHead className="w-[20%]">Name</TableHead>
+                <TableHead className="w-[12%]">Group</TableHead>
+                <TableHead className="w-[14%]">Dimensions</TableHead>
+                <TableHead className="w-[7%]">Thickness</TableHead>
+                <TableHead className="w-[7%]">Lot #</TableHead>
+                <TableHead className="w-[8%]">Purchase</TableHead>
+                <TableHead className="w-[8%]">Sales</TableHead>
+                <TableHead className="w-[8%]">Status</TableHead>
+                <TableHead className="w-[6%]">Photos</TableHead>
+                <TableHead className="w-[10%]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredSlabs.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell className="min-w-0">
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{(s as any).name || s.lot_number || "—"}</p>
-                      {(s as any).description && <p className="text-xs text-muted-foreground truncate">{(s as any).description}</p>}
+                  <TableCell>
+                    <div>
+                      <p className="font-medium break-words">{(s as any).name || s.lot_number || "—"}</p>
+                      {(s as any).description && (
+                        <p className="text-xs text-muted-foreground mt-0.5" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>
+                          {(s as any).description}
+                        </p>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
