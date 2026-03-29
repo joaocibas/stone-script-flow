@@ -52,7 +52,7 @@ const SEO_KEYS = {
   ],
 };
 
-const PAGES = ["home", "about", "services", "materials", "gallery", "contact", "estimate", "appointment"];
+const PAGES = ["home", "about", "services", "materials", "gallery", "contact", "estimate", "appointment", "quote", "login"];
 const PAGE_FIELDS = [
   "title", "meta_description", "canonical_url", "og_title", "og_description",
   "og_image", "noindex", "focus_keyword", "secondary_keywords", "slug", "h1_override", "schema_type",
