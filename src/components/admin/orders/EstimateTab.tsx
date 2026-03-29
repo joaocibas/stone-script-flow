@@ -403,16 +403,29 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
     if (allServices === undefined && !slabServiceData) return;
     if (estimate) {
       const savedSqft = Number(estimate.measurements_sqft) || 0;
+      const savedLabor = Number(estimate.labor_cost) || 0;
+      const savedMaterial = Number(estimate.material_cost) || 0;
+      const savedAddons = Number(estimate.addons_cost) || 0;
+      const savedSubtotal = Number(estimate.subtotal) || 0;
+      const savedTotal = Number(estimate.total) || 0;
+      const savedDeposit = Number(estimate.deposit_required) || 0;
 
-      let labor = Number(estimate.labor_cost) || 0;
-      let material = Number(estimate.material_cost) || 0;
-      let addons = Number(estimate.addons_cost) || 0;
-      const svcCosts = computeServiceCosts(savedSqft, selectedServiceIds, cutoutQuantities);
-      if (svcCosts) {
-        labor = svcCosts.labor;
-        material = svcCosts.materialCost ?? material;
-        addons = svcCosts.addon;
-        if (svcCosts.rates) setRateData(svcCosts.rates);
+      // Use saved DB values directly — don't override with service recalculation on load
+      const hasSavedValues = savedLabor > 0 || savedMaterial > 0 || savedTotal > 0;
+
+      let labor = savedLabor;
+      let material = savedMaterial;
+      let addons = savedAddons;
+
+      // Only recalculate from services if estimate has NO saved values (new/empty estimate)
+      if (!hasSavedValues) {
+        const svcCosts = computeServiceCosts(savedSqft, selectedServiceIds, cutoutQuantities);
+        if (svcCosts) {
+          labor = svcCosts.labor;
+          material = svcCosts.materialCost ?? material;
+          addons = svcCosts.addon;
+          if (svcCosts.rates) setRateData(svcCosts.rates);
+        }
       }
 
       const nextForm = syncDepositToPercentage(recalculateEstimate({
@@ -437,7 +450,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         subtotal: 0,
         tax: Number(estimate.tax) || 7,
         total: 0,
-        deposit_required: Number(estimate.deposit_required) || 0,
+        deposit_required: savedDeposit,
         notes: estimate.notes || "",
         terms_conditions: estimate.terms_conditions || DEFAULT_TERMS,
       }, {}, {
