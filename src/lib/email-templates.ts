@@ -246,6 +246,7 @@ export function appointmentReminderEmail(data: {
         (data.address ? row("Address", data.address) : "")
       )}
       <p>If you need to reschedule, please contact us as soon as possible.</p>
+      ${btn("View Appointment", URLS.dashboard)}
       <p style="color:${BRAND.muted};font-size:13px;">📞 Contact: info@countertopsaltarstone.com</p>
     `),
   };
