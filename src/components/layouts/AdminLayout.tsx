@@ -30,6 +30,7 @@ import {
   Search,
   LogOut,
   CreditCard,
+  FolderOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createContext, useContext } from "react";

@@ -40,6 +40,8 @@ import Schedule from "./pages/Schedule";
 import AuthCallback from "./pages/AuthCallback";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import AdminFinancials from "./pages/admin/AdminFinancials";
+import AdminProjects from "./pages/admin/AdminProjects";
+import Portfolio from "./pages/Portfolio";
 
 const queryClient = new QueryClient();
 
