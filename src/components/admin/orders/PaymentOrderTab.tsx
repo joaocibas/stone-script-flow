@@ -130,6 +130,38 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
     }
   }, [paymentOrder, estimate, customer, orderId]);
 
+  const generateStripeLink = async () => {
+    setGeneratingLink(true);
+    try {
+      const amount = form.deposit_amount > 0 ? form.deposit_amount : form.estimate_total;
+      if (amount <= 0) throw new Error("Amount must be greater than 0");
+      const { data, error } = await supabase.functions.invoke("stripe-checkout", {
+        body: {
+          action: "create",
+          order_id: orderId,
+          customer_id: customer?.id || null,
+          customer_email: form.customer_email || customer?.email || "",
+          customer_name: form.customer_name || customer?.full_name || "",
+          amount,
+          payment_type: "deposit",
+        },
+      });
+      if (error) throw error;
+      updateField("payment_link", data.url);
+      updateField("payment_method", "stripe_payment_link");
+      toast({ title: "Stripe link generated!", description: "Link was auto-filled in the Payment Link field." });
+    } catch (e: any) {
+      toast({ title: "Error generating link", description: e.message, variant: "destructive" });
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const copyLink = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast({ title: "Link copied!" });
+  };
+
   const updateField = (key: keyof PaymentOrderForm, value: any) => {
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
