@@ -250,6 +250,50 @@ const Index = () => {
         </div>
       </Section>
 
+      {/* Featured Projects */}
+      {featuredProjects.length > 0 && (
+        <Section>
+          <SectionHeader title="Our Recent Work" subtitle="See our latest countertop installations across Southwest Florida" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featuredProjects.map((p, i) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08, duration: 0.4 }}
+              >
+                <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-md transition-all">
+                  <div className="aspect-[4/3] bg-secondary overflow-hidden">
+                    {p.thumb ? (
+                      <img
+                        src={p.thumb.image_url}
+                        alt={p.thumb.alt_text || p.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <Image className="h-8 w-8" />
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-4">
+                    <h3 className="font-display font-semibold">{p.title}</h3>
+                    <p className="text-sm text-muted-foreground">{p.material} · {p.category} · {p.city}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <Button asChild variant="outline" size="lg">
+              <Link to="/portfolio">View All Projects <ArrowRight className="ml-1 h-4 w-4" /></Link>
+            </Button>
+          </div>
+        </Section>
+      )}
+
       {/* CTA */}
       <Section className="bg-accent/5">
         <div className="text-center max-w-xl mx-auto">
