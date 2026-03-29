@@ -20,6 +20,13 @@ const AuthCallback = () => {
           return;
         }
 
+        // Verify email is confirmed before granting access
+        if (!session.user.email_confirmed_at) {
+          setStatus("error");
+          setErrorMsg("Please verify your email first. Check your inbox for the verification link.");
+          return;
+        }
+
         // Check user role
         const { data: roles } = await supabase
           .from("user_roles")

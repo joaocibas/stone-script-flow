@@ -24,7 +24,7 @@ import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors,
-  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package,
+  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package, LogIn,
 } from "lucide-react";
 
 const DRAFT_KEY = "estimator_draft_v1";
@@ -36,6 +36,7 @@ const steps = [
   { label: "Select Product", icon: Package },
   { label: "Dimensions", icon: Ruler },
   { label: "Options", icon: Scissors },
+  { label: "Account", icon: LogIn },
   { label: "Your Estimate", icon: DollarSign },
   { label: "Schedule", icon: CalendarDays },
 ];
@@ -95,45 +96,87 @@ const Quote = () => {
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
 
-  // Auth form state
-  const [authError, setAuthError] = useState("");
-  const [authLoading2, setAuthLoading2] = useState(false);
-  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
-  const [signupForm, setSignupForm] = useState({ email: "", password: "", name: "" });
+  // Inline auth step state (step 6)
+  const [inlineAuthPassword, setInlineAuthPassword] = useState("");
+  const [inlineAuthConfirmPassword, setInlineAuthConfirmPassword] = useState("");
+  const [inlineAuthError, setInlineAuthError] = useState("");
+  const [inlineAuthLoading, setInlineAuthLoading] = useState(false);
+  const [inlineAuthTab, setInlineAuthTab] = useState<"login" | "signup">("signup");
 
-  const handleAuthLogin = async (e: React.FormEvent) => {
+  const handleInlineLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthLoading2(true);
-    setAuthError("");
-    const { error } = await supabase.auth.signInWithPassword(loginForm);
-    setAuthLoading2(false);
-    if (error) {
-      if (error.message?.toLowerCase().includes("email not confirmed")) {
-        setAuthError("Please verify your email first. Check your inbox for the verification link.");
+    setInlineAuthLoading(true);
+    setInlineAuthError("");
+    const { data, error: authErr } = await supabase.auth.signInWithPassword({
+      email: leadForm.email,
+      password: inlineAuthPassword,
+    });
+    if (authErr) {
+      setInlineAuthLoading(false);
+      if (authErr.message?.toLowerCase().includes("email not confirmed")) {
+        setInlineAuthError("Please verify your email first. Check your inbox.");
       } else {
-        setAuthError(error.message);
+        setInlineAuthError(authErr.message);
       }
+      return;
+    }
+    let custId: string | undefined;
+    if (data.user) {
+      const { data: cust } = await supabase.from("customers").select("*").eq("user_id", data.user.id).single();
+      if (cust) { setLoggedInCustomer(cust); custId = cust.id; }
+    }
+    setInlineAuthLoading(false);
+    handleSubmit(custId);
+  };
+
+  const handleInlineSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inlineAuthPassword !== inlineAuthConfirmPassword) {
+      setInlineAuthError("Passwords don't match.");
+      return;
+    }
+    if (inlineAuthPassword.length < 6) {
+      setInlineAuthError("Password must be at least 6 characters.");
+      return;
+    }
+    setInlineAuthLoading(true);
+    setInlineAuthError("");
+    const { data, error: authErr } = await supabase.auth.signUp({
+      email: leadForm.email,
+      password: inlineAuthPassword,
+      options: { data: { full_name: leadForm.full_name } },
+    });
+    if (authErr) {
+      setInlineAuthLoading(false);
+      setInlineAuthError(authErr.message);
+      return;
+    }
+    if (data.session) {
+      await new Promise((r) => setTimeout(r, 800));
+      let custId: string | undefined;
+      if (data.user) {
+        const { data: cust } = await supabase.from("customers").select("*").eq("user_id", data.user.id).single();
+        if (cust) {
+          await supabase.from("customers").update({
+            phone: leadForm.phone.trim() || null,
+            address: leadForm.city.trim() || null,
+          }).eq("id", cust.id);
+          setLoggedInCustomer({ ...cust, full_name: leadForm.full_name, phone: leadForm.phone.trim(), address: leadForm.city.trim() });
+          custId = cust.id;
+        }
+      }
+      setInlineAuthLoading(false);
+      try { sendEmail({ ...welcomeEmail({ customerName: leadForm.full_name || "Customer" }), to: leadForm.email }); } catch {}
+      handleSubmit(custId);
+    } else {
+      setInlineAuthLoading(false);
+      setInlineAuthError("Account created! Please check your email for a verification link, then sign in below.");
+      setInlineAuthTab("login");
     }
   };
 
-  const handleAuthSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading2(true);
-    setAuthError("");
-    const { data, error } = await supabase.auth.signUp({
-      email: signupForm.email,
-      password: signupForm.password,
-      options: { data: { full_name: signupForm.name } },
-    });
-    setAuthLoading2(false);
-    if (error) {
-      setAuthError(error.message);
-    } else if (data.user) {
-      try {
-        const emailPayload = welcomeEmail({ customerName: signupForm.name || "Customer" });
-        sendEmail({ ...emailPayload, to: signupForm.email });
-      } catch {}
-    }
+  const handleSkipAuth = () => {
+    handleSubmit();
   };
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
   const [slabsForMaterial, setSlabsForMaterial] = useState<any[]>([]);
@@ -197,7 +240,7 @@ const Quote = () => {
   const saveDraft = useCallback(() => {
     try {
       const draft = {
-        step, leadForm, leadId, form, sections, additionalInfo,
+        step: step === 6 ? 5 : step, leadForm, leadId, form, sections, additionalInfo,
         result, layoutUrl, scheduleAddress,
         scheduleForm: { ...scheduleForm, preferred_date: scheduleForm.preferred_date?.toISOString() || null },
       };
@@ -306,7 +349,7 @@ const Quote = () => {
 
   // Refresh quote + linked estimate from DB when viewing result (step 6)
   useEffect(() => {
-    if (step !== 6 || !result?.quote_id) return;
+    if (step !== 7 || !result?.quote_id) return;
     const refreshQuoteData = async () => {
       try {
         // Fetch latest quote values
@@ -403,8 +446,8 @@ const Quote = () => {
         return;
       }
 
-      // Non-logged-in: create lead as before
-      const { data, error: insertErr } = await supabase.from("leads").insert({
+      // Non-logged-in: create lead (no select needed for anon RLS)
+      const { error: insertErr } = await supabase.from("leads").insert({
         full_name: leadForm.full_name.trim(), phone: leadForm.phone.trim(),
         email: leadForm.email.trim(), city: leadForm.city.trim(),
         project_type: leadForm.project_type,
@@ -412,9 +455,8 @@ const Quote = () => {
         timeline: leadForm.timeline || null,
         preferred_contact_method: leadForm.preferred_contact_method || null,
         notes: leadForm.notes.trim() || null, status: "new_lead",
-      }).select("id").single();
+      });
       if (insertErr) throw insertErr;
-      setLeadId(data.id);
       trackEvent("lead_captured", { email: leadForm.email, project_type: leadForm.project_type });
       setStep(1);
     } catch (err: any) {
@@ -461,6 +503,7 @@ const Quote = () => {
     if (step === 3) return !!form.slab_id;
     if (step === 4) return sections.some((s) => Number(s.length) > 0 && Number(s.depth) > 0);
     if (step === 5) return true;
+    if (step === 6) return true;
     return false;
   };
 
@@ -477,7 +520,7 @@ const Quote = () => {
     setStep(step + 1);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (overrideCustomerId?: string) => {
     setSubmitting(true);
     setError("");
     try {
@@ -486,6 +529,8 @@ const Quote = () => {
       const totalLength = sections.reduce((sum, s) => sum + (Number(s.length) || 0) * (Number(s.quantity) || 1), 0);
       const avgDepth = sections.length > 0
         ? sections.reduce((sum, s) => sum + (Number(s.depth) || 0), 0) / sections.length : 0;
+
+      const effectiveCustomerId = overrideCustomerId || loggedInCustomer?.id;
 
       const { data, error: fnError } = await supabase.functions.invoke("calculate-quote", {
         body: {
@@ -498,19 +543,19 @@ const Quote = () => {
           layout_url: uploadedUrl,
           reference_measurement_inches: Number(form.reference_measurement_inches) || undefined,
           calculated_sqft: totalSqft > 0 ? totalSqft : undefined,
-          customer_id: loggedInCustomer?.id || undefined,
+          customer_id: effectiveCustomerId || undefined,
         },
       });
       if (fnError) throw fnError;
       const quoteResult = data as QuoteResult;
       setResult(quoteResult);
 
-      // Link quote to customer if logged in
-      if (loggedInCustomer && quoteResult.quote_id) {
-        await supabase.from("quotes").update({ customer_id: loggedInCustomer.id }).eq("id", quoteResult.quote_id);
+      // Link quote to customer
+      if (effectiveCustomerId && quoteResult.quote_id) {
+        await supabase.from("quotes").update({ customer_id: effectiveCustomerId }).eq("id", quoteResult.quote_id);
       }
 
-      if (!loggedInCustomer && leadId && quoteResult.quote_id) {
+      if (!effectiveCustomerId && leadId && quoteResult.quote_id) {
         await supabase.from("leads").update({ quote_id: quoteResult.quote_id, status: "quoted" }).eq("id", leadId);
       }
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
@@ -549,7 +594,7 @@ const Quote = () => {
         }
       } catch {}
 
-      setStep(6);
+      setStep(7);
     } catch (err: any) {
       setError(err.message || "Failed to calculate estimate. Please try again.");
     } finally {
@@ -569,7 +614,7 @@ const Quote = () => {
     if (!scheduleAddress.city) {
       setScheduleAddress((prev) => ({ ...prev, city: leadForm.city }));
     }
-    setStep(7);
+    setStep(8);
   };
 
   const isScheduleValid = () =>
@@ -633,67 +678,6 @@ const Quote = () => {
     );
   }
 
-  // Not logged in — show login/signup gate (same as Book page)
-  if (!user) {
-    return (
-      <Section>
-        <SectionHeader
-          title="Get Your Estimated Investment"
-          subtitle="Sign in or create an account to get your free estimate"
-        />
-        <Card className="max-w-md mx-auto border-0 shadow-sm">
-          <CardHeader className="text-center">
-            <CardTitle className="font-display text-xl">Sign In to Continue</CardTitle>
-            <p className="text-sm text-muted-foreground">Create an account or sign in to get your estimate</p>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="login">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Create Account</TabsTrigger>
-              </TabsList>
-              <TabsContent value="login">
-                <form onSubmit={handleAuthLogin} className="space-y-4">
-                  <div>
-                    <Label htmlFor="q-login-email">Email</Label>
-                    <Input id="q-login-email" type="email" required value={loginForm.email} onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label htmlFor="q-login-password">Password</Label>
-                    <Input id="q-login-password" type="password" required value={loginForm.password} onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))} />
-                  </div>
-                  {authError && <p className="text-destructive text-sm">{authError}</p>}
-                  <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                    {authLoading2 ? "Signing in..." : "Sign In"}
-                  </Button>
-                </form>
-              </TabsContent>
-              <TabsContent value="signup">
-                <form onSubmit={handleAuthSignup} className="space-y-4">
-                  <div>
-                    <Label htmlFor="q-signup-name">Full Name</Label>
-                    <Input id="q-signup-name" required value={signupForm.name} onChange={(e) => setSignupForm(prev => ({ ...prev, name: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label htmlFor="q-signup-email">Email</Label>
-                    <Input id="q-signup-email" type="email" required value={signupForm.email} onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label htmlFor="q-signup-password">Password</Label>
-                    <Input id="q-signup-password" type="password" required minLength={6} value={signupForm.password} onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))} />
-                  </div>
-                  {authError && <p className="text-destructive text-sm">{authError}</p>}
-                  <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                    {authLoading2 ? "Creating account..." : "Create Account"}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </Section>
-    );
-  }
 
   // Success screen
   if (bookingSuccess) {
@@ -1089,8 +1073,98 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 6: Result */}
-          {step === 6 && result && (
+          {/* Step 6: Account (Auth) */}
+          {step === 6 && !user && (
+            <div className="space-y-5">
+              <div className="text-center">
+                <LogIn className="h-10 w-10 text-accent mx-auto mb-3" />
+                <h3 className="font-display text-xl font-semibold mb-1">
+                  {inlineAuthTab === "login" ? "Sign In to Continue" : "Save Your Estimate"}
+                </h3>
+                <p className="text-sm text-muted-foreground">Your estimate will appear in your personal dashboard</p>
+              </div>
+
+              <Tabs value={inlineAuthTab} onValueChange={(v) => { setInlineAuthTab(v as "login" | "signup"); setInlineAuthError(""); }}>
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="login">Sign In</TabsTrigger>
+                  <TabsTrigger value="signup">Create Account</TabsTrigger>
+                </TabsList>
+                <TabsContent value="login">
+                  <form onSubmit={handleInlineLogin} className="space-y-4">
+                    <div>
+                      <Label className="text-sm">Email</Label>
+                      <Input type="email" value={leadForm.email} readOnly className="bg-muted" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Password</Label>
+                      <Input type="password" required value={inlineAuthPassword} onChange={(e) => setInlineAuthPassword(e.target.value)} placeholder="Enter your password" />
+                    </div>
+                    {inlineAuthError && <p className="text-destructive text-sm">{inlineAuthError}</p>}
+                    <Button type="submit" disabled={inlineAuthLoading} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                      {inlineAuthLoading ? "Signing in..." : "Sign In & Submit Estimate"}
+                    </Button>
+                  </form>
+                </TabsContent>
+                <TabsContent value="signup">
+                  <form onSubmit={handleInlineSignup} className="space-y-4">
+                    <div>
+                      <Label className="text-sm">Email</Label>
+                      <Input type="email" value={leadForm.email} readOnly className="bg-muted" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm">Full Name</Label>
+                        <Input value={leadForm.full_name} readOnly className="bg-muted" />
+                      </div>
+                      <div>
+                        <Label className="text-sm">Phone</Label>
+                        <Input value={leadForm.phone} readOnly className="bg-muted" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm">City</Label>
+                      <Input value={leadForm.city} readOnly className="bg-muted" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Password</Label>
+                      <Input type="password" required minLength={6} value={inlineAuthPassword} onChange={(e) => setInlineAuthPassword(e.target.value)} placeholder="Create a password (min. 6 chars)" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Confirm Password</Label>
+                      <Input type="password" required minLength={6} value={inlineAuthConfirmPassword} onChange={(e) => setInlineAuthConfirmPassword(e.target.value)} placeholder="Confirm your password" />
+                    </div>
+                    {inlineAuthError && <p className="text-destructive text-sm">{inlineAuthError}</p>}
+                    <Button type="submit" disabled={inlineAuthLoading} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                      {inlineAuthLoading ? "Creating account..." : "Create Account & Submit Estimate"}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
+
+              <div className="text-center pt-2 border-t border-border">
+                <button onClick={handleSkipAuth} className="text-sm text-muted-foreground hover:text-accent underline">
+                  Continue without account →
+                </button>
+              </div>
+
+              <div className="flex justify-start mt-2">
+                <Button variant="ghost" onClick={() => setStep(5)}>
+                  <ArrowLeft className="mr-1 h-4 w-4" /> Back
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: Account — auto-proceed if already logged in */}
+          {step === 6 && user && (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-accent mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Calculating your estimate...</p>
+            </div>
+          )}
+
+          {/* Step 7: Result */}
+          {step === 7 && result && (
             <div className="text-center py-4">
               <CheckCircle2 className="h-12 w-12 text-accent mx-auto mb-4" />
               <h3 className="font-display text-2xl font-semibold mb-2">
@@ -1258,8 +1332,8 @@ const Quote = () => {
             </div>
           )}
 
-          {/* Step 7: Schedule Consultation */}
-          {step === 7 && (
+          {/* Step 8: Schedule Consultation */}
+          {step === 8 && (
             <div className="space-y-5">
               <div>
                 <Label className="text-base font-display">Schedule Your Free Consultation</Label>
@@ -1355,17 +1429,17 @@ const Quote = () => {
                   Next <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
               ) : (
-                <Button onClick={handleSubmit} disabled={submitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                <Button onClick={() => user ? handleSubmit() : setStep(6)} disabled={submitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
                   {submitting ? "Calculating..." : "Get Estimate"} <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
               )}
             </div>
           )}
 
-          {/* Step 7 navigation */}
-          {step === 7 && (
+          {/* Step 8 navigation */}
+          {step === 8 && (
             <div className="flex justify-between mt-8">
-              <Button variant="ghost" onClick={() => setStep(6)}>
+              <Button variant="ghost" onClick={() => setStep(7)}>
                 <ArrowLeft className="mr-1 h-4 w-4" /> Back
               </Button>
               <Button onClick={handleConfirmAppointment} disabled={!isScheduleValid() || submitting} className="bg-accent text-accent-foreground hover:bg-accent/90">
