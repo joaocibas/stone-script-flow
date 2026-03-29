@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { sendEmail } from "@/lib/send-email";
-import { newQuoteEmail, quoteReceivedCustomerEmail } from "@/lib/email-templates";
+import { welcomeEmail, newQuoteEmail, quoteReceivedCustomerEmail } from "@/lib/email-templates";
 import { Section, SectionHeader } from "@/components/shared/Section";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { AddressInput, addressToString, parseAddress, type AddressValue, emptyAddress } from "@/components/AddressInput";
@@ -12,7 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -89,8 +91,50 @@ interface LinkedEstimate {
 }
 
 const Quote = () => {
+  const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
+
+  // Auth form state
+  const [authError, setAuthError] = useState("");
+  const [authLoading2, setAuthLoading2] = useState(false);
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [signupForm, setSignupForm] = useState({ email: "", password: "", name: "" });
+
+  const handleAuthLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading2(true);
+    setAuthError("");
+    const { error } = await supabase.auth.signInWithPassword(loginForm);
+    setAuthLoading2(false);
+    if (error) {
+      if (error.message?.toLowerCase().includes("email not confirmed")) {
+        setAuthError("Please verify your email first. Check your inbox for the verification link.");
+      } else {
+        setAuthError(error.message);
+      }
+    }
+  };
+
+  const handleAuthSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading2(true);
+    setAuthError("");
+    const { data, error } = await supabase.auth.signUp({
+      email: signupForm.email,
+      password: signupForm.password,
+      options: { data: { full_name: signupForm.name } },
+    });
+    setAuthLoading2(false);
+    if (error) {
+      setAuthError(error.message);
+    } else if (data.user) {
+      try {
+        const emailPayload = welcomeEmail({ customerName: signupForm.name || "Customer" });
+        sendEmail({ ...emailPayload, to: signupForm.email });
+      } catch {}
+    }
+  };
   const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
   const [slabsForMaterial, setSlabsForMaterial] = useState<any[]>([]);
   const [slabsLoading, setSlabsLoading] = useState(false);
@@ -580,6 +624,78 @@ const Quote = () => {
 
   const totalSteps = steps.length;
   const progressPct = Math.round((step / (totalSteps - 1)) * 100);
+
+  if (authLoading) {
+    return (
+      <Section>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Section>
+    );
+  }
+
+  // Not logged in — show login/signup gate (same as Book page)
+  if (!user) {
+    return (
+      <Section>
+        <SectionHeader
+          title="Get Your Estimated Investment"
+          subtitle="Sign in or create an account to get your free estimate"
+        />
+        <Card className="max-w-md mx-auto border-0 shadow-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="font-display text-xl">Sign In to Continue</CardTitle>
+            <p className="text-sm text-muted-foreground">Create an account or sign in to get your estimate</p>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="login">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="login">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Create Account</TabsTrigger>
+              </TabsList>
+              <TabsContent value="login">
+                <form onSubmit={handleAuthLogin} className="space-y-4">
+                  <div>
+                    <Label htmlFor="q-login-email">Email</Label>
+                    <Input id="q-login-email" type="email" required value={loginForm.email} onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="q-login-password">Password</Label>
+                    <Input id="q-login-password" type="password" required value={loginForm.password} onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))} />
+                  </div>
+                  {authError && <p className="text-destructive text-sm">{authError}</p>}
+                  <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                    {authLoading2 ? "Signing in..." : "Sign In"}
+                  </Button>
+                </form>
+              </TabsContent>
+              <TabsContent value="signup">
+                <form onSubmit={handleAuthSignup} className="space-y-4">
+                  <div>
+                    <Label htmlFor="q-signup-name">Full Name</Label>
+                    <Input id="q-signup-name" required value={signupForm.name} onChange={(e) => setSignupForm(prev => ({ ...prev, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="q-signup-email">Email</Label>
+                    <Input id="q-signup-email" type="email" required value={signupForm.email} onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="q-signup-password">Password</Label>
+                    <Input id="q-signup-password" type="password" required minLength={6} value={signupForm.password} onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))} />
+                  </div>
+                  {authError && <p className="text-destructive text-sm">{authError}</p>}
+                  <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                    {authLoading2 ? "Creating account..." : "Create Account"}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </Section>
+    );
+  }
 
   // Success screen
   if (bookingSuccess) {
