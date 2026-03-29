@@ -563,6 +563,10 @@ const Quote = () => {
 
       const effectiveCustomerId = overrideCustomerId || loggedInCustomer?.id;
 
+      // Build cutout details for the edge function
+      const activeCutouts = cutoutSelections.filter((c) => c.quantity > 0);
+      const totalCutouts = activeCutouts.reduce((sum, c) => sum + c.quantity, 0);
+
       const { data, error: fnError } = await supabase.functions.invoke("calculate-quote", {
         body: {
           material_id: form.material_id,
@@ -570,7 +574,8 @@ const Quote = () => {
           length_inches: totalLength || 1,
           width_inches: Math.round(avgDepth) || 1,
           edge_profile: form.edge_profile || undefined,
-          num_cutouts: Number(form.num_cutouts),
+          num_cutouts: totalCutouts,
+          cutout_details: activeCutouts.map((c) => ({ service_id: c.service_id, quantity: c.quantity })),
           layout_url: uploadedUrl,
           reference_measurement_inches: Number(form.reference_measurement_inches) || undefined,
           calculated_sqft: totalSqft > 0 ? totalSqft : undefined,
@@ -1086,7 +1091,7 @@ const Quote = () => {
 
           {/* Step 5: Options */}
           {step === 5 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <Label className="text-base font-display">Customize Your Project</Label>
               <div>
                 <Label htmlFor="edge" className="text-sm">Edge Profile</Label>
@@ -1097,9 +1102,70 @@ const Quote = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="cutouts" className="text-sm">Number of Cutouts (sink, cooktop, etc.)</Label>
-                <Input id="cutouts" type="number" min="0" value={form.num_cutouts} onChange={(e) => setForm({ ...form, num_cutouts: e.target.value })} />
+
+              <div className="space-y-3">
+                <Label className="text-sm">Cutouts (optional)</Label>
+                <p className="text-xs text-muted-foreground">Select how many of each cutout type you need. Leave at 0 if not needed.</p>
+                {cutoutSelections.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No cutout services configured.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {cutoutSelections.map((cutout) => (
+                      <div key={cutout.service_id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">{cutout.name}</p>
+                          <p className="text-xs text-muted-foreground">${cutout.price.toFixed(0)}/each</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={cutout.quantity <= 0}
+                            onClick={() => setCutoutSelections((prev) =>
+                              prev.map((c) => c.service_id === cutout.service_id
+                                ? { ...c, quantity: Math.max(0, c.quantity - 1) }
+                                : c
+                              )
+                            )}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-8 text-center text-sm font-medium tabular-nums">{cutout.quantity}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={cutout.quantity >= 10}
+                            onClick={() => setCutoutSelections((prev) =>
+                              prev.map((c) => c.service_id === cutout.service_id
+                                ? { ...c, quantity: Math.min(10, c.quantity + 1) }
+                                : c
+                              )
+                            )}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        {cutout.quantity > 0 && (
+                          <p className="text-sm font-medium text-accent w-16 text-right">
+                            ${(cutout.price * cutout.quantity).toFixed(0)}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    {cutoutSelections.some((c) => c.quantity > 0) && (
+                      <div className="flex justify-between items-center pt-2 border-t border-border">
+                        <span className="text-sm text-muted-foreground">Cutout Total</span>
+                        <span className="text-sm font-semibold text-accent">
+                          ${cutoutSelections.reduce((sum, c) => sum + c.price * c.quantity, 0).toFixed(0)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
