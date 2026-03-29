@@ -29,6 +29,7 @@ import {
   Scale,
   Search,
   LogOut,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createContext, useContext } from "react";
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
   { title: "Customers", url: "/admin/customers", icon: Users },
   { title: "Leads", url: "/admin/leads", icon: UserPlus },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3, adminOnly: true },
+  { title: "Financials", url: "/admin/financials", icon: CreditCard, adminOnly: true },
   { title: "AI Insights", url: "/admin/ai", icon: Brain, adminOnly: true },
   { title: "SEO", url: "/admin/seo", icon: Search, adminOnly: true },
   { title: "Legal", url: "/admin/legal", icon: Scale, adminOnly: true },
