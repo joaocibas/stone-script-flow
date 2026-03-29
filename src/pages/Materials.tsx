@@ -1,28 +1,30 @@
 import { useEffect, useState } from "react";
-import { MaterialCard } from "@/components/shared/MaterialCard";
+import { SlabCard } from "@/components/shared/SlabCard";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { motion } from "framer-motion";
 
+type SlabWithMaterial = Tables<"slabs"> & { materials: { name: string; category: string } | null };
+
 const Materials = () => {
-  const [materials, setMaterials] = useState<Tables<"materials">[]>([]);
+  const [slabs, setSlabs] = useState<SlabWithMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
 
   useEffect(() => {
     supabase
-      .from("materials")
-      .select("*")
-      .eq("is_active", true)
-      .order("display_order")
+      .from("slabs")
+      .select("*, materials(name, category)")
+      .in("status", ["available", "reserved"])
+      .order("created_at", { ascending: false })
       .then(({ data }) => {
-        setMaterials(data || []);
+        setSlabs((data as SlabWithMaterial[]) || []);
         setLoading(false);
       });
   }, []);
 
-  const categories = ["all", ...Array.from(new Set(materials.map((m) => m.category)))];
-  const filtered = activeCategory === "all" ? materials : materials.filter((m) => m.category === activeCategory);
+  const categories = ["all", ...Array.from(new Set(slabs.map((s) => s.materials?.category).filter(Boolean)))];
+  const filtered = activeCategory === "all" ? slabs : slabs.filter((s) => s.materials?.category === activeCategory);
 
   return (
     <div>
@@ -41,7 +43,7 @@ const Materials = () => {
               Our Materials
             </h1>
             <p className="text-background/70 mt-4 text-lg max-w-lg">
-              Explore our curated collection of the finest natural and engineered stone for your countertop project.
+              Explore our curated collection of the finest natural and engineered stone slabs for your countertop project.
             </p>
           </motion.div>
         </div>
@@ -81,27 +83,33 @@ const Materials = () => {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-muted-foreground text-lg">No materials available in this category.</p>
+            <p className="text-muted-foreground text-lg">No slabs available in this category.</p>
           </div>
         ) : (
           <motion.div
             layout
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
           >
-            {filtered.map((mat, i) => (
+            {filtered.map((slab, i) => (
               <motion.div
-                key={mat.id}
+                key={slab.id}
                 layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, duration: 0.4 }}
               >
-                <MaterialCard
-                  id={mat.id}
-                  name={mat.name}
-                  category={mat.category}
-                  description={mat.description}
-                  imageUrl={mat.image_url}
+                <SlabCard
+                  id={slab.id}
+                  name={slab.name}
+                  materialName={slab.materials?.name || ""}
+                  materialCategory={slab.materials?.category || ""}
+                  description={slab.description}
+                  imageUrl={slab.image_urls?.[0] || null}
+                  lengthInches={slab.length_inches}
+                  widthInches={slab.width_inches}
+                  thickness={slab.thickness}
+                  status={slab.status}
+                  lotNumber={slab.lot_number}
                   className="h-full"
                 />
               </motion.div>
