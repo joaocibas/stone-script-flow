@@ -122,23 +122,36 @@ const AdminOrders = () => {
     const slabsNeeded = Number(quote.slabs_needed) || 1;
     const edgeProfile = resolveEdgeProfile(quote.edge_profile);
 
-    // Try to compute pricing from slab services
-    let labor = 0, material = 0, addons = 0;
-    let laborRatePerSqft = 0;
-    let laborFixed = 0;
+    // Fetch the actual slab name from the slab linked to the order, or first available slab
+    let slabName = "";
+    let slabId: string | null = null;
     try {
       const { data: slabs } = await supabase
         .from("slabs")
-        .select("id, sales_value")
+        .select("id, name, sales_value")
         .eq("material_id", quote.material_id)
         .eq("status", "available")
         .limit(1);
       const slab = slabs?.[0];
       if (slab) {
+        slabName = slab.name || "";
+        slabId = slab.id;
+      }
+    } catch {}
+
+    // Try to compute pricing from slab services
+    let labor = 0, material = 0, addons = 0;
+    let laborRatePerSqft = 0;
+    let laborFixed = 0;
+    try {
+      if (slabId) {
         const [servicesRes, slabServicesRes] = await Promise.all([
           supabase.from("service_items").select("id, category, pricing_unit, cost_value, name").eq("is_active", true),
-          supabase.from("slab_services").select("service_id, override_cost, override_multiplier").eq("slab_id", slab.id).eq("is_active", true),
+          supabase.from("slab_services").select("service_id, override_cost, override_multiplier").eq("slab_id", slabId).eq("is_active", true),
         ]);
+
+        const { data: slabData } = await supabase.from("slabs").select("sales_value").eq("id", slabId).single();
+
         const calculated = computeSelectedServicePricing({
           selectedServiceIds: (slabServicesRes.data || []).map((service: any) => service.service_id),
           services: servicesRes.data || [],
@@ -147,7 +160,7 @@ const AdminOrders = () => {
           numCutouts,
           lengthInches: lengthIn,
           widthInches: widthIn,
-          slabUnitPrice: Number(slab.sales_value) || 0,
+          slabUnitPrice: Number(slabData?.sales_value) || 0,
           slabQuantity: slabsNeeded,
         });
 
@@ -174,6 +187,7 @@ const AdminOrders = () => {
     const { data: order, error } = await supabase.from("orders").insert({
       customer_id: quote.customer_id,
       quote_id: quote.id,
+      slab_id: slabId,
       total_amount: pricing.total || (quote.estimated_total || 0),
       deposit_paid: 0,
       status: "pending",
@@ -185,7 +199,7 @@ const AdminOrders = () => {
       return;
     }
 
-    // Create full estimate record
+    // Create full estimate record — material = category, color = slab name
     await supabase.from("estimates").insert({
       order_id: order.id,
       estimate_number: `EST-${order.id.slice(0, 6).toUpperCase()}`,
@@ -195,7 +209,7 @@ const AdminOrders = () => {
       billing_address: cust?.address || "",
       project_address: cust?.address || "",
       material: mat?.name || "",
-      color: mat?.category || "",
+      color: slabName || mat?.name || "",
       edge_profile: edgeProfile,
       measurements_sqft: sqft || null,
       labor_cost: labor,

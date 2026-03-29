@@ -598,18 +598,19 @@ const Quote = () => {
       queryClient.invalidateQueries({ queryKey: ["quotes"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       trackEvent("sqft_calculated", {
-        sqft: quoteResult.calculated_sqft, material: selectedMaterial?.name,
+        sqft: quoteResult.calculated_sqft, material: selectedSlab?.name || selectedMaterial?.name,
         range_min: quoteResult.range_min, range_max: quoteResult.range_max,
       });
 
       // Send email notifications for new quote
+      const materialDisplayName = selectedSlab?.name || selectedMaterial?.name || "N/A";
       try {
         // Admin notification
         const adminEmail = newQuoteEmail({
           customerName: leadForm.full_name || "Customer",
           email: leadForm.email || "",
           phone: leadForm.phone || "",
-          material: selectedMaterial?.name || "N/A",
+          material: materialDisplayName,
           sqft: Number(quoteResult.calculated_sqft) || 0,
           rangeMin: quoteResult.range_min || 0,
           rangeMax: quoteResult.range_max || 0,
@@ -622,7 +623,7 @@ const Quote = () => {
           const customerEmail = quoteReceivedCustomerEmail({
             customerName: leadForm.full_name || "Customer",
             quoteId: quoteResult.quote_id || "",
-            material: selectedMaterial?.name || "N/A",
+            material: materialDisplayName,
             sqft: Number(quoteResult.calculated_sqft) || 0,
             rangeMin: quoteResult.range_min || 0,
             rangeMax: quoteResult.range_max || 0,
@@ -1288,10 +1289,14 @@ const Quote = () => {
               {/* Detailed pricing breakdown from admin estimate */}
               {linkedEstimate && (
                 <div className="text-left bg-secondary/50 rounded-lg p-4 mb-4 space-y-2">
-                  {linkedEstimate.material && (
+                  {(linkedEstimate.color || linkedEstimate.material) && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Material</span>
-                      <span className="font-medium">{linkedEstimate.material}{linkedEstimate.color ? ` — ${linkedEstimate.color}` : ""}{linkedEstimate.finish ? ` (${linkedEstimate.finish})` : ""}</span>
+                      <span className="font-medium">
+                        {linkedEstimate.color || linkedEstimate.material}
+                        {linkedEstimate.color && linkedEstimate.material ? ` (${linkedEstimate.material})` : ""}
+                        {linkedEstimate.finish ? ` · ${linkedEstimate.finish}` : ""}
+                      </span>
                     </div>
                   )}
                   {resolveEdgeProfile(linkedEstimate.edge_profile, form.edge_profile) && (

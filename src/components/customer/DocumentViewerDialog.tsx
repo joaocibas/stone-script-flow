@@ -45,8 +45,8 @@ export function DocumentViewerDialog({ open, onOpenChange, type, estimate, recei
           { label: "Project Address", value: estimate.project_address || "" },
         ]},
         { heading: "Materials & Scope", rows: [
-          { label: "Material", value: estimate.material || "" },
-          { label: "Color", value: estimate.color || "" },
+          { label: "Material Name", value: estimate.color || "" },
+          { label: "Category", value: estimate.material || "" },
           { label: "Finish", value: estimate.finish || "" },
           { label: "Edge Profile", value: estimate.edge_profile || "" },
           { label: "Measurements (Sq Ft)", value: estimate.measurements_sqft ? String(estimate.measurements_sqft) : "" },
@@ -107,8 +107,8 @@ export function DocumentViewerDialog({ open, onOpenChange, type, estimate, recei
             <Row label="Phone" value={estimate.phone} />
             <Row label="Project Address" value={estimate.project_address} />
             <hr className="border-border" />
-            <Row label="Material" value={estimate.material} />
-            <Row label="Color" value={estimate.color} />
+            <Row label="Material Name" value={estimate.color} />
+            <Row label="Category" value={estimate.material} />
             <Row label="Edge Profile" value={estimate.edge_profile} />
             <Row label="Sq Ft" value={estimate.measurements_sqft ? String(estimate.measurements_sqft) : null} />
             <hr className="border-border" />

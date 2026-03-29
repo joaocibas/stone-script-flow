@@ -368,12 +368,7 @@ export const SlabsManager = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <span className="text-sm capitalize">{s.materials?.category ?? "—"}</span>
-                      <span className="text-xs text-muted-foreground ml-1.5 capitalize">
-                        {s.materials?.name}
-                      </span>
-                    </div>
+                    <span className="text-sm capitalize">{s.materials?.name ?? "—"}</span>
                   </TableCell>
                   <TableCell className="text-sm">
                     {s.length_inches}″ × {s.width_inches}″

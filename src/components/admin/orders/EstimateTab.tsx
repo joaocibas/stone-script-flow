@@ -609,7 +609,7 @@ export function EstimateTab({ orderId, order, customer }: EstimateTabProps) {
         try {
           const emailPayload = quoteApprovedEmail({
             customerName: form.customer_name || "Customer",
-            material: form.material || "",
+            material: form.color || form.material || "",
             sqft: form.measurements_sqft || 0,
             total: form.total || 0,
             depositRequired: form.deposit_required || 0,
