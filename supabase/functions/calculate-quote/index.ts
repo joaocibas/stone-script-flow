@@ -286,9 +286,26 @@ Deno.serve(async (req) => {
       ? sumServicesByCategory(...svcArgs("edge_profile"))
       : (body.edge_profile && pricingRes.data?.edge_profile_cost ? Number(pricingRes.data.edge_profile_cost) : 0);
 
-    const cutoutCost = hasServicesForCategory("cutout")
-      ? sumServicesByCategory(...svcArgs("cutout"))
-      : (pricingRes.data?.cutout_cost ? numCutouts * Number(pricingRes.data.cutout_cost) : 0);
+    // Calculate cutout cost using per-type quantities when available
+    let cutoutCost = 0;
+    const cutoutDetails: CutoutDetail[] = body.cutout_details || [];
+    if (cutoutDetails.length > 0) {
+      // Use individual cutout quantities per service
+      const cutoutServiceItems = activeServices.filter((s: any) => s.category === "cutout");
+      for (const detail of cutoutDetails) {
+        const service = cutoutServiceItems.find((s: any) => s.id === detail.service_id);
+        if (!service || detail.quantity <= 0) continue;
+        const ov = overridesMap.get(detail.service_id);
+        const costValue = ov?.cost != null ? ov.cost : service.cost_value;
+        const multiplier = ov?.multiplier != null ? ov.multiplier : 1;
+        // per_cutout pricing: cost × quantity × multiplier
+        cutoutCost += costValue * detail.quantity * multiplier;
+      }
+    } else if (hasServicesForCategory("cutout")) {
+      cutoutCost = sumServicesByCategory(...svcArgs("cutout"));
+    } else {
+      cutoutCost = pricingRes.data?.cutout_cost ? numCutouts * Number(pricingRes.data.cutout_cost) : 0;
+    }
 
     const fabricationCost = hasServicesForCategory("fabrication")
       ? sumServicesByCategory(...svcArgs("fabrication"))
