@@ -321,21 +321,21 @@ export const SlabsManager = () => {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="overflow-x-hidden">
-        <div>
-          <Table className="table-fixed w-full">
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[20%]">Name</TableHead>
-                <TableHead className="w-[12%]">Group</TableHead>
-                <TableHead className="w-[14%]">Dimensions</TableHead>
-                <TableHead className="w-[7%]">Thickness</TableHead>
-                <TableHead className="w-[7%]">Lot #</TableHead>
-                <TableHead className="w-[8%]">Purchase</TableHead>
-                <TableHead className="w-[8%]">Sales</TableHead>
-                <TableHead className="w-[8%]">Status</TableHead>
-                <TableHead className="w-[6%]">Photos</TableHead>
-                <TableHead className="w-[10%]">Actions</TableHead>
+                <TableHead className="min-w-[140px]">Name</TableHead>
+                <TableHead className="min-w-[100px]">Group</TableHead>
+                <TableHead className="min-w-[120px] whitespace-nowrap">Dimensions</TableHead>
+                <TableHead className="whitespace-nowrap">Thick.</TableHead>
+                <TableHead className="whitespace-nowrap">Lot #</TableHead>
+                <TableHead className="whitespace-nowrap">Purchase</TableHead>
+                <TableHead className="whitespace-nowrap">Sales</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Pics</TableHead>
+                <TableHead className="w-[80px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
