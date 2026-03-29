@@ -258,7 +258,7 @@ const Quote = () => {
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch {}
-  }, [step, leadForm, leadId, form, sections, additionalInfo, result, layoutUrl, scheduleForm, scheduleAddress]);
+  }, [step, leadForm, leadId, form, sections, additionalInfo, result, layoutUrl, scheduleForm, scheduleAddress, cutoutSelections]);
 
   // Save draft after each step change
   useEffect(() => { saveDraft(); }, [step, saveDraft]);
