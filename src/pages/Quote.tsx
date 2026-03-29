@@ -625,6 +625,78 @@ const Quote = () => {
   const totalSteps = steps.length;
   const progressPct = Math.round((step / (totalSteps - 1)) * 100);
 
+  if (authLoading) {
+    return (
+      <Section>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Section>
+    );
+  }
+
+  // Not logged in — show login/signup gate (same as Book page)
+  if (!user) {
+    return (
+      <Section>
+        <SectionHeader
+          title="Get Your Estimated Investment"
+          subtitle="Sign in or create an account to get your free estimate"
+        />
+        <Card className="max-w-md mx-auto border-0 shadow-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="font-display text-xl">Sign In to Continue</CardTitle>
+            <p className="text-sm text-muted-foreground">Create an account or sign in to get your estimate</p>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="login">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="login">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Create Account</TabsTrigger>
+              </TabsList>
+              <TabsContent value="login">
+                <form onSubmit={handleAuthLogin} className="space-y-4">
+                  <div>
+                    <Label htmlFor="q-login-email">Email</Label>
+                    <Input id="q-login-email" type="email" required value={loginForm.email} onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="q-login-password">Password</Label>
+                    <Input id="q-login-password" type="password" required value={loginForm.password} onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))} />
+                  </div>
+                  {authError && <p className="text-destructive text-sm">{authError}</p>}
+                  <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                    {authLoading2 ? "Signing in..." : "Sign In"}
+                  </Button>
+                </form>
+              </TabsContent>
+              <TabsContent value="signup">
+                <form onSubmit={handleAuthSignup} className="space-y-4">
+                  <div>
+                    <Label htmlFor="q-signup-name">Full Name</Label>
+                    <Input id="q-signup-name" required value={signupForm.name} onChange={(e) => setSignupForm(prev => ({ ...prev, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="q-signup-email">Email</Label>
+                    <Input id="q-signup-email" type="email" required value={signupForm.email} onChange={(e) => setSignupForm(prev => ({ ...prev, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label htmlFor="q-signup-password">Password</Label>
+                    <Input id="q-signup-password" type="password" required minLength={6} value={signupForm.password} onChange={(e) => setSignupForm(prev => ({ ...prev, password: e.target.value }))} />
+                  </div>
+                  {authError && <p className="text-destructive text-sm">{authError}</p>}
+                  <Button type="submit" disabled={authLoading2} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                    {authLoading2 ? "Creating account..." : "Create Account"}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </Section>
+    );
+  }
+
   // Success screen
   if (bookingSuccess) {
     return (
