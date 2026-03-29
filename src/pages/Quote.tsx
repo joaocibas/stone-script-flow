@@ -328,6 +328,25 @@ const Quote = () => {
       .then(({ data }) => setMaterials(data || []));
   }, []);
 
+  // Initialize cutout selections from services
+  const cutoutServices = useMemo(() => 
+    (allServices || []).filter((s) => s.category === "cutout"), 
+    [allServices]
+  );
+
+  useEffect(() => {
+    if (cutoutServices.length > 0 && cutoutSelections.length === 0) {
+      setCutoutSelections(
+        cutoutServices.map((s) => ({
+          service_id: s.id,
+          name: s.name,
+          price: Number(s.cost_value) || 0,
+          quantity: 0,
+        }))
+      );
+    }
+  }, [cutoutServices, cutoutSelections.length]);
+
   // Detect logged-in customer and pre-fill form
   useEffect(() => {
     if (!user) { setCustomerLoading(false); return; }
