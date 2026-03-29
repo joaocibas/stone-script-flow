@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useServices } from "@/hooks/useServices";
 import type { Tables } from "@/integrations/supabase/types";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,7 +25,7 @@ import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Upload, Ruler, Layers, Scissors,
-  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package, LogIn,
+  DollarSign, UserPlus, Plus, Trash2, Camera, CalendarIcon, CalendarDays, Package, LogIn, Minus,
 } from "lucide-react";
 
 const DRAFT_KEY = "estimator_draft_v1";
@@ -62,6 +63,13 @@ interface CountertopSection {
   quantity: string;
 }
 
+interface CutoutSelection {
+  service_id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 interface QuoteResult {
   quote_id: string;
   calculated_sqft: string;
@@ -94,7 +102,11 @@ interface LinkedEstimate {
 const Quote = () => {
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+  const { data: allServices } = useServices();
   const [step, setStep] = useState(0);
+
+  // Cutout selections state
+  const [cutoutSelections, setCutoutSelections] = useState<CutoutSelection[]>([]);
 
   // Inline auth step state (step 6)
   const [inlineAuthPassword, setInlineAuthPassword] = useState("");
