@@ -253,7 +253,7 @@ const Quote = () => {
     try {
       const draft = {
         step: step === 6 ? 5 : step, leadForm, leadId, form, sections, additionalInfo,
-        result, layoutUrl, scheduleAddress,
+        result, layoutUrl, scheduleAddress, cutoutSelections,
         scheduleForm: { ...scheduleForm, preferred_date: scheduleForm.preferred_date?.toISOString() || null },
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
