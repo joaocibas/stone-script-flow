@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Pencil, CreditCard, FileDown } from "lucide-react";
+import { Save, Pencil, CreditCard, FileDown, Link2, Copy, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { generatePdfDocument } from "@/lib/pdf-generator";
 import { DocumentHeader, InfoBlock, DocumentSection, SummaryBox } from "./DocumentLayout";
@@ -38,6 +38,7 @@ type PaymentOrderForm = {
 export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [generatingLink, setGeneratingLink] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PaymentOrderForm>({
     payment_order_number: "",
@@ -128,6 +129,38 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
       setEditing(true);
     }
   }, [paymentOrder, estimate, customer, orderId]);
+
+  const generateStripeLink = async () => {
+    setGeneratingLink(true);
+    try {
+      const amount = form.deposit_amount > 0 ? form.deposit_amount : form.estimate_total;
+      if (amount <= 0) throw new Error("Amount must be greater than 0");
+      const { data, error } = await supabase.functions.invoke("stripe-checkout", {
+        body: {
+          action: "create",
+          order_id: orderId,
+          customer_id: customer?.id || null,
+          customer_email: form.customer_email || customer?.email || "",
+          customer_name: form.customer_name || customer?.full_name || "",
+          amount,
+          payment_type: "deposit",
+        },
+      });
+      if (error) throw error;
+      updateField("payment_link", data.url);
+      updateField("payment_method", "stripe_payment_link");
+      toast({ title: "Stripe link generated!", description: "Link was auto-filled in the Payment Link field." });
+    } catch (e: any) {
+      toast({ title: "Error generating link", description: e.message, variant: "destructive" });
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const copyLink = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast({ title: "Link copied!" });
+  };
 
   const updateField = (key: keyof PaymentOrderForm, value: any) => {
     setForm((prev) => {
@@ -321,17 +354,27 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
                   <Select value={form.payment_method} onValueChange={(v) => updateField("payment_method", v)} disabled={!editing}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Select method" /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="stripe_payment_link">Stripe Payment Link</SelectItem>
                       <SelectItem value="credit_card">Credit Card</SelectItem>
                       <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                       <SelectItem value="check">Check</SelectItem>
                       <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="payment_link">Payment Link</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label className="text-sm">Payment Link</Label>
-                  <Input value={form.payment_link} onChange={(e) => updateField("payment_link", e.target.value)} disabled={!editing} placeholder="https://..." className="mt-1" />
+                  <div className="flex gap-2 mt-1">
+                    <Input value={form.payment_link} onChange={(e) => updateField("payment_link", e.target.value)} disabled={!editing} placeholder="https://..." className="flex-1" />
+                    <Button type="button" size="sm" variant="outline" onClick={generateStripeLink} disabled={generatingLink || form.estimate_total <= 0}>
+                      {generatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Link2 className="mr-1 h-4 w-4" /> Generate</>}
+                    </Button>
+                    {form.payment_link && (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => copyLink(form.payment_link)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -384,6 +427,7 @@ export function PaymentOrderTab({ orderId, customer }: PaymentOrderTabProps) {
                   <Select value={manualPayment.method} onValueChange={(v) => setManualPayment((p) => ({ ...p, method: v }))}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="stripe">Stripe Payment Link</SelectItem>
                       <SelectItem value="credit_card">Credit Card</SelectItem>
                       <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                       <SelectItem value="check">Check</SelectItem>
